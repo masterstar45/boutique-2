@@ -442,8 +442,10 @@ export default function Account() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <button
-            onClick={handleContactAdmin}
+          <a
+            href="https://t.me/Pharmacyhash"
+            target="_blank"
+            rel="noopener noreferrer"
             className="w-full h-16 glass-panel rounded-2xl flex items-center justify-between px-5 group hover:border-primary/50 transition-all shadow-sm"
             data-testid="button-contact-admin"
           >
@@ -457,7 +459,7 @@ export default function Account() {
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-          </button>
+          </a>
         </motion.div>
       </div>
     </div>
