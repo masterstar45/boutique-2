@@ -62,6 +62,13 @@ app.use((req, res, next) => {
 (async () => {
   await registerRoutes(httpServer, app);
 
+  try {
+    const { setupBot } = await import("./bot");
+    setupBot();
+  } catch (err) {
+    console.log("Bot module initialization skipped:", (err as Error).message);
+  }
+
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
