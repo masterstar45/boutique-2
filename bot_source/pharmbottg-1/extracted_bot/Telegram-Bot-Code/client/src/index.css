@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@100;200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Premium Typography */
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Telegram Dark Theme Palette */
+  --background: 0 0% 0%; /* Black #000000 */
+  --foreground: 0 0% 100%; /* White */
+  
+  --card: 240 3% 11%; /* Dark Gray #1c1c1e */
+  --card-foreground: 0 0% 100%;
+  
+  --popover: 240 3% 11%;
+  --popover-foreground: 0 0% 100%;
+  
+  --primary: 201 86% 55%; /* Telegram Blue/Tech Blue #2AABEE */
+  --primary-foreground: 0 0% 100%;
+  
+  --secondary: 240 5% 18%; /* Slightly lighter gray for secondary elements */
+  --secondary-foreground: 0 0% 100%;
+  
+  --muted: 240 5% 26%;
+  --muted-foreground: 240 5% 65%; /* Gray text */
+  
+  --accent: 201 86% 55%;
+  --accent-foreground: 0 0% 100%;
+  
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 240 5% 26%;
+  --input: 240 5% 26%;
+  --ring: 201 86% 55%;
+  
+  --radius: 0.75rem;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/30;
+    font-family: var(--font-body);
+    font-weight: 400;
+    letter-spacing: -0.3px;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    @apply font-bold tracking-tight;
+    font-weight: 700;
+    letter-spacing: -1px;
+  }
+
+  h2 {
+    font-family: var(--font-display);
+    @apply font-bold;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    @apply font-bold tracking-tight;
+    font-weight: 600;
+  }
+
+  button {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.2px;
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Smooth fade in animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* Glass effect for bottom nav */
+.glass-nav {
+  background: rgba(28, 28, 30, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}

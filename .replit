@@ -4,6 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
+packages = ["unzip"]
 
 [[ports]]
 localPort = 5000
@@ -37,3 +38,7 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev:client"
 waitForPort = 5000
+
+[agent]
+stack = "MOCKUP_JS"
+mockupState = "MOCKUP"

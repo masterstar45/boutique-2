@@ -1,0 +1,305 @@
+npm warn config production Use `--omit=dev` instead.
+> rest-express@1.0.0 build
+> tsx script/build.ts
+building client...
+vite v7.3.0 building client environment for production...
+transforming...
+✓ 161 modules transformed.
+✗ Build failed in 2.06s
+[vite:css] [postcss] crypto.hash is not a function
+file: /app/client/src/index.css:undefined:NaN
+    at getHash (/app/node_modules/vite/dist/node/chunks/config.js:2444:19)
+    at publicFileToBuiltUrl (/app/node_modules/vite/dist/node/chunks/config.js:8747:17)
+    at Object.urlResolver (/app/node_modules/vite/dist/node/chunks/config.js:29573:94)
+    at replacerForDeclaration (/app/node_modules/vite/dist/node/chunks/config.js:30298:47)
+    at doUrlReplace (/app/node_modules/vite/dist/node/chunks/config.js:30357:21)
+    at <anonymous> (/app/node_modules/vite/dist/node/chunks/config.js:30318:16)
+    at asyncReplace (/app/node_modules/vite/dist/node/chunks/config.js:2002:22)
+    at rewriteCssUrls (/app/node_modules/vite/dist/node/chunks/config.js:30316:9)
+    at <anonymous> (/app/node_modules/vite/dist/node/chunks/config.js:30305:80)
+    at /app/node_modules/postcss/lib/container.js:363:18 {
+  code: 'PLUGIN_ERROR',
+  loc: { file: undefined, line: undefined, column: NaN },
+  pluginCode: "@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');\n" +
+    '\n' +
+    '@tailwind base;\n' +
+    '@tailwind components;\n' +
+    '@tailwind utilities;\n' +
+    '\n' +
+    ':root {\n' +
+    '  /* Cyberpunk Typography */\n' +
+    "  --font-display: 'Orbitron', -apple-system, BlinkMacSystemFont, sans-serif;\n" +
+    "  --font-body: 'Rajdhani', -apple-system, BlinkMacSystemFont, sans-serif;\n" +
+    '\n' +
+    '  /* Pharmacy Dark Theme - Green Health Accent */\n' +
+    '  --background: 0 0% 0%; /* Black #000000 */\n' +
+    '  --foreground: 0 0% 100%; /* White */\n' +
+    '  \n' +
+    '  --card: 160 10% 10%; /* Dark Gray with green tint */\n' +
+    '  --card-foreground: 0 0% 100%;\n' +
+    '  \n' +
+    '  --popover: 160 10% 10%;\n' +
+    '  --popover-foreground: 0 0% 100%;\n' +
+    '  \n' +
+    '  --primary: 142 70% 45%; /* Health Green #22C55E */\n' +
+    '  --primary-foreground: 0 0% 100%;\n' +
+    '  \n' +
+    '  --secondary: 160 8% 16%; /* Slightly lighter gray with green tint */\n' +
+    '  --secondary-foreground: 0 0% 100%;\n' +
+    '  \n' +
+    '  --muted: 160 5% 22%;\n' +
+    '  --muted-foreground: 160 5% 60%; /* Gray text */\n' +
+    '  \n' +
+    '  --accent: 142 70% 45%; /* Health Green */\n' +
+    '  --accent-foreground: 0 0% 100%;\n' +
+    '  \n' +
+    '  --destructive: 0 84% 60%;\n' +
+    '  --destructive-foreground: 0 0% 100%;\n' +
+    '\n' +
+    '  --border: 160 5% 22%;\n' +
+    '  --input: 160 5% 22%;\n' +
+    '  --ring: 142 70% 45%;\n' +
+    '  \n' +
+    '  --radius: 0.75rem;\n' +
+    '}\n' +
+    '\n' +
+    '@layer base {\n' +
+    '  body {\n' +
+    '    @apply bg-background text-foreground antialiased selection:bg-primary/30;\n' +
+    '    font-family: var(--font-body);\n' +
+    '    font-weight: 400;\n' +
+    '    letter-spacing: -0.3px;\n' +
+    "    background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.85)), url('/images/background.png');\n" +
+    '    background-size: cover;\n' +
+    '    background-position: center top;\n' +
+    '    background-attachment: fixed;\n' +
+    '    background-repeat: no-repeat;\n' +
+    '  }\n' +
+    '\n' +
+    '  h1 {\n' +
+    '    font-family: var(--font-display);\n' +
+    '    @apply font-bold tracking-tight;\n' +
+    '    font-weight: 700;\n' +
+    '    letter-spacing: -1px;\n' +
+    '  }\n' +
+    '\n' +
+    '  h2 {\n' +
+    '    font-family: var(--font-display);\n' +
+    '    @apply font-bold;\n' +
+    '    font-weight: 700;\n' +
+    '    letter-spacing: -0.5px;\n' +
+    '  }\n' +
+    '\n' +
+    '  h3, h4, h5, h6 {\n' +
+    '    font-family: var(--font-display);\n' +
+    '    @apply font-bold tracking-tight;\n' +
+    '    font-weight: 600;\n' +
+    '  }\n' +
+    '\n' +
+    '  button {\n' +
+    '    font-family: var(--font-display);\n' +
+    '    font-weight: 600;\n' +
+    '    letter-spacing: -0.2px;\n' +
+    '  }\n' +
+    '}\n' +
+    '\n' +
+    '@layer utilities {\n' +
+    '  .pb-safe {\n' +
+    '    padding-bottom: env(safe-area-inset-bottom);\n' +
+    '  }\n' +
+    '  \n' +
+    '  .hide-scrollbar::-webkit-scrollbar {\n' +
+    '    display: none;\n' +
+    '  }\n' +
+    '  \n' +
+    '  .hide-scrollbar {\n' +
+    '    -ms-overflow-style: none;\n' +
+    '    scrollbar-width: none;\n' +
+    '  }\n' +
+    '}\n' +
+    '\n' +
+    '/* Smooth fade in animation */\n' +
+    '@keyframes fadeIn {\n' +
+    '  from { opacity: 0; transform: translateY(10px); }\n' +
+    '  to { opacity: 1; transform: translateY(0); }\n' +
+    '}\n' +
+    '\n' +
+    '.animate-fade-in {\n' +
+    '  animation: fadeIn 0.4s ease-out forwards;\n' +
+    '}\n' +
+    '\n' +
+    '/* Animated background - lightweight version */\n' +
+    '@keyframes gradient-move {\n' +
+    '  0%, 100% { opacity: 0.6; }\n' +
+    '  50% { opacity: 0.9; }\n' +
+    '}\n' +
+    '\n' +
+    '.animated-bg {\n' +
+    '  position: fixed;\n' +
+    '  inset: 0;\n' +
+    '  overflow: hidden;\n' +
+    '  pointer-events: none;\n' +
+    '  z-index: -1;\n' +
+    '  background: linear-gradient(180deg, \n' +
+    '    hsl(160 15% 3%) 0%, \n' +
+    '    hsl(160 20% 6%) 50%,\n' +
+    '    hsl(160 15% 4%) 100%\n' +
+    '  );\n' +
+    '}\n' +
+    '\n' +
+    '.animated-bg::before {\n' +
+    "  content: '';\n" +
+    '  position: absolute;\n' +
+    '  inset: 0;\n' +
+    '  background: \n' +
+    '    radial-gradient(ellipse 80% 50% at 20% 90%, rgba(34, 197, 94, 0.12) 0%, transparent 50%),\n' +
+    '    radial-gradient(ellipse 60% 40% at 85% 10%, rgba(16, 185, 129, 0.08) 0%, transparent 50%);\n' +
+    '  animation: gradient-move 10s ease-in-out infinite;\n' +
+    '}\n' +
+    '\n' +
+    '@media (prefers-reduced-motion: reduce) {\n' +
+    '  .animated-bg::before {\n' +
+    '    animation: none;\n' +
+    '  }\n' +
+    '}\n' +
+    '\n' +
+    '/* Glass effect for bottom nav */\n' +
+    '.glass-nav {\n' +
+    '  background: rgba(28, 28, 30, 0.85);\n' +
+    '  backdrop-filter: blur(12px);\n' +
+    '  -webkit-backdrop-filter: blur(12px);\n' +
+    '  border-top: 1px solid rgba(255, 255, 255, 0.1);\n' +
+    '}\n' +
+    '\n' +
+    '/* Blinking animation for success toast */\n' +
+    '@keyframes blink-success {\n' +
+    '  0%, 100% { \n' +
+    '    background-color: hsl(142 76% 36%);\n' +
+    '    box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);\n' +
+    '  }\n' +
+    '  50% { \n' +
+    '    background-color: hsl(142 76% 46%);\n' +
+    '    box-shadow: 0 0 30px rgba(34, 197, 94, 0.8);\n' +
+    '  }\n' +
+    '}\n' +
+    '\n' +
+    '.animate-blink-success {\n' +
+    '  animation: blink-success 1s ease-in-out infinite;\n' +
+    '}\n',
+  plugin: 'vite:css',
+  hook: 'transform',
+  id: '/app/client/src/index.css',
+  watchFiles: [
+    '/app/client/index.html',
+    '/app/client/src/main.tsx',
+    '/app/package.json',
+    '/app/node_modules/react/jsx-runtime.js',
+    '/app/node_modules/react-dom/client.js',
+    '/app/client/src/App.tsx',
+    '/app/client/src/index.css',
+    '/app/node_modules/react/cjs/react-jsx-runtime.production.min.js',
+    '/app/node_modules/react-dom/index.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/index.js',
+    '/app/client/src/lib/queryClient.ts',
+    '/app/node_modules/framer-motion/dist/es/index.mjs',
+    '/app/client/src/components/ui/toaster.tsx',
+    '/app/client/src/components/ui/tooltip.tsx',
+    '/app/client/src/components/BottomNav.tsx',
+    '/app/client/src/pages/Menu.tsx',
+    '/app/client/src/pages/Home.tsx',
+    '/app/client/src/pages/ProductDetail.tsx',
+    '/app/client/src/pages/Cart.tsx',
+    '/app/client/src/pages/Reviews.tsx',
+    '/app/client/src/pages/Info.tsx',
+    '/app/client/src/pages/Account.tsx',
+    '/app/client/src/pages/not-found.tsx',
+    '/app/node_modules/wouter/esm/index.js',
+    '/app/node_modules/react/index.js',
+    '../attached_assets/background.png',
+    '/app/node_modules/@tanstack/query-core/build/modern/index.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/types.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/useQueries.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/useQuery.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/useSuspenseQuery.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/useSuspenseQueries.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/useSuspenseInfiniteQuery.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/usePrefetchQuery.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/usePrefetchInfiniteQuery.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/queryOptions.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/infiniteQueryOptions.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/HydrationBoundary.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/QueryErrorResetBoundary.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/useIsFetching.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/useMutationState.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/useMutation.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/useInfiniteQuery.js',
+    '/app/node_modules/@tanstack/react-query/build/modern/isRestoring.js',
+    '/app/node_modules/framer-motion/dist/es/components/AnimatePresence/index.mjs',
+    '/app/node_modules/framer-motion/dist/es/components/LayoutGroup/index.mjs',
+    '/app/node_modules/framer-motion/dist/es/components/LazyMotion/index.mjs',
+    '/app/node_modules/framer-motion/dist/es/components/MotionConfig/index.mjs',
+    '/app/node_modules/framer-motion/dist/es/render/components/m/proxy.mjs',
+    '/app/node_modules/framer-motion/dist/es/render/components/motion/proxy.mjs',
+    '/app/node_modules/framer-motion/dist/es/render/dom/features-animation.mjs',
+    '/app/node_modules/framer-motion/dist/es/render/dom/features-max.mjs',
+    '/app/node_modules/framer-motion/dist/es/render/dom/features-min.mjs',
+    '/app/node_modules/framer-motion/dist/es/utils/use-motion-value-event.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/scroll/use-element-scroll.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/scroll/use-viewport-scroll.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/use-motion-template.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/use-motion-value.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/use-time.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/use-transform.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/use-velocity.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/use-will-change/index.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/use-spring.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/utils/resolve-motion-value.mjs',
+    '/app/node_modules/framer-motion/dist/es/utils/reduced-motion/use-reduced-motion.mjs',
+    '/app/node_modules/framer-motion/dist/es/utils/reduced-motion/use-reduced-motion-config.mjs',
+    '/app/node_modules/framer-motion/dist/es/animation/animators/AcceleratedAnimation.mjs',
+    '/app/node_modules/framer-motion/dist/es/animation/animators/MainThreadAnimation.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/use-scroll.mjs',
+    '/app/node_modules/framer-motion/dist/es/animation/hooks/animation-controls.mjs',
+    '/app/node_modules/framer-motion/dist/es/animation/hooks/use-animate.mjs',
+    '/app/node_modules/framer-motion/dist/es/animation/hooks/use-animate-style.mjs',
+    '/app/node_modules/framer-motion/dist/es/animation/hooks/use-animation.mjs',
+    '/app/node_modules/framer-motion/dist/es/animation/interfaces/visual-element.mjs',
+    '/app/node_modules/framer-motion/dist/es/components/AnimatePresence/use-presence.mjs',
+    '/app/node_modules/framer-motion/dist/es/events/use-dom-event.mjs',
+    '/app/node_modules/framer-motion/dist/es/gestures/drag/use-drag-controls.mjs',
+    '/app/node_modules/framer-motion/dist/es/motion/index.mjs',
+    '/app/node_modules/framer-motion/dist/es/motion/utils/is-motion-component.mjs',
+    '/app/node_modules/framer-motion/dist/es/motion/utils/unwrap-motion-component.mjs',
+    '/app/node_modules/framer-motion/dist/es/motion/utils/valid-prop.mjs',
+    '/app/node_modules/framer-motion/dist/es/projection/styles/scale-correction.mjs',
+    '/app/node_modules/framer-motion/dist/es/projection/use-instant-layout-transition.mjs',
+    '/app/node_modules/framer-motion/dist/es/projection/use-reset-projection.mjs',
+    '/app/node_modules/framer-motion/dist/es/render/html/utils/build-transform.mjs',
+    '/app/node_modules/framer-motion/dist/es/render/store.mjs',
+    '/app/node_modules/framer-motion/dist/es/utils/GlobalConfig.mjs',
+    '/app/node_modules/framer-motion/dist/es/render/VisualElement.mjs',
+    '/app/node_modules/framer-motion/dist/es/utils/use-cycle.mjs',
+    '/app/node_modules/framer-motion/dist/es/utils/use-animation-frame.mjs',
+    '/app/node_modules/framer-motion/dist/es/utils/use-in-view.mjs',
+    '/app/node_modules/framer-motion/dist/es/utils/use-instant-transition.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/types/complex/index.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/types/numbers/units.mjs',
+    '/app/node_modules/framer-motion/dist/es/value/types/color/index.mjs',
+    '/app/node_modules/framer-motion/dist/es/animation/generators/spring/index.mjs',
+    '/app/node_modules/framer-motion/dist/es/animation/generators/spring/find.mjs',
+    '/app/node_modules/framer-motion/dist/es/animation/optimized-appear/start.mjs',
+    '/app/node_modules/framer-motion/dist/es/animation/optimized-appear/data-id.mjs',
+    ... 72 more items
+  ]
+}
+Dockerfile:30
+-------------------
+28 |     # build phase
+29 |     COPY . /app/.
+30 | >>> RUN --mount=type=cache,id=s/5895bdd7-912c-4f08-a1dc-c64ee07269ae-node_modules/cache,target=/app/node_modules/.cache npm run build
+31 |
+32 |
+-------------------
+ERROR: failed to build: failed to solve: process "/bin/bash -ol pipefail -c npm run build" did not complete successfully: exit code: 1
+Error: Docker build failed
