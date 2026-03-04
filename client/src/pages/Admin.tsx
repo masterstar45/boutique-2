@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Package, Settings, MessageSquare, TrendingUp, Search, Plus, Star, Clock, CheckCircle, XCircle, Trash2, Tag, Loader2, AlertCircle, ChevronDown, Eye } from "lucide-react";
+import { Users, Package, Settings, MessageSquare, TrendingUp, Search, Plus, Star, Clock, CheckCircle, XCircle, Trash2, Tag, Loader2, AlertCircle, ChevronDown, Eye, Edit2, ToggleLeft, ToggleRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import type { Order, Product, Review, PromoCode } from "@shared/schema";
 
 function formatTimeAgo(dateStr: string | null): string {
@@ -30,11 +31,219 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
   cancelled: { label: "Annulee", color: "text-red-500 bg-red-500/10", icon: XCircle },
 };
 
+const defaultProductForm = {
+  name: "",
+  brand: "",
+  description: "",
+  price: 0,
+  imageUrl: "",
+  videoUrl: "",
+  category: "",
+  sticker: "",
+  stickerFlag: "",
+  stock: "",
+  priceOptions: "[]",
+  tags: "[]",
+};
+
+type ProductFormData = typeof defaultProductForm;
+
+function ProductFormDialog({
+  open,
+  onOpenChange,
+  initialData,
+  onSubmit,
+  isLoading,
+  title,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialData: ProductFormData;
+  onSubmit: (data: ProductFormData) => void;
+  isLoading: boolean;
+  title: string;
+}) {
+  const [form, setForm] = useState<ProductFormData>(initialData);
+
+  useEffect(() => {
+    if (open) {
+      setForm(initialData);
+    }
+  }, [open]);
+
+  const handleChange = (field: keyof ProductFormData, value: string | number) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(form);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-card border-white/10">
+        <DialogHeader>
+          <DialogTitle className="text-primary">{title}</DialogTitle>
+          <DialogDescription>Remplissez les champs du produit</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Nom *</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => handleChange("name", e.target.value)}
+              className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+              required
+              data-testid="input-product-name"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Marque *</label>
+            <input
+              type="text"
+              value={form.brand}
+              onChange={(e) => handleChange("brand", e.target.value)}
+              className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+              required
+              data-testid="input-product-brand"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Description *</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => handleChange("description", e.target.value)}
+              className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 min-h-[60px]"
+              required
+              data-testid="input-product-description"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Prix (centimes) *</label>
+              <input
+                type="number"
+                value={form.price}
+                onChange={(e) => handleChange("price", parseInt(e.target.value) || 0)}
+                className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+                required
+                data-testid="input-product-price"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Categorie *</label>
+              <input
+                type="text"
+                value={form.category}
+                onChange={(e) => handleChange("category", e.target.value)}
+                className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+                required
+                data-testid="input-product-category"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">URL Image *</label>
+            <input
+              type="text"
+              value={form.imageUrl}
+              onChange={(e) => handleChange("imageUrl", e.target.value)}
+              className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+              required
+              data-testid="input-product-imageUrl"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">URL Video</label>
+            <input
+              type="text"
+              value={form.videoUrl}
+              onChange={(e) => handleChange("videoUrl", e.target.value)}
+              className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+              data-testid="input-product-videoUrl"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Sticker</label>
+              <input
+                type="text"
+                value={form.sticker}
+                onChange={(e) => handleChange("sticker", e.target.value)}
+                className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+                data-testid="input-product-sticker"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Pays (flag)</label>
+              <input
+                type="text"
+                value={form.stickerFlag}
+                onChange={(e) => handleChange("stickerFlag", e.target.value)}
+                className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+                data-testid="input-product-stickerFlag"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Stock</label>
+            <input
+              type="text"
+              value={form.stock}
+              onChange={(e) => handleChange("stock", e.target.value)}
+              className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+              data-testid="input-product-stock"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Tags (JSON array)</label>
+            <input
+              type="text"
+              value={form.tags}
+              onChange={(e) => handleChange("tags", e.target.value)}
+              className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 font-mono"
+              placeholder='["tag1", "tag2"]'
+              data-testid="input-product-tags"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Options de prix (JSON)</label>
+            <textarea
+              value={form.priceOptions}
+              onChange={(e) => handleChange("priceOptions", e.target.value)}
+              className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 font-mono min-h-[60px]"
+              placeholder='[{"price": 50, "weight": "5g"}]'
+              data-testid="input-product-priceOptions"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+            data-testid="button-submit-product"
+          >
+            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {title}
+          </button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const [orderFilter, setOrderFilter] = useState<string | undefined>(undefined);
   const [orderSearch, setOrderSearch] = useState("");
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  const [showAddPromo, setShowAddPromo] = useState(false);
+  const [promoForm, setPromoForm] = useState({ code: "", discountPercent: 10 });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/admin/stats"],
@@ -114,6 +323,76 @@ export default function AdminDashboard() {
     },
   });
 
+  const createProduct = useMutation({
+    mutationFn: async (data: ProductFormData) => {
+      let parsedTags: string[] = [];
+      let parsedPriceOptions: { price: number; weight: string }[] = [];
+      try { parsedTags = JSON.parse(data.tags); } catch {}
+      try { parsedPriceOptions = JSON.parse(data.priceOptions); } catch {}
+
+      const res = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name,
+          brand: data.brand,
+          description: data.description,
+          price: data.price,
+          imageUrl: data.imageUrl,
+          videoUrl: data.videoUrl || null,
+          category: data.category,
+          sticker: data.sticker || null,
+          stickerFlag: data.stickerFlag || null,
+          stock: data.stock || null,
+          tags: parsedTags,
+          priceOptions: parsedPriceOptions,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create product");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+      setShowAddProduct(false);
+    },
+  });
+
+  const updateProduct = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: ProductFormData }) => {
+      let parsedTags: string[] = [];
+      let parsedPriceOptions: { price: number; weight: string }[] = [];
+      try { parsedTags = JSON.parse(data.tags); } catch {}
+      try { parsedPriceOptions = JSON.parse(data.priceOptions); } catch {}
+
+      const res = await fetch(`/api/admin/products/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name,
+          brand: data.brand,
+          description: data.description,
+          price: data.price,
+          imageUrl: data.imageUrl,
+          videoUrl: data.videoUrl || null,
+          category: data.category,
+          sticker: data.sticker || null,
+          stickerFlag: data.stickerFlag || null,
+          stock: data.stock || null,
+          tags: parsedTags,
+          priceOptions: parsedPriceOptions,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update product");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+      setEditingProduct(null);
+    },
+  });
+
   const deleteProduct = useMutation({
     mutationFn: async (id: number) => {
       await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
@@ -124,12 +403,66 @@ export default function AdminDashboard() {
     },
   });
 
+  const createPromoCode = useMutation({
+    mutationFn: async (data: { code: string; discountPercent: number }) => {
+      const res = await fetch("/api/admin/promo-codes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to create promo code");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/promo-codes"] });
+      setShowAddPromo(false);
+      setPromoForm({ code: "", discountPercent: 10 });
+    },
+  });
+
+  const togglePromoCode = useMutation({
+    mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
+      await fetch(`/api/admin/promo-codes/${id}/toggle`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/promo-codes"] });
+    },
+  });
+
+  const deletePromoCode = useMutation({
+    mutationFn: async (id: number) => {
+      await fetch(`/api/admin/promo-codes/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/promo-codes"] });
+    },
+  });
+
   const filteredOrders = (ordersData?.orders || []).filter((order: Order) => {
     if (!orderSearch) return true;
     const s = orderSearch.toLowerCase();
     return order.orderCode.toLowerCase().includes(s) ||
       order.chatId?.toLowerCase().includes(s) ||
       order.orderData.toLowerCase().includes(s);
+  });
+
+  const productToFormData = (p: Product): ProductFormData => ({
+    name: p.name,
+    brand: p.brand,
+    description: p.description,
+    price: p.price,
+    imageUrl: p.imageUrl,
+    videoUrl: p.videoUrl || "",
+    category: p.category,
+    sticker: p.sticker || "",
+    stickerFlag: p.stickerFlag || "",
+    stock: p.stock || "",
+    priceOptions: JSON.stringify(p.priceOptions || []),
+    tags: JSON.stringify(p.tags || []),
   });
 
   return (
@@ -213,6 +546,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="promos" className="rounded-lg text-xs" data-testid="tab-promos">Promos</TabsTrigger>
           </TabsList>
 
+          {/* ORDERS TAB */}
           <TabsContent value="orders" className="space-y-3">
             <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
               {[
@@ -345,7 +679,17 @@ export default function AdminDashboard() {
             )}
           </TabsContent>
 
+          {/* PRODUCTS TAB */}
           <TabsContent value="products" className="space-y-3">
+            <button
+              onClick={() => setShowAddProduct(true)}
+              className="w-full py-2.5 bg-primary/10 border border-primary/20 text-primary rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-primary/20 transition-colors"
+              data-testid="button-add-product"
+            >
+              <Plus className="w-4 h-4" />
+              Ajouter un produit
+            </button>
+
             {(products || []).length === 0 ? (
               <Card className="p-8 text-center glass-panel">
                 <Package className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-50" />
@@ -362,22 +706,32 @@ export default function AdminDashboard() {
                     <p className="text-xs text-muted-foreground truncate">{product.brand} - {product.category}</p>
                     <p className="text-xs font-bold text-primary mt-0.5">{formatPrice(product.price)}</p>
                   </div>
-                  <button
-                    onClick={() => {
-                      if (confirm(`Supprimer "${product.name}" ?`)) {
-                        deleteProduct.mutate(product.id);
-                      }
-                    }}
-                    className="p-2 text-red-500/60 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                    data-testid={`button-delete-product-${product.id}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setEditingProduct(product)}
+                      className="p-2 text-blue-500/60 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors"
+                      data-testid={`button-edit-product-${product.id}`}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Supprimer "${product.name}" ?`)) {
+                          deleteProduct.mutate(product.id);
+                        }
+                      }}
+                      className="p-2 text-red-500/60 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                      data-testid={`button-delete-product-${product.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))
             )}
           </TabsContent>
 
+          {/* REVIEWS TAB */}
           <TabsContent value="reviews" className="space-y-3">
             {(pendingReviews || []).length === 0 ? (
               <Card className="p-8 text-center glass-panel">
@@ -424,7 +778,17 @@ export default function AdminDashboard() {
             )}
           </TabsContent>
 
+          {/* PROMOS TAB */}
           <TabsContent value="promos" className="space-y-3">
+            <button
+              onClick={() => setShowAddPromo(true)}
+              className="w-full py-2.5 bg-primary/10 border border-primary/20 text-primary rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-primary/20 transition-colors"
+              data-testid="button-add-promo"
+            >
+              <Plus className="w-4 h-4" />
+              Ajouter un code promo
+            </button>
+
             {(promoCodes || []).length === 0 ? (
               <Card className="p-8 text-center glass-panel">
                 <Tag className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-50" />
@@ -438,9 +802,27 @@ export default function AdminDashboard() {
                     <p className="text-xs text-muted-foreground">-{promo.discountPercent}% de reduction</p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => togglePromoCode.mutate({ id: promo.id, active: !promo.active })}
+                      className={`p-1.5 rounded-lg transition-colors ${promo.active ? "text-green-500 hover:bg-green-500/10" : "text-red-500 hover:bg-red-500/10"}`}
+                      data-testid={`button-toggle-promo-${promo.id}`}
+                    >
+                      {promo.active ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
+                    </button>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${promo.active ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"}`}>
                       {promo.active ? "Actif" : "Inactif"}
                     </span>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Supprimer le code "${promo.code}" ?`)) {
+                          deletePromoCode.mutate(promo.id);
+                        }
+                      }}
+                      className="p-1.5 text-red-500/60 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                      data-testid={`button-delete-promo-${promo.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))
@@ -448,6 +830,80 @@ export default function AdminDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* ADD PRODUCT DIALOG */}
+      <ProductFormDialog
+        open={showAddProduct}
+        onOpenChange={setShowAddProduct}
+        initialData={defaultProductForm}
+        onSubmit={(data) => createProduct.mutate(data)}
+        isLoading={createProduct.isPending}
+        title="Ajouter un produit"
+      />
+
+      {/* EDIT PRODUCT DIALOG */}
+      {editingProduct && (
+        <ProductFormDialog
+          open={!!editingProduct}
+          onOpenChange={(open) => { if (!open) setEditingProduct(null); }}
+          initialData={productToFormData(editingProduct)}
+          onSubmit={(data) => updateProduct.mutate({ id: editingProduct.id, data })}
+          isLoading={updateProduct.isPending}
+          title="Modifier le produit"
+        />
+      )}
+
+      {/* ADD PROMO CODE DIALOG */}
+      <Dialog open={showAddPromo} onOpenChange={setShowAddPromo}>
+        <DialogContent className="max-w-sm bg-card border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-primary">Ajouter un code promo</DialogTitle>
+            <DialogDescription>Creez un nouveau code de reduction</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              createPromoCode.mutate(promoForm);
+            }}
+            className="space-y-3"
+          >
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Code *</label>
+              <input
+                type="text"
+                value={promoForm.code}
+                onChange={(e) => setPromoForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary/50"
+                required
+                placeholder="EX: PROMO20"
+                data-testid="input-promo-code"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Reduction (%) *</label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={promoForm.discountPercent}
+                onChange={(e) => setPromoForm((prev) => ({ ...prev, discountPercent: parseInt(e.target.value) || 0 }))}
+                className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+                required
+                data-testid="input-promo-discount"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={createPromoCode.isPending}
+              className="w-full py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+              data-testid="button-submit-promo"
+            >
+              {createPromoCode.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              Creer le code promo
+            </button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

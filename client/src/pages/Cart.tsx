@@ -512,7 +512,7 @@ export default function Cart() {
 
       {/* Fixed checkout bar */}
       {!isEmpty && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-background/80 backdrop-blur-2xl border-t border-white/5 pb-safe">
+        <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-background/80 backdrop-blur-2xl border-t border-white/5 pb-safe">
           <button 
             onClick={handleOrderClick}
             className="w-full h-14 bg-primary text-primary-foreground rounded-2xl font-bold text-lg shadow-[0_0_30px_-5px_rgba(34,197,94,0.4)] hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"

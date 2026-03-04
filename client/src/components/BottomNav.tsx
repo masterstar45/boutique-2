@@ -18,8 +18,11 @@ export function BottomNav() {
     { href: "/info", icon: Info, label: "Infos" },
   ];
 
-  // Hide on home page
-  if (location === "/") return null;
+  const hiddenRoutes = ["/", "/cart", "/admin"];
+  const hiddenPrefixes = ["/product/"];
+  
+  if (hiddenRoutes.includes(location)) return null;
+  if (hiddenPrefixes.some(prefix => location.startsWith(prefix))) return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 pb-safe pointer-events-none">

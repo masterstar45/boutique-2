@@ -204,7 +204,7 @@ export default function ProductDetail() {
       </div>
 
       {/* Sticky Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-background/80 backdrop-blur-2xl border-t border-white/5 pb-safe">
+      <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-background/80 backdrop-blur-2xl border-t border-white/5 pb-safe">
         <div className="flex items-center justify-between mb-4 px-2">
           <span className="text-sm font-bold text-foreground">SÉLECTIONNEZ UNE OPTION</span>
           {product.stock && (

@@ -596,6 +596,17 @@ export async function registerRoutes(
     }
   });
 
+  app.patch('/api/admin/promo-codes/:id/toggle', async (req, res) => {
+    try {
+      const { active } = req.body;
+      await storage.togglePromoCode(Number(req.params.id), active);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error toggling promo code:', err);
+      res.status(500).json({ message: 'Failed to toggle promo code' });
+    }
+  });
+
   app.delete('/api/admin/promo-codes/:id', async (req, res) => {
     try {
       await storage.deletePromoCode(Number(req.params.id));

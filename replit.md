@@ -67,6 +67,7 @@ PharmacyHash is a Telegram Mini App for a pharmacy/dispensary bot. It provides p
 - `DELETE /api/admin/reviews/:id` - Delete review
 - `GET /api/admin/promo-codes` - List promo codes
 - `POST /api/admin/promo-codes` - Create promo code
+- `PATCH /api/admin/promo-codes/:id/toggle` - Toggle promo code active/inactive
 - `DELETE /api/admin/promo-codes/:id` - Delete promo code
 - `GET /api/admin/users` - List all bot users
 
@@ -82,6 +83,6 @@ PharmacyHash is a Telegram Mini App for a pharmacy/dispensary bot. It provides p
 
 ## Notes
 - Home page: clean background image only (no text, no logo)
-- BottomNav: floating pill-style, hidden on home page
+- BottomNav: floating pill-style, hidden on home, cart, product detail, and admin pages
 - Admin dashboard accessible at `/admin`
 - Telegram user identification via `window.Telegram?.WebApp?.initDataUnsafe?.user?.id`
