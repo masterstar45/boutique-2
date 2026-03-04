@@ -1,5 +1,5 @@
 import TelegramBot from "node-telegram-bot-api";
-import { createReadStream } from "fs";
+import { createReadStream, existsSync } from "fs";
 import { resolve } from "path";
 import { storage } from "./storage";
 import type { Product, Review } from "@shared/schema";
@@ -1872,13 +1872,20 @@ export function setupBot() {
       const imagePath = resolve(
         "./client/public/images/pharmacyhash-start.jpg",
       );
-      try {
-        const photoStream = createReadStream(imagePath);
-        bot.sendPhoto(chatId, photoStream, {
-          caption: welcomeCaption,
-          reply_markup: welcomeKeyboard,
-        });
-      } catch (err) {
+      if (existsSync(imagePath)) {
+        try {
+          const photoStream = createReadStream(imagePath);
+          await bot.sendPhoto(chatId, photoStream, {
+            caption: welcomeCaption,
+            reply_markup: welcomeKeyboard,
+          });
+        } catch (err) {
+          console.error("Error sending welcome photo:", err);
+          bot.sendMessage(chatId, welcomeCaption, {
+            reply_markup: welcomeKeyboard,
+          });
+        }
+      } else {
         bot.sendMessage(chatId, welcomeCaption, {
           reply_markup: welcomeKeyboard,
         });
@@ -3222,13 +3229,20 @@ export function setupBot() {
           const imagePath = resolve(
             "./client/public/images/pharmacyhash-start.jpg",
           );
-          try {
-            const photoStream = createReadStream(imagePath);
-            bot.sendPhoto(chatId, photoStream, {
-              caption: welcomeCaption,
-              reply_markup: welcomeKeyboard,
-            });
-          } catch (err) {
+          if (existsSync(imagePath)) {
+            try {
+              const photoStream = createReadStream(imagePath);
+              await bot.sendPhoto(chatId, photoStream, {
+                caption: welcomeCaption,
+                reply_markup: welcomeKeyboard,
+              });
+            } catch (err) {
+              console.error("Error sending welcome photo:", err);
+              bot.sendMessage(chatId, welcomeCaption, {
+                reply_markup: welcomeKeyboard,
+              });
+            }
+          } else {
             bot.sendMessage(chatId, welcomeCaption, {
               reply_markup: welcomeKeyboard,
             });
