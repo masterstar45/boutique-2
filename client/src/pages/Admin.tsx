@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Package, Settings, MessageSquare, TrendingUp, Search, Plus, Star, Clock, CheckCircle, XCircle, Trash2, Tag, Loader2, AlertCircle, ChevronDown, Eye, Edit2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Users, Package, Settings, MessageSquare, TrendingUp, Search, Plus, Star, Clock, CheckCircle, XCircle, Trash2, Tag, Loader2, AlertCircle, ChevronDown, Eye, Edit2, ToggleLeft, ToggleRight, Bell } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -244,6 +244,28 @@ export default function AdminDashboard() {
 
   const [showAddPromo, setShowAddPromo] = useState(false);
   const [promoForm, setPromoForm] = useState({ code: "", discountPercent: 10 });
+
+  const [newOrderCount, setNewOrderCount] = useState(0);
+  const lastCountRef = useRef(0);
+
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/admin/orders/new-count');
+        const data = await res.json();
+        if (data.count > lastCountRef.current && lastCountRef.current > 0) {
+          const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbsGczGj6NuN3Xu2s2HECHtN3dwnM7IEKEsd3exHY+IkWDs97fxXhAJEiCst/gxnpBJkmCs9/gxnpBJkmCs9/gxnpBJQ==');
+          audio.volume = 0.3;
+          audio.play().catch(() => {});
+        }
+        lastCountRef.current = data.count;
+        setNewOrderCount(data.count);
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/admin/stats"],
@@ -540,7 +562,12 @@ export default function AdminDashboard() {
 
         <Tabs defaultValue="orders" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-4 bg-black/40 p-1 rounded-xl">
-            <TabsTrigger value="orders" className="rounded-lg text-xs" data-testid="tab-orders">Commandes</TabsTrigger>
+            <TabsTrigger value="orders" className="rounded-lg text-xs relative" data-testid="tab-orders">
+              Commandes
+              {newOrderCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">{newOrderCount}</span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="products" className="rounded-lg text-xs" data-testid="tab-products">Produits</TabsTrigger>
             <TabsTrigger value="reviews" className="rounded-lg text-xs" data-testid="tab-reviews">Avis</TabsTrigger>
             <TabsTrigger value="promos" className="rounded-lg text-xs" data-testid="tab-promos">Promos</TabsTrigger>

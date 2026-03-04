@@ -84,6 +84,26 @@ export function useAddToCart() {
   });
 }
 
+export function useUpdateCartQuantity() {
+  const queryClient = useQueryClient();
+  const sessionId = useSessionId();
+
+  return useMutation({
+    mutationFn: async ({ id, quantity }: { id: number; quantity: number }) => {
+      const res = await fetch(`/api/cart/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity, sessionId }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update quantity");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.cart.list.path, sessionId] });
+    },
+  });
+}
+
 export function useRemoveFromCart() {
   const queryClient = useQueryClient();
   const sessionId = useSessionId();

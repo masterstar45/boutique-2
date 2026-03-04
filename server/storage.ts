@@ -48,7 +48,7 @@ import {
   type ClientButton,
   type InsertClientButton
 } from "@shared/schema";
-import { eq, and, desc, count, ilike, or } from "drizzle-orm";
+import { eq, and, desc, count, ilike, or, sql } from "drizzle-orm";
 
 export interface IStorage {
   getProducts(category?: string, search?: string): Promise<Product[]>;
@@ -60,7 +60,9 @@ export interface IStorage {
   getCartItems(sessionId: string): Promise<CartItemWithProduct[]>;
   addToCart(item: InsertCartItem): Promise<CartItem>;
   removeFromCart(id: number): Promise<void>;
+  updateCartItemQuantity(id: number, quantity: number): Promise<void>;
   clearCart(sessionId: string): Promise<void>;
+  getRecentOrdersCount(minutesAgo: number): Promise<number>;
 
   getAdmins(): Promise<Admin[]>;
   getAdminByTelegramId(telegramId: string): Promise<Admin | undefined>;
@@ -202,8 +204,24 @@ export class DatabaseStorage implements IStorage {
     await db.delete(cartItems).where(eq(cartItems.id, id));
   }
 
+  async updateCartItemQuantity(id: number, quantity: number): Promise<void> {
+    if (quantity <= 0) {
+      await db.delete(cartItems).where(eq(cartItems.id, id));
+    } else {
+      await db.update(cartItems).set({ quantity }).where(eq(cartItems.id, id));
+    }
+  }
+
   async clearCart(sessionId: string): Promise<void> {
     await db.delete(cartItems).where(eq(cartItems.sessionId, sessionId));
+  }
+
+  async getRecentOrdersCount(minutesAgo: number): Promise<number> {
+    const cutoff = new Date(Date.now() - minutesAgo * 60 * 1000).toISOString();
+    const result = await db.select({ id: orders.id }).from(orders).where(
+      sql`${orders.createdAt} >= ${cutoff}`
+    );
+    return result.length;
   }
 
   async getAdmins(): Promise<Admin[]> {

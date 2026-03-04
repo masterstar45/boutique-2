@@ -45,6 +45,29 @@ export async function registerRoutes(
     }
   });
 
+  app.patch('/api/cart/:id', async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { quantity, sessionId } = req.body;
+      if (!sessionId || typeof sessionId !== 'string') {
+        return res.status(400).json({ message: 'sessionId is required' });
+      }
+      if (typeof quantity !== 'number' || isNaN(quantity) || !Number.isInteger(quantity)) {
+        return res.status(400).json({ message: 'quantity must be a valid integer' });
+      }
+      const cartItems = await storage.getCartItems(sessionId);
+      const item = cartItems.find(i => i.id === id);
+      if (!item) {
+        return res.status(404).json({ message: 'Cart item not found' });
+      }
+      await storage.updateCartItemQuantity(id, quantity);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error updating cart item:', err);
+      res.status(500).json({ message: 'Failed to update cart item' });
+    }
+  });
+
   app.delete(api.cart.remove.path, async (req, res) => {
     await storage.removeFromCart(Number(req.params.id));
     res.status(204).send();
@@ -464,6 +487,16 @@ export async function registerRoutes(
     } catch (err) {
       console.error('Error getting admin stats:', err);
       res.status(500).json({ message: 'Failed to get stats' });
+    }
+  });
+
+  app.get('/api/admin/orders/new-count', async (_req, res) => {
+    try {
+      const count = await storage.getRecentOrdersCount(5);
+      res.json({ count });
+    } catch (err) {
+      console.error('Error getting recent orders count:', err);
+      res.json({ count: 0 });
     }
   });
 

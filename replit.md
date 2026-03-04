@@ -35,6 +35,7 @@ PharmacyHash is a Telegram Mini App for a pharmacy/dispensary bot. It provides p
 - `GET /api/products/:id` - Get single product
 - `GET /api/cart/:sessionId` - Get cart items
 - `POST /api/cart` - Add to cart
+- `PATCH /api/cart/:id` - Update cart item quantity (requires sessionId for ownership check)
 - `DELETE /api/cart/:id` - Remove from cart
 - `DELETE /api/cart/session/:sessionId` - Clear cart
 - `POST /api/checkout` - Create order
@@ -44,6 +45,7 @@ PharmacyHash is a Telegram Mini App for a pharmacy/dispensary bot. It provides p
 - `GET /api/loyalty/:chatId` - Get loyalty balance
 - `GET /api/loyalty/:chatId/history` - Get loyalty transactions
 - `GET /api/loyalty-settings` - Get loyalty program settings
+- `GET /api/admin/orders/new-count` - Count orders in last 5 minutes (admin notification)
 - `GET /api/orders/:chatId` - Get user orders
 - `GET /api/favorites/:chatId` - Get favorites
 - `POST /api/favorites` - Add favorite
