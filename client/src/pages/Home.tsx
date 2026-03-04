@@ -23,18 +23,6 @@ export default function Home() {
       
       {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center z-10 pt-20 pb-24">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-12 flex justify-center"
-        >
-          <img 
-            src={logoImage} 
-            alt="PharmacyHash" 
-            className="w-64 md:w-80 object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)]"
-          />
-        </motion.div>
         
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
