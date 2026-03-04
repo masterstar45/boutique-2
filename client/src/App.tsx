@@ -15,6 +15,7 @@ import Cart from "@/pages/Cart";
 import Reviews from "@/pages/Reviews";
 import Info from "@/pages/Info";
 import Account from "@/pages/Account";
+import AdminDashboard from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -58,6 +59,12 @@ function Router() {
         <Route path="/account">
           <PageWrapper>
             <Account />
+          </PageWrapper>
+        </Route>
+        
+        <Route path="/admin">
+          <PageWrapper>
+            <AdminDashboard />
           </PageWrapper>
         </Route>
         
