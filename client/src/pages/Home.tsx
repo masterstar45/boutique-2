@@ -1,7 +1,8 @@
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { ArrowRight, Leaf, ShieldCheck, Zap } from "lucide-react";
+import { ArrowRight, ShieldCheck, Zap } from "lucide-react";
 import backgroundImage from "@assets/background.png";
+import logoImage from "@assets/pharmacy-hash-logo.png";
 
 export default function Home() {
   return (
@@ -26,28 +27,14 @@ export default function Home() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="w-24 h-24 mb-8 rounded-full glass-panel flex items-center justify-center border-primary/30 shadow-[0_0_40px_-10px_rgba(34,197,94,0.3)]"
+          className="mb-12 flex justify-center"
         >
-          <Leaf className="w-12 h-12 text-primary" />
+          <img 
+            src={logoImage} 
+            alt="PharmacyHash" 
+            className="w-64 md:w-80 object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.4)]"
+          />
         </motion.div>
-        
-        <motion.h1 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-4xl md:text-5xl font-extrabold text-white mb-4 drop-shadow-lg"
-        >
-          Premium <span className="text-primary">Farm</span>
-        </motion.h1>
-        
-        <motion.p 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="text-lg text-muted-foreground mb-10 max-w-sm mx-auto"
-        >
-          La meilleure qualité, livrée rapidement et discrètement.
-        </motion.p>
         
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
