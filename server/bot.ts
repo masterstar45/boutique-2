@@ -1563,9 +1563,9 @@ export function setupBot() {
     if (transactions.length > 0) {
       text += "\n📜 Historique récent:\n";
       transactions.forEach((tx) => {
-        const sign = tx.delta > 0 ? "+" : "";
-        const date = tx.createdAt.split("T")[0];
-        text += `  ${date}: ${sign}${tx.delta} pts (${tx.reason})\n`;
+        const sign = tx.points > 0 ? "+" : "";
+        const date = tx.createdAt ? tx.createdAt.split("T")[0] : "";
+        text += `  ${date}: ${sign}${tx.points} pts (${tx.reason})\n`;
       });
     }
 
@@ -2385,8 +2385,8 @@ export function setupBot() {
           customerChatId,
           pointsToAdd,
           "order",
-          `Commande ${orderCode}`,
           orderCode,
+          `Commande ${orderCode}`,
         );
 
         const balance = await storage.getLoyaltyBalance(customerChatId);
@@ -2513,11 +2513,11 @@ export function setupBot() {
           text += "Aucune transaction.";
         } else {
           for (const tx of transactions) {
-            const sign = tx.delta > 0 ? "+" : "";
+            const sign = tx.points > 0 ? "+" : "";
             const date = tx.createdAt
               ? new Date(tx.createdAt).toLocaleDateString("fr-FR")
               : "";
-            text += `${sign}${tx.delta} pts - ${tx.reason}${tx.description ? ` (${tx.description})` : ""} ${date}\n`;
+            text += `${sign}${tx.points} pts - ${tx.reason}${tx.description ? ` (${tx.description})` : ""} ${date}\n`;
           }
         }
 

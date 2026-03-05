@@ -117,11 +117,12 @@ export const loyaltyBalances = pgTable("loyalty_balances", {
 export const loyaltyTransactions = pgTable("loyalty_transactions", {
   id: serial("id").primaryKey(),
   chatId: text("chat_id").notNull(),
-  orderCode: text("order_code"), // nullable - linked order if applicable
-  delta: integer("delta").notNull(), // positive = earned, negative = redeemed
-  reason: text("reason").notNull(), // 'order', 'redemption', 'manual_add', 'manual_remove', 'bonus'
-  description: text("description"), // optional note
-  createdAt: text("created_at").notNull(), // ISO date string
+  points: integer("points").notNull(),
+  reason: text("reason").notNull(),
+  orderCode: text("order_code"),
+  description: text("description"),
+  balance: integer("balance").notNull().default(0),
+  createdAt: text("created_at"),
 });
 
 export const loyaltySettings = pgTable("loyalty_settings", {

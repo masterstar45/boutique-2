@@ -433,9 +433,10 @@ export class DatabaseStorage implements IStorage {
     await db.insert(loyaltyTransactions).values({
       chatId,
       orderCode: orderCode || null,
-      delta,
+      points: delta,
       reason,
       description: description || null,
+      balance: newPoints,
       createdAt: new Date().toISOString()
     });
 
