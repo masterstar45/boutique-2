@@ -3,11 +3,48 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+const uploadsDir = path.resolve(process.cwd(), "client/public/uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+      cb(null, name);
+    },
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedExt = /\.(jpg|jpeg|png|gif|webp|mp4|mov|webm)$/i;
+    const allowedMime = /^(image\/(jpeg|png|gif|webp)|video\/(mp4|quicktime|webm))$/;
+    if (allowedExt.test(path.extname(file.originalname)) && allowedMime.test(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Type de fichier non supporté"));
+    }
+  },
+});
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  app.post('/api/upload', upload.single('file'), (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Aucun fichier envoyé' });
+    }
+    const url = `/uploads/${req.file.filename}`;
+    res.json({ url });
+  });
 
   app.get(api.products.list.path, async (req, res) => {
     const category = typeof req.query.category === 'string' ? req.query.category : undefined;

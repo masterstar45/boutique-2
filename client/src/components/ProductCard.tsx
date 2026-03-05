@@ -1,6 +1,6 @@
 import { Product } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Plus } from "lucide-react";
+import { Plus, Play } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ProductCardProps {
@@ -42,6 +42,12 @@ export function ProductCard({ product }: ProductCardProps) {
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-300" />
+        
+        {product.videoUrl && (
+          <div className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-lg">
+            <Play className="w-3.5 h-3.5 text-white fill-white ml-0.5" />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col flex-1 p-4">

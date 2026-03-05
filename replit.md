@@ -34,6 +34,7 @@ PharmacyHash is a Telegram Mini App for a pharmacy/dispensary bot. It provides p
 - `GET /api/products` - List products (with optional category/search filters)
 - `GET /api/products/:id` - Get single product
 - `GET /api/cart/:sessionId` - Get cart items
+- `POST /api/upload` - Upload image/video file (multer, max 50MB, returns URL)
 - `POST /api/cart` - Add to cart
 - `PATCH /api/cart/:id` - Update cart item quantity (requires sessionId for ownership check)
 - `DELETE /api/cart/:id` - Remove from cart

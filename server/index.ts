@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import path from "path";
 
 const app = express();
 const httpServer = createServer(app);
@@ -85,6 +86,9 @@ app.use((req, res, next) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
+  const uploadsPath = path.resolve(process.cwd(), "client/public/uploads");
+  app.use("/uploads", express.static(uploadsPath));
+
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Package, Settings, MessageSquare, TrendingUp, Search, Plus, Star, Clock, CheckCircle, XCircle, Trash2, Tag, Loader2, AlertCircle, ChevronDown, Eye, Edit2, ToggleLeft, ToggleRight, Bell } from "lucide-react";
+import { Users, Package, Settings, MessageSquare, TrendingUp, Search, Plus, Star, Clock, CheckCircle, XCircle, Trash2, Tag, Loader2, AlertCircle, ChevronDown, Eye, Edit2, ToggleLeft, ToggleRight, Bell, Upload, Image, Video, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -64,6 +64,10 @@ function ProductFormDialog({
   title: string;
 }) {
   const [form, setForm] = useState<ProductFormData>(initialData);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -73,6 +77,23 @@ function ProductFormDialog({
 
   const handleChange = (field: keyof ProductFormData, value: string | number) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileUpload = async (file: File, field: 'imageUrl' | 'videoUrl') => {
+    const setter = field === 'imageUrl' ? setUploadingImage : setUploadingVideo;
+    setter(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      handleChange(field, data.url);
+    } catch {
+      alert('Erreur lors de l\'upload du fichier');
+    } finally {
+      setter(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -145,25 +166,114 @@ function ProductFormDialog({
             </div>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">URL Image *</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Photo du produit *</label>
             <input
-              type="text"
-              value={form.imageUrl}
-              onChange={(e) => handleChange("imageUrl", e.target.value)}
-              className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
-              required
-              data-testid="input-product-imageUrl"
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file, 'imageUrl');
+              }}
             />
+            {form.imageUrl ? (
+              <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                <img src={form.imageUrl} alt="Preview" className="w-full h-32 object-cover" />
+                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between">
+                  <span className="text-[10px] text-white/70 truncate flex-1 mr-2">{form.imageUrl}</span>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+                      data-testid="button-change-image"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-white" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChange("imageUrl", "")}
+                      className="w-7 h-7 rounded-lg bg-red-500/30 flex items-center justify-center hover:bg-red-500/50 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5 text-white" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                disabled={uploadingImage}
+                className="w-full h-28 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary/30 hover:bg-primary/5 transition-all disabled:opacity-50"
+                data-testid="button-upload-image"
+              >
+                {uploadingImage ? (
+                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                ) : (
+                  <>
+                    <Image className="w-6 h-6 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground font-medium">Cliquer pour uploader une photo</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">URL Video</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Video du produit</label>
             <input
-              type="text"
-              value={form.videoUrl}
-              onChange={(e) => handleChange("videoUrl", e.target.value)}
-              className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
-              data-testid="input-product-videoUrl"
+              ref={videoInputRef}
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file, 'videoUrl');
+              }}
             />
+            {form.videoUrl ? (
+              <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                <video src={form.videoUrl} className="w-full h-32 object-cover" muted />
+                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between">
+                  <span className="text-[10px] text-white/70 truncate flex-1 mr-2">{form.videoUrl}</span>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => videoInputRef.current?.click()}
+                      className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+                      data-testid="button-change-video"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-white" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChange("videoUrl", "")}
+                      className="w-7 h-7 rounded-lg bg-red-500/30 flex items-center justify-center hover:bg-red-500/50 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5 text-white" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => videoInputRef.current?.click()}
+                disabled={uploadingVideo}
+                className="w-full h-28 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary/30 hover:bg-primary/5 transition-all disabled:opacity-50"
+                data-testid="button-upload-video"
+              >
+                {uploadingVideo ? (
+                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                ) : (
+                  <>
+                    <Video className="w-6 h-6 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground font-medium">Cliquer pour uploader une video</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
