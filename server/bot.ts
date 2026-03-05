@@ -293,6 +293,7 @@ export function setupBot() {
         [{ text: "🔘 Boutons Client", callback_data: "menu_client_buttons" }],
         [{ text: "📢 Envoyer une Promo", callback_data: "menu_promo" }],
         [{ text: "📊 Statistiques", callback_data: "menu_stats" }],
+        [{ text: "🎨 Theme du fond", callback_data: "menu_theme" }],
         [{ text: "👥 Gerer les admins", callback_data: "menu_admins" }],
       ],
     };
@@ -1647,6 +1648,131 @@ export function setupBot() {
     }
   }
 
+  // === THEME MENU ===
+  const themePresets: Record<string, { label: string; emoji: string; c1: string; c2: string; c3: string }> = {
+    emerald: { label: "Emeraude", emoji: "💚", c1: "150,80%,45%", c2: "170,80%,40%", c3: "140,70%,35%" },
+    purple: { label: "Violet", emoji: "💜", c1: "270,80%,55%", c2: "290,70%,45%", c3: "250,60%,50%" },
+    ocean: { label: "Ocean", emoji: "💙", c1: "200,80%,50%", c2: "220,70%,45%", c3: "190,75%,40%" },
+    sunset: { label: "Coucher de soleil", emoji: "🧡", c1: "20,90%,55%", c2: "350,80%,50%", c3: "40,85%,50%" },
+    gold: { label: "Or", emoji: "💛", c1: "45,90%,50%", c2: "35,85%,45%", c3: "55,80%,40%" },
+    neon: { label: "Neon", emoji: "💚", c1: "120,100%,50%", c2: "180,100%,50%", c3: "300,100%,50%" },
+  };
+
+  async function sendThemeMenu(chatId: number, messageId?: number) {
+    const settings = await storage.getBotSetting("bg_preset");
+    const currentPreset = settings || "emerald";
+    const currentOpacity = await storage.getBotSetting("bg_opacity");
+    const currentSpeed = await storage.getBotSetting("bg_speed");
+    const opacityPct = currentOpacity ? Math.round(parseFloat(currentOpacity) * 100) : 18;
+    const speedVal = currentSpeed ? parseInt(currentSpeed) : 18;
+
+    const presetInfo = themePresets[currentPreset] || themePresets.emerald;
+
+    let text = "🎨 <b>Theme du fond anime</b>\n\n";
+    text += `Theme actuel: ${presetInfo.emoji} <b>${presetInfo.label}</b>\n`;
+    text += `Intensite: <b>${opacityPct}%</b>\n`;
+    text += `Vitesse: <b>${speedVal}s</b>\n\n`;
+    text += "Choisissez un preset:";
+
+    const buttons: TelegramBot.InlineKeyboardButton[][] = [];
+    const presetKeys = Object.keys(themePresets);
+    for (let i = 0; i < presetKeys.length; i += 2) {
+      const row: TelegramBot.InlineKeyboardButton[] = [];
+      row.push({
+        text: `${themePresets[presetKeys[i]].emoji} ${themePresets[presetKeys[i]].label}${currentPreset === presetKeys[i] ? " ✅" : ""}`,
+        callback_data: `theme_preset_${presetKeys[i]}`,
+      });
+      if (presetKeys[i + 1]) {
+        row.push({
+          text: `${themePresets[presetKeys[i + 1]].emoji} ${themePresets[presetKeys[i + 1]].label}${currentPreset === presetKeys[i + 1] ? " ✅" : ""}`,
+          callback_data: `theme_preset_${presetKeys[i + 1]}`,
+        });
+      }
+      buttons.push(row);
+    }
+
+    buttons.push([
+      { text: `🔅 Intensite (${opacityPct}%)`, callback_data: "theme_intensity" },
+    ]);
+    buttons.push([
+      { text: `⏱️ Vitesse (${speedVal}s)`, callback_data: "theme_speed" },
+    ]);
+    buttons.push([{ text: "🔙 Retour au menu", callback_data: "menu_main" }]);
+
+    const keyboard = { inline_keyboard: buttons };
+
+    if (messageId) {
+      bot.editMessageText(text, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      }).catch(() => {});
+    } else {
+      bot.sendMessage(chatId, text, { parse_mode: "HTML", reply_markup: keyboard });
+    }
+  }
+
+  async function sendIntensityOptions(chatId: number, messageId?: number) {
+    const currentOpacity = await storage.getBotSetting("bg_opacity");
+    const opacityPct = currentOpacity ? Math.round(parseFloat(currentOpacity) * 100) : 18;
+
+    let text = "🔅 <b>Intensite du fond</b>\n\n";
+    text += `Valeur actuelle: <b>${opacityPct}%</b>\n\n`;
+    text += "Choisissez une intensite:";
+
+    const values = [5, 10, 15, 20, 25, 30, 35, 40];
+    const buttons: TelegramBot.InlineKeyboardButton[][] = [];
+    for (let i = 0; i < values.length; i += 4) {
+      const row: TelegramBot.InlineKeyboardButton[] = [];
+      for (let j = i; j < i + 4 && j < values.length; j++) {
+        row.push({
+          text: `${values[j]}%${opacityPct === values[j] ? " ✅" : ""}`,
+          callback_data: `theme_opacity_${values[j]}`,
+        });
+      }
+      buttons.push(row);
+    }
+    buttons.push([{ text: "🔙 Retour", callback_data: "menu_theme" }]);
+
+    const keyboard = { inline_keyboard: buttons };
+    if (messageId) {
+      bot.editMessageText(text, { chat_id: chatId, message_id: messageId, parse_mode: "HTML", reply_markup: keyboard }).catch(() => {});
+    } else {
+      bot.sendMessage(chatId, text, { parse_mode: "HTML", reply_markup: keyboard });
+    }
+  }
+
+  async function sendSpeedOptions(chatId: number, messageId?: number) {
+    const currentSpeed = await storage.getBotSetting("bg_speed");
+    const speedVal = currentSpeed ? parseInt(currentSpeed) : 18;
+
+    let text = "⏱️ <b>Vitesse de l'animation</b>\n\n";
+    text += `Valeur actuelle: <b>${speedVal}s</b>\n\n`;
+    text += "Plus le nombre est bas, plus c'est rapide:";
+
+    const values = [5, 8, 12, 15, 18, 22, 28, 35];
+    const buttons: TelegramBot.InlineKeyboardButton[][] = [];
+    for (let i = 0; i < values.length; i += 4) {
+      const row: TelegramBot.InlineKeyboardButton[] = [];
+      for (let j = i; j < i + 4 && j < values.length; j++) {
+        row.push({
+          text: `${values[j]}s${speedVal === values[j] ? " ✅" : ""}`,
+          callback_data: `theme_speed_${values[j]}`,
+        });
+      }
+      buttons.push(row);
+    }
+    buttons.push([{ text: "🔙 Retour", callback_data: "menu_theme" }]);
+
+    const keyboard = { inline_keyboard: buttons };
+    if (messageId) {
+      bot.editMessageText(text, { chat_id: chatId, message_id: messageId, parse_mode: "HTML", reply_markup: keyboard }).catch(() => {});
+    } else {
+      bot.sendMessage(chatId, text, { parse_mode: "HTML", reply_markup: keyboard });
+    }
+  }
+
   // === /start COMMAND ===
   bot.onText(/\/start(?:\s+(.*))?/, async (msg, match) => {
     const chatId = msg.chat.id;
@@ -2806,6 +2932,52 @@ export function setupBot() {
     }
 
     // Admin management
+    if (data === "menu_theme") {
+      sendThemeMenu(chatId, messageId);
+      return;
+    }
+
+    if (data.startsWith("theme_preset_")) {
+      const presetId = data.replace("theme_preset_", "");
+      const preset = themePresets[presetId];
+      if (preset) {
+        const currentOpacity = await storage.getBotSetting("bg_opacity") || "0.18";
+        const currentSpeed = await storage.getBotSetting("bg_speed") || "18";
+        await storage.setBotSetting("bg_preset", presetId);
+        await storage.setBotSetting("bg_color1", preset.c1);
+        await storage.setBotSetting("bg_color2", preset.c2);
+        await storage.setBotSetting("bg_color3", preset.c3);
+        await storage.setBotSetting("bg_opacity", currentOpacity);
+        await storage.setBotSetting("bg_speed", currentSpeed);
+      }
+      sendThemeMenu(chatId, messageId);
+      return;
+    }
+
+    if (data === "theme_intensity") {
+      sendIntensityOptions(chatId, messageId);
+      return;
+    }
+
+    if (data === "theme_speed") {
+      sendSpeedOptions(chatId, messageId);
+      return;
+    }
+
+    if (data.startsWith("theme_opacity_")) {
+      const val = parseInt(data.replace("theme_opacity_", ""));
+      await storage.setBotSetting("bg_opacity", (val / 100).toString());
+      sendThemeMenu(chatId, messageId);
+      return;
+    }
+
+    if (data.startsWith("theme_speed_")) {
+      const val = data.replace("theme_speed_", "");
+      await storage.setBotSetting("bg_speed", val);
+      sendThemeMenu(chatId, messageId);
+      return;
+    }
+
     if (data === "menu_admins") {
       sendAdminList(chatId, messageId);
       return;

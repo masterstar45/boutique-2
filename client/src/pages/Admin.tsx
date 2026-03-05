@@ -343,184 +343,6 @@ function ProductFormDialog({
   );
 }
 
-const bgPresets = [
-  { id: "emerald", label: "Emeraude", colors: ["#22c55e", "#14b8a6", "#16a34a"] },
-  { id: "purple", label: "Violet", colors: ["#a855f7", "#8b5cf6", "#7c3aed"] },
-  { id: "ocean", label: "Ocean", colors: ["#3b82f6", "#2563eb", "#0ea5e9"] },
-  { id: "sunset", label: "Coucher", colors: ["#f97316", "#ef4444", "#f59e0b"] },
-  { id: "gold", label: "Or", colors: ["#eab308", "#d97706", "#ca8a04"] },
-  { id: "neon", label: "Neon", colors: ["#00ff00", "#00ffff", "#ff00ff"] },
-];
-
-const presetValues: Record<string, { c1: string; c2: string; c3: string }> = {
-  emerald: { c1: "150,80%,45%", c2: "170,80%,40%", c3: "140,70%,35%" },
-  purple: { c1: "270,80%,55%", c2: "290,70%,45%", c3: "250,60%,50%" },
-  ocean: { c1: "200,80%,50%", c2: "220,70%,45%", c3: "190,75%,40%" },
-  sunset: { c1: "20,90%,55%", c2: "350,80%,50%", c3: "40,85%,50%" },
-  gold: { c1: "45,90%,50%", c2: "35,85%,45%", c3: "55,80%,40%" },
-  neon: { c1: "120,100%,50%", c2: "180,100%,50%", c3: "300,100%,50%" },
-};
-
-function ThemeSettingsPanel() {
-  const queryClient = useQueryClient();
-  const [saving, setSaving] = useState(false);
-  const [activePreset, setActivePreset] = useState<string>("emerald");
-  const [opacity, setOpacity] = useState(18);
-  const [speed, setSpeed] = useState(18);
-
-  const { data: currentSettings } = useQuery<Record<string, string | null>>({
-    queryKey: ["/api/background-settings"],
-  });
-
-  useEffect(() => {
-    if (currentSettings) {
-      if (currentSettings.bg_preset) setActivePreset(currentSettings.bg_preset);
-      if (currentSettings.bg_opacity) setOpacity(Math.round(parseFloat(currentSettings.bg_opacity) * 100));
-      if (currentSettings.bg_speed) setSpeed(parseInt(currentSettings.bg_speed));
-    }
-  }, [currentSettings]);
-
-  const applyPreset = async (presetId: string) => {
-    setActivePreset(presetId);
-    setSaving(true);
-    const p = presetValues[presetId];
-    try {
-      await fetch('/api/admin/background-settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bg_preset: presetId,
-          bg_color1: p.c1,
-          bg_color2: p.c2,
-          bg_color3: p.c3,
-          bg_opacity: (opacity / 100).toString(),
-          bg_speed: speed.toString(),
-        }),
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/background-settings"] });
-    } catch {} finally { setSaving(false); }
-  };
-
-  const updateSetting = async (key: string, value: string) => {
-    setSaving(true);
-    try {
-      await fetch('/api/admin/background-settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [key]: value }),
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/background-settings"] });
-    } catch {} finally { setSaving(false); }
-  };
-
-  return (
-    <div className="space-y-5">
-      <div className="glass-panel rounded-2xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Theme du fond</h3>
-          {saving && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
-        </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          {bgPresets.map((preset) => (
-            <button
-              key={preset.id}
-              onClick={() => applyPreset(preset.id)}
-              className={`relative p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
-                activePreset === preset.id
-                  ? "border-primary bg-primary/10 shadow-[0_0_20px_-5px_rgba(34,197,94,0.3)]"
-                  : "border-white/5 bg-black/30 hover:border-white/20"
-              }`}
-              data-testid={`button-preset-${preset.id}`}
-            >
-              <div className="flex gap-1">
-                {preset.colors.map((color, i) => (
-                  <div
-                    key={i}
-                    className="w-5 h-5 rounded-full border border-white/20 shadow-inner"
-                    style={{ background: color }}
-                  />
-                ))}
-              </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{preset.label}</span>
-              {activePreset === preset.id && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-3 h-3 text-primary-foreground" />
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="glass-panel rounded-2xl p-5 space-y-5">
-        <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Reglages avances</h3>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-muted-foreground font-medium">Intensite</label>
-            <span className="text-xs font-bold text-primary">{opacity}%</span>
-          </div>
-          <input
-            type="range"
-            min="5"
-            max="40"
-            value={opacity}
-            onChange={(e) => setOpacity(parseInt(e.target.value))}
-            onMouseUp={() => updateSetting('bg_opacity', (opacity / 100).toString())}
-            onTouchEnd={() => updateSetting('bg_opacity', (opacity / 100).toString())}
-            className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
-            data-testid="slider-opacity"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-muted-foreground font-medium">Vitesse (secondes)</label>
-            <span className="text-xs font-bold text-primary">{speed}s</span>
-          </div>
-          <input
-            type="range"
-            min="5"
-            max="40"
-            value={speed}
-            onChange={(e) => setSpeed(parseInt(e.target.value))}
-            onMouseUp={() => updateSetting('bg_speed', speed.toString())}
-            onTouchEnd={() => updateSetting('bg_speed', speed.toString())}
-            className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
-            data-testid="slider-speed"
-          />
-        </div>
-      </div>
-
-      <div className="glass-panel rounded-2xl p-4">
-        <div className="flex items-center gap-3">
-          <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-black/60 border border-white/10">
-            {bgPresets.find(p => p.id === activePreset)?.colors.map((color, i) => (
-              <div
-                key={i}
-                className="absolute rounded-full"
-                style={{
-                  width: "60%", height: "60%",
-                  background: color,
-                  opacity: opacity / 100,
-                  filter: "blur(8px)",
-                  top: i === 0 ? "5%" : i === 1 ? "40%" : "20%",
-                  left: i === 0 ? "5%" : i === 1 ? "35%" : "50%",
-                }}
-              />
-            ))}
-          </div>
-          <div>
-            <p className="text-sm font-bold">Apercu en direct</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Les changements sont appliques en temps reel</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const [orderFilter, setOrderFilter] = useState<string | undefined>(undefined);
@@ -849,7 +671,7 @@ export default function AdminDashboard() {
         )}
 
         <Tabs defaultValue="orders" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-4 bg-black/40 p-1 rounded-xl">
+          <TabsList className="grid w-full grid-cols-4 mb-4 bg-black/40 p-1 rounded-xl">
             <TabsTrigger value="orders" className="rounded-lg text-xs relative" data-testid="tab-orders">
               Commandes
               {newOrderCount > 0 && (
@@ -859,7 +681,6 @@ export default function AdminDashboard() {
             <TabsTrigger value="products" className="rounded-lg text-xs" data-testid="tab-products">Produits</TabsTrigger>
             <TabsTrigger value="reviews" className="rounded-lg text-xs" data-testid="tab-reviews">Avis</TabsTrigger>
             <TabsTrigger value="promos" className="rounded-lg text-xs" data-testid="tab-promos">Promos</TabsTrigger>
-            <TabsTrigger value="theme" className="rounded-lg text-xs" data-testid="tab-theme">Theme</TabsTrigger>
           </TabsList>
 
           {/* ORDERS TAB */}
@@ -1145,10 +966,6 @@ export default function AdminDashboard() {
             )}
           </TabsContent>
 
-          {/* THEME TAB */}
-          <TabsContent value="theme" className="space-y-4">
-            <ThemeSettingsPanel />
-          </TabsContent>
         </Tabs>
       </div>
 
