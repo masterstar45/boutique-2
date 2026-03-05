@@ -118,6 +118,7 @@ export async function registerRoutes(
   app.post('/api/checkout', async (req, res) => {
     try {
       const { sessionId, deliveryType, deliveryTime, promoCode, address, postalCode, city, chatId, username, firstName, pointsToRedeem } = req.body;
+      console.log(`[Checkout] Request received - sessionId: ${sessionId}, chatId: ${chatId || 'NONE'}, username: ${username || 'NONE'}, firstName: ${firstName || 'NONE'}`);
 
       if (!sessionId || !deliveryType) {
         return res.status(400).json({ message: 'Missing sessionId or deliveryType' });
