@@ -107,10 +107,11 @@ export const dailyStats = pgTable("daily_stats", {
 
 export const loyaltyBalances = pgTable("loyalty_balances", {
   id: serial("id").primaryKey(),
-  chatId: text("chat_id").notNull().unique(), // Telegram user ID
+  chatId: text("chat_id").notNull().unique(),
   points: integer("points").notNull().default(0),
-  tier: text("tier").notNull().default("bronze"), // bronze, silver, gold
-  totalEarned: integer("total_earned").notNull().default(0), // lifetime points earned
+  updatedAt: text("updated_at").notNull().default(""),
+  totalEarned: integer("total_earned").notNull().default(0),
+  tier: text("tier").notNull().default("bronze"),
 });
 
 export const loyaltyTransactions = pgTable("loyalty_transactions", {

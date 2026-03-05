@@ -1,0 +1,65 @@
+  routine: 'ExecConstraints'
+}
+2:20:41 AM [express] POST /api/checkout 500 in 862ms :: {"message":"Checkout failed"}
+[Checkout] initData received (length=622), current chatId=8396493289, username=Pharmacyhash
+[Checkout] initData fields: hash=present, user=present, keys=query_id,user,auth_date,signature,hash
+[Checkout] HMAC verification: PASSED
+[Checkout] Parsed user from initData: id=8396493289, username=Pharmacyhash, first_name=PharmacyH - Service Clients ☎️
+[Checkout] Request received - sessionId: 5fk9j5umd9j, chatId: 8396493289, username: Pharmacyhash, firstName: PharmacyH - Service Clients ☎️, hasInitData: true
+Checkout error: error: null value in column "updated_at" of relation "loyalty_balances" violates not-null constraint
+    at /app/dist/index.cjs:67:38108
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async T_.execute (/app/dist/index.cjs:73:37994)
+    at async v2.upsertLoyaltyBalance (/app/dist/index.cjs:81:76652)
+    at async v2.addLoyaltyPoints (/app/dist/index.cjs:81:76854)
+    at async /app/dist/index.cjs:691:512 {
+  length: 253,
+  severity: 'ERROR',
+  code: '23502',
+  detail: 'Failing row contains (3, 8396493289, 0, null, 0, bronze).',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'loyalty_balances',
+  column: 'updated_at',
+  dataType: undefined,
+  constraint: undefined,
+  file: 'execMain.c',
+  line: '2032',
+  routine: 'ExecConstraints'
+}
+2:20:56 AM [express] POST /api/checkout 500 in 776ms :: {"message":"Checkout failed"}
+[Checkout] initData received (length=622), current chatId=8396493289, username=Pharmacyhash
+[Checkout] initData fields: hash=present, user=present, keys=query_id,user,auth_date,signature,hash
+[Checkout] HMAC verification: PASSED
+[Checkout] Parsed user from initData: id=8396493289, username=Pharmacyhash, first_name=PharmacyH - Service Clients ☎️
+[Checkout] Request received - sessionId: 5fk9j5umd9j, chatId: 8396493289, username: Pharmacyhash, firstName: PharmacyH - Service Clients ☎️, hasInitData: true
+Checkout error: error: null value in column "updated_at" of relation "loyalty_balances" violates not-null constraint
+  constraint: undefined,
+  file: 'execMain.c',
+  line: '2032',
+  routine: 'ExecConstraints'
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+}
+  internalQuery: undefined,
+2:21:11 AM [express] POST /api/checkout 500 in 865ms :: {"message":"Checkout failed"}
+  where: undefined,
+  schema: 'public',
+  table: 'loyalty_balances',
+    at /app/dist/index.cjs:67:38108
+  column: 'updated_at',
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+  dataType: undefined,
+    at async v2.addLoyaltyPoints (/app/dist/index.cjs:81:76854)
+    at async T_.execute (/app/dist/index.cjs:73:37994)
+  severity: 'ERROR',
+    at async v2.upsertLoyaltyBalance (/app/dist/index.cjs:81:76652)
+    at async /app/dist/index.cjs:691:512 {
+  code: '23502',
+  detail: 'Failing row contains (4, 8396493289, 0, null, 0, bronze).',
+  length: 253,

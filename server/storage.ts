@@ -408,12 +408,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertLoyaltyBalance(chatId: string, points: number, tier: string, totalEarned: number): Promise<LoyaltyBalance> {
+    const now = new Date().toISOString();
     const existing = await this.getLoyaltyBalance(chatId);
     if (existing) {
-      const [updated] = await db.update(loyaltyBalances).set({ points, tier, totalEarned }).where(eq(loyaltyBalances.chatId, chatId)).returning();
+      const [updated] = await db.update(loyaltyBalances).set({ points, tier, totalEarned, updatedAt: now }).where(eq(loyaltyBalances.chatId, chatId)).returning();
       return updated;
     }
-    const [newBalance] = await db.insert(loyaltyBalances).values({ chatId, points, tier, totalEarned }).returning();
+    const [newBalance] = await db.insert(loyaltyBalances).values({ chatId, points, tier, totalEarned, updatedAt: now }).returning();
     return newBalance;
   }
 
