@@ -4,9 +4,9 @@ import { motion } from "framer-motion";
 export default function Info() {
   const items = [
     { icon: Camera, text: "Selfie" },
-    { icon: IdCard, text: "Piece d'identite" },
+    { icon: IdCard, text: "Pièce d'identité" },
     { icon: MessageCircle, text: "Comment avez-vous eu notre contact ?" },
-    { icon: MapPin, text: "Adresse, code, et infos necessaires" },
+    { icon: MapPin, text: "Adresse, code, et infos nécessaires" },
   ];
 
   return (
@@ -34,8 +34,8 @@ export default function Info() {
               <ShieldCheck className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="font-bold text-base">Premiere commande</h2>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Documents a fournir</p>
+              <h2 className="font-bold text-base">Première commande</h2>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Documents à fournir</p>
             </div>
           </div>
 
@@ -88,8 +88,8 @@ export default function Info() {
               <EyeOff className="w-6 h-6 text-purple-500" />
             </div>
             <div>
-              <h3 className="font-bold text-base">Discretion assuree</h3>
-              <p className="text-xs text-muted-foreground mt-1">Emballage neutre et livraison discrete</p>
+              <h3 className="font-bold text-base">Discrétion assurée</h3>
+              <p className="text-xs text-muted-foreground mt-1">Emballage neutre et livraison discrète</p>
             </div>
           </div>
         </motion.div>

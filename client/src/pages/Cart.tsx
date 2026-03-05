@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { useCart, useRemoveFromCart, useClearCart, useUpdateCartQuantity } from "@/hooks/use-cart";
 import { queryClient } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, ArrowRight, ArrowLeft, ShoppingBag, Truck, Users, Mail, Minus, Plus, Tag, X, Check, Loader2, Star, Gift, Clock, ShieldCheck, MapPin, ChevronRight } from "lucide-react";
+import { Trash2, ArrowRight, ArrowLeft, ShoppingBag, Truck, Users, Mail, Minus, Plus, Tag, X, Check, Loader2, Star, Gift, Clock, ShieldCheck, MapPin, ChevronRight, Package, Handshake, Zap } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+// @ts-ignore
+import confetti from "canvas-confetti";
 
 interface AppliedPromo {
   code: string;
@@ -81,10 +83,34 @@ export default function Cart() {
     }
   }, []);
 
+  useEffect(() => {
+    if (showSuccess) {
+      const duration = 3 * 1000;
+      const animationEnd = Date.now() + duration;
+      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+      const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+      const interval: any = setInterval(function() {
+        const timeLeft = animationEnd - Date.now();
+
+        if (timeLeft <= 0) {
+          return clearInterval(interval);
+        }
+
+        const particleCount = 50 * (timeLeft / duration);
+        confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+        confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+      }, 250);
+
+      return () => clearInterval(interval);
+    }
+  }, [showSuccess]);
+
   const deliveryOptions = [
-    { id: "postal", label: "Envoi Postal", icon: Mail, description: "Livraison discrete sous 48h", emoji: "📦" },
-    { id: "meetup", label: "Meet-up", icon: Users, description: "Remise en main propre", emoji: "🤝" },
-    { id: "delivery", label: "Livraison", icon: Truck, description: "Livraison express en 2h", emoji: "🚀" },
+    { id: "postal", label: "Envoi Postal", icon: Package, description: "Livraison discrète sous 48h", emoji: "📦" },
+    { id: "meetup", label: "Meet-up", icon: Handshake, description: "Remise en main propre", emoji: "🤝" },
+    { id: "delivery", label: "Livraison", icon: Zap, description: "Livraison express en 2h", emoji: "🚀" },
   ];
 
   const goTo = (nextStep: CheckoutStep) => {
@@ -109,7 +135,7 @@ export default function Cart() {
       if (data.valid) {
         setAppliedPromo({ code: data.code, discountPercent: data.discountPercent });
         setPromoCode("");
-        toast({ title: "Code applique", description: `Reduction de ${data.discountPercent}% active` });
+        toast({ title: "Code appliqué", description: `Réduction de ${data.discountPercent}% active` });
       } else {
         setPromoError(data.message || "Code invalide");
       }
@@ -152,7 +178,7 @@ export default function Cart() {
       setConfirmedOrderCode(data.orderCode);
       setShowSuccess(true);
     } catch {
-      toast({ title: "Erreur", description: "Un probleme est survenu. Veuillez reessayer.", variant: "destructive" });
+      toast({ title: "Erreur", description: "Un problème est survenu. Veuillez réessayer.", variant: "destructive" });
     } finally { setIsSubmitting(false); }
   };
 
@@ -197,9 +223,9 @@ export default function Cart() {
             <Check className="w-14 h-14 text-primary relative z-10" />
           </div>
 
-          <h1 className="text-4xl font-black mb-3">Commande envoyee !</h1>
+          <h1 className="text-4xl font-black mb-3">Commande envoyée !</h1>
           <p className="text-muted-foreground mb-8 max-w-xs">
-            Votre commande a ete transmise. Un membre de notre equipe vous contactera bientot.
+            Votre commande a été transmise. Un membre de notre équipe vous contactera bientôt.
           </p>
 
           <div className="glass-panel rounded-2xl p-6 mb-8 w-full max-w-xs">
@@ -259,7 +285,7 @@ export default function Cart() {
                 {step === 'delivery' ? 'Mode de livraison' : step === 'address' ? 'Adresse' : 'Confirmation'}
               </h1>
               <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">
-                Etape {stepIndex} sur 3
+                Étape {stepIndex} sur 3
               </p>
             </div>
           </div>
@@ -316,9 +342,9 @@ export default function Cart() {
                   <div className="absolute top-0 right-0 w-3 h-3 bg-primary rounded-full animate-pulse" />
                 </div>
                 <h2 className="text-2xl font-bold mb-3">Votre panier est vide</h2>
-                <p className="text-muted-foreground mb-8 text-sm max-w-xs">Explorez notre menu premium et ajoutez vos produits preferes.</p>
+                <p className="text-muted-foreground mb-8 text-sm max-w-xs">Explorez notre menu premium et ajoutez vos produits préférés.</p>
                 <Link href="/menu" className="bg-primary text-primary-foreground px-8 py-4 rounded-2xl font-bold shadow-[0_0_30px_-5px_rgba(34,197,94,0.4)] hover:bg-primary/90 transition-all active:scale-95 flex items-center gap-2">
-                  Decouvrir le menu <ArrowRight className="w-4 h-4" />
+                  Découvrir le menu <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
             ) : (
@@ -644,7 +670,10 @@ export default function Cart() {
             className="p-4 pb-32 relative z-10 space-y-4"
           >
             <div className="glass-panel rounded-2xl p-5 space-y-4">
-              <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Recapitulatif</h3>
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Articles</h3>
+              </div>
 
               {items?.map(item => (
                 <div key={item.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
@@ -665,7 +694,10 @@ export default function Cart() {
             </div>
 
             <div className="glass-panel rounded-2xl p-5 space-y-3">
-              <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Livraison</h3>
+              <div className="flex items-center gap-2 mb-1">
+                <Truck className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Livraison</h3>
+              </div>
               <div className="flex items-center gap-3">
                 <span className="text-lg">{deliveryOptions.find(d => d.id === selectedDelivery)?.emoji}</span>
                 <div>
@@ -673,13 +705,17 @@ export default function Cart() {
                   <p className="text-xs text-muted-foreground">{address}, {postalCode} {city}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="w-4 h-4" />
+              <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1 border-t border-white/5">
+                <Clock className="w-4 h-4 text-primary" />
                 <span>Creneau : <strong className="text-foreground">{deliveryTime}</strong></span>
               </div>
             </div>
 
             <div className="glass-panel rounded-2xl p-5 space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Tag className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Paiement</h3>
+              </div>
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Sous-total</span>
                 <span>{formatPrice(subtotal)}</span>

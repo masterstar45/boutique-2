@@ -25,10 +25,10 @@ function formatPrice(cents: number): string {
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   pending: { label: "En attente", color: "text-amber-500 bg-amber-500/10", icon: Clock },
-  sent: { label: "Envoyee", color: "text-blue-500 bg-blue-500/10", icon: Loader2 },
+  sent: { label: "Envoyée", color: "text-blue-500 bg-blue-500/10", icon: Loader2 },
   processing: { label: "En cours", color: "text-blue-500 bg-blue-500/10", icon: Loader2 },
-  completed: { label: "Terminee", color: "text-green-500 bg-green-500/10", icon: CheckCircle },
-  cancelled: { label: "Annulee", color: "text-red-500 bg-red-500/10", icon: XCircle },
+  completed: { label: "Terminée", color: "text-green-500 bg-green-500/10", icon: CheckCircle },
+  cancelled: { label: "Annulée", color: "text-red-500 bg-red-500/10", icon: XCircle },
 };
 
 const defaultProductForm = {
@@ -143,7 +143,7 @@ function ProductFormDialog({
           </div>
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Categorie *</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Catégorie *</label>
               <input
                 type="text"
                 value={form.category}
@@ -210,7 +210,7 @@ function ProductFormDialog({
             )}
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Video du produit</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Vidéo du produit</label>
             <input
               ref={videoInputRef}
               type="file"

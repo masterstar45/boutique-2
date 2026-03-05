@@ -17,7 +17,7 @@ export async function sendClientConfirmation(
     return;
   }
   try {
-    const confirmationMessage = `✅ Commande <code>${orderCode}</code> confirmee!\n\n${orderMessage}\n\nMerci pour votre commande! Un admin vous contactera bientot.`;
+    const confirmationMessage = `✅ Commande <code>${orderCode}</code> confirmée !\n\n${orderMessage}\n\nMerci pour votre commande ! Un admin vous contactera bientôt.`;
     await botInstance.sendMessage(parseInt(chatId), confirmationMessage, {
       parse_mode: "HTML",
     });
@@ -282,17 +282,17 @@ export function setupBot() {
         [{ text: "📦 Voir les produits", callback_data: "menu_products" }],
         [{ text: "➕ Ajouter un produit", callback_data: "menu_add" }],
         [{ text: "📋 Voir les commandes", callback_data: "menu_orders" }],
-        [{ text: "⭐ Gerer les avis", callback_data: "menu_reviews" }],
+        [{ text: "⭐ Gérer les avis", callback_data: "menu_reviews" }],
         [{ text: "🏷️ Codes Promo", callback_data: "menu_promo_codes" }],
-        [{ text: "🎯 Fidelite", callback_data: "menu_loyalty" }],
+        [{ text: "🎯 Fidélité", callback_data: "menu_loyalty" }],
         [{ text: "🔐 Mots de passe", callback_data: "menu_passwords" }],
         [{ text: "🖼️ Photo de bienvenue", callback_data: "menu_start_photo" }],
         [{ text: "👤 Utilisateurs", callback_data: "menu_users" }],
         [{ text: "🔘 Boutons Client", callback_data: "menu_client_buttons" }],
         [{ text: "📢 Envoyer une Promo", callback_data: "menu_promo" }],
         [{ text: "📊 Statistiques", callback_data: "menu_stats" }],
-        [{ text: "🎨 Theme du fond", callback_data: "menu_theme" }],
-        [{ text: "👥 Gerer les admins", callback_data: "menu_admins" }],
+        [{ text: "🎨 Thème du fond", callback_data: "menu_theme" }],
+        [{ text: "👥 Gérer les admins", callback_data: "menu_admins" }],
       ],
     };
 
@@ -321,8 +321,8 @@ export function setupBot() {
     let text = "👤 Gestion des utilisateurs\n\n";
     text += `📊 Statistiques:\n`;
     text += `• Total: ${users.length} utilisateur(s)\n`;
-    text += `• Actifs (deverrouilles): ${unlockedCount}\n`;
-    text += `• Bloques (verrouilles): ${lockedCount}\n`;
+    text += `• Actifs (déverrouillés): ${unlockedCount}\n`;
+    text += `• Bloqués (verrouillés): ${lockedCount}\n`;
 
     const buttons: TelegramBot.InlineKeyboardButton[][] = [
       [{ text: "📋 Liste des utilisateurs", callback_data: "users_list" }],
@@ -348,7 +348,7 @@ export function setupBot() {
     }
     if (lockedCount > 0) {
       buttons.push([
-        { text: "✅ Deverrouiller TOUS", callback_data: "users_unlock_all" },
+        { text: "✅ Déverrouiller TOUS", callback_data: "users_unlock_all" },
       ]);
     }
 
@@ -417,7 +417,7 @@ export function setupBot() {
     const navRow: TelegramBot.InlineKeyboardButton[] = [];
     if (page > 0) {
       navRow.push({
-        text: "⬅️ Precedent",
+        text: "⬅️ Précédent",
         callback_data: `users_page_${page - 1}`,
       });
     }
@@ -495,7 +495,7 @@ export function setupBot() {
     } else {
       buttons.push([
         {
-          text: "✅ Deverrouiller",
+          text: "✅ Déverrouiller",
           callback_data: `user_unlock_${user.chatId}`,
         },
       ]);
@@ -587,7 +587,7 @@ export function setupBot() {
           [{ text: "🔙 Retour", callback_data: "menu_admins" }],
         ],
       };
-      const text = "Aucun admin a supprimer.";
+      const text = "Aucun admin à supprimer.";
 
       if (messageId) {
         bot
@@ -614,7 +614,7 @@ export function setupBot() {
 
     buttons.push([{ text: "🔙 Retour", callback_data: "menu_admins" }]);
 
-    const text = "👥 Selectionnez l'admin a supprimer:";
+    const text = "👥 Sélectionnez l'admin à supprimer:";
     const keyboard = { inline_keyboard: buttons };
 
     if (messageId) {
@@ -635,10 +635,10 @@ export function setupBot() {
     const buttons = await storage.getClientButtons();
 
     let text = "🔘 Gestion des boutons clients\n\n";
-    text += "Ces boutons apparaitront dans le menu principal des clients.\n\n";
+    text += "Ces boutons apparaîtront dans le menu principal des clients.\n\n";
 
     if (buttons.length === 0) {
-      text += "Aucun bouton configure.";
+      text += "Aucun bouton configuré.";
     } else {
       text += "Boutons actuels:\n";
       buttons.forEach((btn, i) => {
@@ -715,7 +715,7 @@ export function setupBot() {
       { text: "🔙 Retour", callback_data: "menu_client_buttons" },
     ]);
 
-    const text = "🔘 Selectionnez un bouton a modifier:";
+    const text = "🔘 Sélectionnez un bouton à modifier:";
 
     if (messageId) {
       bot
@@ -757,10 +757,10 @@ export function setupBot() {
     }
 
     const status = button.active ? "✅ Actif" : "❌ Inactif";
-    let text = `🔘 Details du bouton\n\n`;
+    let text = `🔘 Détails du bouton\n\n`;
     text += `📝 Label: ${button.label}\n`;
-    text += `🔗 URL: ${button.url || "Non defini"}\n`;
-    text += `⚙️ Action: ${button.action || "Non defini"}\n`;
+    text += `🔗 URL: ${button.url || "Non défini"}\n`;
+    text += `⚙️ Action: ${button.action || "Non défini"}\n`;
     text += `📊 Position: ${button.position}\n`;
     text += `📊 Statut: ${status}\n`;
 
@@ -768,7 +768,7 @@ export function setupBot() {
 
     if (button.active) {
       keyboard.push([
-        { text: "❌ Desactiver", callback_data: `btn_toggle_${button.id}_0` },
+        { text: "❌ Désactiver", callback_data: `btn_toggle_${button.id}_0` },
       ]);
     } else {
       keyboard.push([
@@ -1126,7 +1126,7 @@ export function setupBot() {
     // Navigation
     const navRow: TelegramBot.InlineKeyboardButton[] = [];
     if (page > 0) {
-      navRow.push({ text: "⬅️ Precedent", callback_data: `page_${page - 1}` });
+      navRow.push({ text: "⬅️ Précédent", callback_data: `page_${page - 1}` });
     }
     if (page < totalPages - 1) {
       navRow.push({ text: "➡️ Suivant", callback_data: `page_${page + 1}` });
@@ -1135,7 +1135,7 @@ export function setupBot() {
 
     buttons.push([{ text: "🔙 Retour au menu", callback_data: "menu_main" }]);
 
-    const text = `📦 Produits (${products.length} total) - Page ${page + 1}/${totalPages}\n\nSelectionnez un produit:`;
+    const text = `📦 Produits (${products.length} total) - Page ${page + 1}/${totalPages}\n\nSélectionnez un produit:`;
     const keyboard = { inline_keyboard: buttons };
 
     if (messageId) {
@@ -1178,8 +1178,8 @@ export function setupBot() {
       `📦 Produit #${product.id}\n\n` +
       `📝 Nom: ${product.name}\n` +
       `🏷️ Marque: ${product.brand}\n` +
-      `📁 Categorie: ${product.category}\n` +
-      `📊 Stock: ${product.stock || "Non defini"}\n` +
+      `📁 Catégorie: ${product.category}\n` +
+      `📊 Stock: ${product.stock || "Non défini"}\n` +
       `📄 Description: ${product.description}\n\n` +
       `⚖️ Options de prix:\n${priceOptionsText}`;
 
@@ -1194,7 +1194,7 @@ export function setupBot() {
         ],
         [
           {
-            text: "📁 Modifier categorie",
+            text: "📁 Modifier catégorie",
             callback_data: `edit_category_${productId}`,
           },
         ],
@@ -1264,7 +1264,7 @@ export function setupBot() {
 
     let text = `⚖️ Gestion des options de prix\n📦 ${product.name}\n\n`;
     if (priceOptions.length === 0) {
-      text += "Aucune option de prix configuree.";
+      text += "Aucune option de prix configurée.";
     } else {
       text += "Options actuelles:\n";
       priceOptions.forEach((opt, i) => {
@@ -1328,11 +1328,11 @@ export function setupBot() {
     let text =
       `📊 Statistiques PharmacyHash\n\n` +
       `📦 Produits: ${products.length}\n` +
-      `📁 Categories: ${categories.length} (${categories.slice(0, 3).join(", ")}${categories.length > 3 ? "..." : ""})\n\n` +
+      `📁 Catégories: ${categories.length} (${categories.slice(0, 3).join(", ")}${categories.length > 3 ? "..." : ""})\n\n` +
       `📋 Commandes:\n` +
       `   ⏳ En attente: ${pendingCount}\n` +
-      `   📤 Envoyees: ${sentCount}\n` +
-      `   ✅ Terminees: ${completedCount}\n` +
+      `   📤 Envoyées: ${sentCount}\n` +
+      `   ✅ Terminées: ${completedCount}\n` +
       `   📊 Total: ${totalOrders}\n`;
 
     if (recentStats.length > 0) {
@@ -1661,9 +1661,9 @@ export function setupBot() {
 
     const presetInfo = themePresets[currentPreset] || themePresets.emerald;
 
-    let text = "🎨 <b>Theme du fond anime</b>\n\n";
-    text += `Theme actuel: ${presetInfo.emoji} <b>${presetInfo.label}</b>\n`;
-    text += `Intensite: <b>${opacityPct}%</b>\n`;
+    let text = "🎨 <b>Thème du fond animé</b>\n\n";
+    text += `Thème actuel: ${presetInfo.emoji} <b>${presetInfo.label}</b>\n`;
+    text += `Intensité: <b>${opacityPct}%</b>\n`;
     text += `Vitesse: <b>${speedVal}s</b>\n\n`;
     text += "Choisissez un preset:";
 
@@ -1685,7 +1685,7 @@ export function setupBot() {
     }
 
     buttons.push([
-      { text: `🔅 Intensite (${opacityPct}%)`, callback_data: "theme_intensity" },
+      { text: `🔅 Intensité (${opacityPct}%)`, callback_data: "theme_intensity" },
     ]);
     buttons.push([
       { text: `⏱️ Vitesse (${speedVal}s)`, callback_data: "theme_speed" },
@@ -1710,7 +1710,7 @@ export function setupBot() {
     const currentOpacity = await storage.getBotSetting("bg_opacity");
     const opacityPct = currentOpacity ? Math.round(parseFloat(currentOpacity) * 100) : 18;
 
-    let text = "🔅 <b>Intensite du fond</b>\n\n";
+    let text = "🔅 <b>Intensité du fond</b>\n\n";
     text += `Valeur actuelle: <b>${opacityPct}%</b>\n\n`;
     text += "Choisissez une intensite:";
 
@@ -2017,7 +2017,7 @@ export function setupBot() {
     const chatId = msg.chat.id;
 
     if (!(await isAdmin(chatId))) {
-      bot.sendMessage(chatId, "Acces refuse.");
+      bot.sendMessage(chatId, "Accès refusé.");
       return;
     }
 
@@ -2031,7 +2031,7 @@ export function setupBot() {
     if (!(await isAdmin(chatId))) return;
 
     resetSession(chatId);
-    bot.sendMessage(chatId, "Operation annulee.");
+    bot.sendMessage(chatId, "Opération annulée.");
     sendMainMenu(chatId);
   });
 
@@ -2043,7 +2043,7 @@ export function setupBot() {
 
     if (!chatId || !data) return;
     if (!(await isAdmin(chatId))) {
-      bot.answerCallbackQuery(query.id, { text: "Acces refuse" });
+      bot.answerCallbackQuery(query.id, { text: "Accès refusé" });
       return;
     }
 
@@ -2162,7 +2162,7 @@ export function setupBot() {
     if (data.startsWith("btn_delete_")) {
       const buttonId = parseInt(data.replace("btn_delete_", ""));
       await storage.deleteClientButton(buttonId);
-      bot.answerCallbackQuery(query.id, { text: "Bouton supprime!" });
+      bot.answerCallbackQuery(query.id, { text: "Bouton supprimé !" });
       sendClientButtonsMenu(chatId, messageId);
       return;
     }
@@ -2773,7 +2773,7 @@ export function setupBot() {
       session.newProduct = {};
       bot
         .editMessageText(
-          "Ajout d'un nouveau produit\n\nEtape 1/5: Entrez le nom du produit:",
+          "Ajout d'un nouveau produit\n\nÉtape 1/5: Entrez le nom du produit:",
           { chat_id: chatId, message_id: messageId },
         )
         .catch(() => {});
@@ -2813,7 +2813,7 @@ export function setupBot() {
         brand: "marque",
         description: "description",
         price: "prix (en centimes, ex: 5000 pour 50EUR)",
-        category: "categorie",
+        category: "catégorie",
       };
 
       bot
@@ -3037,7 +3037,7 @@ export function setupBot() {
       if (pwd) {
         await storage.toggleAccessPassword(pwdId, !pwd.active);
         bot.answerCallbackQuery(query.id, {
-          text: pwd.active ? "Desactive" : "Active",
+          text: pwd.active ? "Désactivé" : "Activé",
         });
       }
       await sendPasswordMenu(chatId, messageId);
@@ -3055,7 +3055,7 @@ export function setupBot() {
     if (data === "cancel_password") {
       resetSession(chatId);
       bot
-        .editMessageText("Operation annulee.", {
+        .editMessageText("Opération annulée.", {
           chat_id: chatId,
           message_id: messageId,
         })
@@ -3068,8 +3068,8 @@ export function setupBot() {
       const currentPhoto = await storage.getBotSetting("start_photo_file_id");
       let text = "🖼️ Photo de bienvenue\n\n";
       text += currentPhoto
-        ? "Une photo personnalisee est configuree.\n"
-        : "Aucune photo personnalisee. La photo par defaut sera utilisee.\n";
+        ? "Une photo personnalisée est configurée.\n"
+        : "Aucune photo personnalisée. La photo par défaut sera utilisée.\n";
       text += "\nEnvoyez une nouvelle photo pour la changer.";
 
       session.state = "awaiting_start_photo";
@@ -3078,7 +3078,7 @@ export function setupBot() {
       if (currentPhoto) {
         buttons.push([
           {
-            text: "🗑️ Supprimer la photo personnalisee",
+            text: "🗑️ Supprimer la photo personnalisée",
             callback_data: "start_photo_delete",
           },
         ]);
@@ -3223,7 +3223,7 @@ export function setupBot() {
     if (data.startsWith("user_delete_")) {
       const userChatId = data.replace("user_delete_", "");
       await storage.deleteBotUser(userChatId);
-      bot.answerCallbackQuery(query.id, { text: "Utilisateur supprime" });
+      bot.answerCallbackQuery(query.id, { text: "Utilisateur supprimé" });
       await sendUsersList(chatId, messageId, 0);
       return;
     }
@@ -3240,7 +3240,7 @@ export function setupBot() {
     if (data === "users_unlock_all") {
       await storage.unlockAllUsers();
       bot.answerCallbackQuery(query.id, {
-        text: "Tous les utilisateurs deverrouilles",
+        text: "Tous les utilisateurs déverrouillés",
       });
       await sendUsersMenu(chatId, messageId);
       return;
@@ -3414,7 +3414,7 @@ export function setupBot() {
           }
         }
       } else {
-        bot.sendMessage(chatId, "Mot de passe incorrect. Veuillez reessayer:");
+        bot.sendMessage(chatId, "Mot de passe incorrect. Veuillez réessayer:");
       }
       return;
     }
@@ -3427,7 +3427,7 @@ export function setupBot() {
       const adminTelegramId = text.trim();
 
       if (!/^\d+$/.test(adminTelegramId)) {
-        bot.sendMessage(chatId, "ID invalide. Entrez un ID numerique valide:");
+        bot.sendMessage(chatId, "ID invalide. Entrez un ID numérique valide:");
         return;
       }
 
@@ -3445,7 +3445,7 @@ export function setupBot() {
       }
 
       if (isEnvAdmin(parseInt(adminTelegramId))) {
-        bot.sendMessage(chatId, "Cet ID est deja un admin principal (env).", {
+        bot.sendMessage(chatId, "Cet ID est déjà un admin principal (env).", {
           reply_markup: {
             inline_keyboard: [
               [{ text: "Retour", callback_data: "menu_admins" }],
@@ -3623,7 +3623,7 @@ export function setupBot() {
 
       const displayName =
         customerName || (customerUsername ? `@${customerUsername}` : "Client");
-      const reviewMessage = `Nouvel avis de ${displayName}\n\n"${text}"\n\nApprouver pour afficher sur le site?`;
+      const reviewMessage = `Nouvel avis de ${displayName}\n\n"${text}"\n\nApprouver pour afficher sur le site ?`;
 
       for (const aid of Array.from(allAdminIds)) {
         try {
@@ -3652,7 +3652,7 @@ export function setupBot() {
       resetSession(chatId);
       bot.sendMessage(
         chatId,
-        "Merci pour votre avis! Notre equipe va le valider.",
+        "Merci pour votre avis! Notre équipe va le valider.",
         {
           reply_markup: {
             inline_keyboard: [
@@ -3751,7 +3751,7 @@ export function setupBot() {
     if (session.state === "awaiting_loyalty_search") {
       const targetChatId = text.trim();
       if (!/^\d+$/.test(targetChatId)) {
-        bot.sendMessage(chatId, "ID invalide. Entrez un ID numerique:");
+        bot.sendMessage(chatId, "ID invalide. Entrez un ID numérique:");
         return;
       }
       resetSession(chatId);
@@ -3903,7 +3903,7 @@ export function setupBot() {
     if (session.state === "awaiting_name") {
       session.newProduct!.name = text;
       session.state = "awaiting_brand";
-      bot.sendMessage(chatId, `Nom: ${text}\n\nEtape 2/5: Entrez la marque:`);
+      bot.sendMessage(chatId, `Nom: ${text}\n\nÉtape 2/5: Entrez la marque:`);
       return;
     }
 
@@ -3912,7 +3912,7 @@ export function setupBot() {
       session.state = "awaiting_description";
       bot.sendMessage(
         chatId,
-        `Marque: ${text}\n\nEtape 3/5: Entrez la description:`,
+        `Marque: ${text}\n\nÉtape 3/5: Entrez la description:`,
       );
       return;
     }
@@ -3922,7 +3922,7 @@ export function setupBot() {
       session.state = "awaiting_category";
       bot.sendMessage(
         chatId,
-        `Description enregistree.\n\nEtape 4/4: Entrez la categorie:`,
+        `Description enregistrée.\n\nÉtape 4/4: Entrez la catégorie:`,
       );
       return;
     }
@@ -3999,7 +3999,7 @@ export function setupBot() {
         const productId = session.editingProductId;
         resetSession(chatId);
 
-        bot.sendMessage(chatId, "Modification enregistree!", {
+        bot.sendMessage(chatId, "Modification enregistrée!", {
           reply_markup: {
             inline_keyboard: [
               [
@@ -4057,7 +4057,7 @@ export function setupBot() {
         const productId = session.editingProductId;
         resetSession(chatId);
 
-        bot.sendMessage(chatId, `Option ajoutee: ${price}€ ${weight}`, {
+        bot.sendMessage(chatId, `Option ajoutée: ${price}€ ${weight}`, {
           reply_markup: {
             inline_keyboard: [
               [
@@ -4117,7 +4117,7 @@ export function setupBot() {
     if (session.state === "awaiting_user_search") {
       const searchId = text.trim();
       if (!/^\d+$/.test(searchId)) {
-        bot.sendMessage(chatId, "ID invalide. Entrez un ID numerique:");
+        bot.sendMessage(chatId, "ID invalide. Entrez un ID numérique:");
         return;
       }
 
@@ -4142,7 +4142,7 @@ export function setupBot() {
     if (session.state === "awaiting_user_msg_id") {
       const targetId = text.trim();
       if (!/^\d+$/.test(targetId)) {
-        bot.sendMessage(chatId, "ID invalide. Entrez un ID numerique:");
+        bot.sendMessage(chatId, "ID invalide. Entrez un ID numérique:");
         return;
       }
 

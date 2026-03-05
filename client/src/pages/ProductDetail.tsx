@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useRoute } from "wouter";
-import { ArrowLeft, MoreVertical, ChevronDown, X, Minus, Plus, ShoppingBag, Leaf, Star, Play } from "lucide-react";
+import { ArrowLeft, MoreVertical, ChevronDown, X, Minus, Plus, ShoppingBag, Leaf, Star, Play, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@shared/routes";
 import type { Product } from "@shared/schema";
 import { motion, AnimatePresence } from "framer-motion";
+import { ProductCard } from "@/components/ProductCard";
 
 function getSessionId(): string {
   let sessionId = localStorage.getItem("cart_session_id");
@@ -32,6 +33,12 @@ export default function ProductDetail() {
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ["/api/products", productId],
     enabled: !!productId,
+  });
+
+  const { data: similarProducts } = useQuery<Product[]>({
+    queryKey: ["/api/products", { category: product?.category }],
+    enabled: !!product?.category,
+    select: (products) => products.filter(p => p.id !== product?.id).slice(0, 4),
   });
 
   const addToCart = useMutation({
@@ -191,6 +198,47 @@ export default function ProductDetail() {
               {product.description}
             </p>
           </div>
+
+          {priceOptions && priceOptions.length > 0 && (
+            <div className="mt-10">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Options de poids
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {priceOptions.map((option, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleOptionClick(option)}
+                    className="relative overflow-hidden group flex flex-col p-4 rounded-2xl border border-white/10 bg-white/5 hover:border-primary/50 transition-all duration-300"
+                    data-testid={`option-card-${index}`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-lg font-black text-foreground">{option.weight}</span>
+                      <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Plus className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="mt-auto">
+                      <span className="text-primary font-bold">{option.price}€</span>
+                    </div>
+                    <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {similarProducts && similarProducts.length > 0 && (
+            <div className="mt-12">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-6">Produits similaires</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {similarProducts.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
 

@@ -7,17 +7,24 @@ interface ProductCardProps {
   product: Product;
 }
 
+const tagColors: Record<string, string> = {
+  indica: "bg-purple-500/20 text-purple-400",
+  sativa: "bg-amber-500/20 text-amber-400",
+  hybrid: "bg-emerald-500/20 text-emerald-400",
+  cbd: "bg-blue-500/20 text-blue-400",
+  premium: "bg-yellow-500/20 text-yellow-400",
+};
+
 export function ProductCard({ product }: ProductCardProps) {
   const [, navigate] = useLocation();
 
   const priceOptions = (product.priceOptions || []) as { price: number; weight: string }[];
+  const tags = (product.tags || []) as string[];
 
-  let priceDisplay = "";
+  let minPrice = 0;
   if (priceOptions.length > 0) {
     const prices = priceOptions.map(o => o.price);
-    const min = Math.min(...prices);
-    const max = Math.max(...prices);
-    priceDisplay = min === max ? `${min}€` : `${min}€ - ${max}€`;
+    minPrice = Math.min(...prices);
   }
 
   return (
@@ -26,7 +33,7 @@ export function ProductCard({ product }: ProductCardProps) {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4 }}
       onClick={() => navigate(`/product/${product.id}`)}
-      className="group flex flex-col glass-panel rounded-[1.5rem] overflow-hidden cursor-pointer"
+      className="group flex flex-col glass-panel shine-effect rounded-[1.5rem] overflow-hidden cursor-pointer"
       data-testid={`card-product-${product.id}`}
     >
       <div className="relative aspect-square w-full overflow-hidden bg-white/5">
@@ -59,23 +66,39 @@ export function ProductCard({ product }: ProductCardProps) {
           <p className="text-[11px] font-medium text-primary tracking-wider uppercase mb-1">{product.brand}</p>
           <h3 className="text-sm font-bold text-foreground leading-tight line-clamp-2">{product.name}</h3>
         </div>
+
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag}
+                className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${tagColors[tag.toLowerCase()] || "bg-white/10 text-white/60"}`}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
         
         <div className="mt-auto pt-3 flex items-center justify-between border-t border-white/5">
           <div className="flex flex-col">
-            {priceDisplay ? (
-              <span className="text-sm font-extrabold text-foreground" data-testid={`text-price-${product.id}`}>{priceDisplay}</span>
+            {minPrice > 0 ? (
+              <div className="flex items-baseline gap-1" data-testid={`text-price-${product.id}`}>
+                <span className="text-[10px] text-muted-foreground font-medium">Dès</span>
+                <span className="text-sm font-extrabold text-foreground">{minPrice}€</span>
+              </div>
             ) : (
               <span className="text-xs font-medium text-muted-foreground">Voir options</span>
             )}
             {product.stock && (
               <span className="text-[10px] text-muted-foreground flex items-center mt-0.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mr-1.5 shadow-[0_0_5px_rgba(34,197,94,0.8)]" />
-                {product.stock} dispo
+                {product.stock}
               </span>
             )}
           </div>
           
-          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-active:scale-95 shadow-sm">
+          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-[0_0_15px_rgba(34,197,94,0.4)] group-active:scale-95 shadow-sm">
             <Plus className="w-5 h-5" />
           </div>
         </div>

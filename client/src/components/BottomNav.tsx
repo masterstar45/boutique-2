@@ -24,8 +24,19 @@ export function BottomNav() {
   if (hiddenRoutes.includes(location)) return null;
   if (hiddenPrefixes.some(prefix => location.startsWith(prefix))) return null;
 
+  const handleNavClick = () => {
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+    }
+  };
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 pb-safe pointer-events-none">
+    <motion.nav 
+      initial={{ y: 100, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="fixed bottom-0 left-0 right-0 z-50 pb-safe pointer-events-none"
+    >
       <div className="mx-4 mb-4 pointer-events-auto">
         <div className="glass-panel rounded-[2rem] p-2 flex items-center justify-between shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]">
           {links.map((link) => {
@@ -33,7 +44,12 @@ export function BottomNav() {
             const Icon = link.icon;
             
             return (
-              <Link key={link.href} href={link.href} className="relative flex-1 flex flex-col items-center justify-center h-14 group">
+              <Link 
+                key={link.href} 
+                href={link.href} 
+                className="relative flex-1 flex flex-col items-center justify-center h-14 group"
+                onClick={handleNavClick}
+              >
                 <div className="relative z-10 flex flex-col items-center justify-center transition-transform duration-300 group-active:scale-90">
                   <div className={cn(
                     "p-2 rounded-xl transition-all duration-300 relative",
@@ -63,15 +79,17 @@ export function BottomNav() {
                 {isActive && (
                   <motion.div
                     layoutId="bottom-nav-indicator"
-                    className="absolute inset-0 bg-primary/10 rounded-2xl z-0"
+                    className="absolute inset-0 bg-primary/10 rounded-2xl z-0 overflow-hidden"
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
+                  >
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary/40 blur-md rounded-full" />
+                  </motion.div>
                 )}
               </Link>
             );
           })}
         </div>
       </div>
-    </nav>
+    </motion.nav>
   );
 }

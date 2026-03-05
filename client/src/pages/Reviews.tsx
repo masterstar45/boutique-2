@@ -84,7 +84,7 @@ export default function Reviews() {
               <Star className="w-8 h-8 text-muted-foreground opacity-50" />
             </div>
             <h3 className="text-lg font-bold mb-2">Aucun avis</h3>
-            <p className="text-sm text-muted-foreground">Soyez le premier a partager votre experience!</p>
+            <p className="text-sm text-muted-foreground">Soyez le premier à partager votre expérience !</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -149,7 +149,7 @@ export default function Reviews() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold">Votre avis</h2>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mt-0.5">Partagez votre experience</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mt-0.5">Partagez votre expérience</p>
                 </div>
                 <button 
                   onClick={() => setShowForm(false)}
@@ -164,7 +164,7 @@ export default function Reviews() {
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value.slice(0, 1000))}
-                  placeholder="Partagez votre experience..."
+                  placeholder="Partagez votre expérience..."
                   className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm min-h-[150px] resize-none focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-muted-foreground"
                   data-testid="input-review-message"
                 />
