@@ -140,7 +140,7 @@ export default function Account() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center">
         <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin mb-4" />
         <p className="text-muted-foreground font-medium">Chargement du compte...</p>
       </div>
@@ -148,8 +148,7 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-screen pb-28 bg-background relative">
-      <div className="animated-bg" />
+    <div className="min-h-screen pb-28 relative">
       
       <header className="sticky top-0 z-40 bg-background/60 backdrop-blur-2xl border-b border-white/5 pt-safe px-4 py-4 flex items-center justify-between">
         <div>

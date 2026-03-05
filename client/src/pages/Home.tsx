@@ -6,8 +6,7 @@ import logoImage from "@assets/pharmacy-hash-logo.png";
 
 export default function Home() {
   return (
-    <div className="relative min-h-screen flex flex-col text-white overflow-hidden bg-background">
-      <div className="animated-bg" />
+    <div className="relative min-h-screen flex flex-col text-white overflow-hidden">
       
       {/* Background Image with elegant overlay */}
       <div 

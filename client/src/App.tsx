@@ -102,6 +102,12 @@ function App() {
             backgroundRepeat: 'no-repeat'
           }}
         />
+        <div className="animated-bg">
+          <div className="animated-bg-orb animated-bg-orb-1" />
+          <div className="animated-bg-orb animated-bg-orb-2" />
+          <div className="animated-bg-orb animated-bg-orb-3" />
+          <div className="animated-bg-particles" />
+        </div>
         <div className="relative z-10 bg-transparent min-h-screen text-foreground font-body antialiased">
           <Router />
           <BottomNav />

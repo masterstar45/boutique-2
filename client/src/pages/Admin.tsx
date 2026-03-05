@@ -598,7 +598,7 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div className="min-h-screen pb-24 bg-background" data-testid="admin-dashboard">
+    <div className="min-h-screen pb-24" data-testid="admin-dashboard">
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-white/5 px-4 py-3 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold font-display text-primary" data-testid="text-admin-title">Admin Panel</h1>

@@ -10,15 +10,14 @@ export default function Menu() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-destructive p-4 text-center bg-background">
+      <div className="min-h-screen flex items-center justify-center text-destructive p-4 text-center">
         Error loading products. Please try again.
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pb-28 bg-background relative">
-      <div className="animated-bg" />
+    <div className="min-h-screen pb-28 relative">
       
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/60 backdrop-blur-2xl border-b border-white/5 pt-safe">

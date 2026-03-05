@@ -158,7 +158,7 @@ export default function Cart() {
     new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(cents / 100);
 
   if (isLoading) return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
     </div>
   );
@@ -167,8 +167,7 @@ export default function Cart() {
 
   if (showSuccess) {
     return (
-      <div className="min-h-screen bg-background relative flex flex-col items-center justify-center p-6">
-        <div className="animated-bg" />
+      <div className="min-h-screen relative flex flex-col items-center justify-center p-6">
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -213,8 +212,7 @@ export default function Cart() {
   const stepIndex = ['cart', 'delivery', 'address', 'confirm'].indexOf(step);
 
   return (
-    <div className="min-h-screen bg-background relative">
-      <div className="animated-bg" />
+    <div className="min-h-screen relative">
 
       {step !== 'cart' && (
         <header className="sticky top-0 z-40 bg-background/60 backdrop-blur-2xl border-b border-white/5 pt-safe">

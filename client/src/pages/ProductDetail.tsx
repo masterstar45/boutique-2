@@ -81,7 +81,7 @@ export default function ProductDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center pb-20">
+      <div className="min-h-screen flex items-center justify-center pb-20">
         <div className="animate-pulse flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
           <div className="text-muted-foreground font-medium">Chargement du produit...</div>
@@ -92,7 +92,7 @@ export default function ProductDetail() {
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center pb-20 p-6">
+      <div className="min-h-screen flex flex-col items-center justify-center pb-20 p-6">
         <div className="w-20 h-20 bg-muted/20 rounded-full flex items-center justify-center mb-4">
           <ShoppingBag className="w-10 h-10 text-muted-foreground" />
         </div>
@@ -106,7 +106,7 @@ export default function ProductDetail() {
   const priceOptions = product.priceOptions as { price: number; weight: string }[] | null;
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-screen pb-32">
       <div className="relative h-[55vh] w-full rounded-b-[2.5rem] overflow-hidden shadow-2xl">
         <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 pt-safe">
           <button

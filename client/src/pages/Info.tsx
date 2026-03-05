@@ -10,8 +10,7 @@ export default function Info() {
   ];
 
   return (
-    <div className="min-h-screen pb-28 bg-background relative">
-      <div className="animated-bg" />
+    <div className="min-h-screen pb-28 relative">
       <header className="sticky top-0 z-40 bg-background/60 backdrop-blur-2xl border-b border-white/5 pt-safe">
         <div className="px-4 py-4 flex items-center justify-between">
           <div>
