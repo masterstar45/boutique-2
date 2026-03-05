@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useCart, useRemoveFromCart, useClearCart, useUpdateCartQuantity } from "@/hooks/use-cart";
 import { queryClient } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, ArrowRight, ArrowLeft, ShoppingBag, Truck, Users, Mail, Minus, Plus, Tag, X, Check, Loader2, Star, Gift, Clock, ShieldCheck, MapPin, ChevronRight, Package, Handshake, Zap } from "lucide-react";
+import { Trash2, ArrowRight, ArrowLeft, ShoppingBag, Truck, Users, Mail, Minus, Plus, Tag, X, Check, Loader2, Star, Gift, Clock, ShieldCheck, MapPin, ChevronRight, Package, Handshake, Zap, Phone, MessageCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -44,8 +44,10 @@ export default function Cart() {
   const [address, setAddress] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
+  const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [adminContact, setAdminContact] = useState<string | null>(null);
   const [loyaltyBalance, setLoyaltyBalance] = useState<LoyaltyBalance | null>(null);
   const [loyaltySettings, setLoyaltySettings] = useState<LoyaltySettings | null>(null);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
@@ -76,6 +78,9 @@ export default function Cart() {
       } catch {}
     }
     fetch('/api/loyalty-settings').then(r => r.json()).then(setLoyaltySettings).catch(() => {});
+    fetch('/api/admin-contact').then(r => r.json()).then(data => {
+      setAdminContact(data.botUsername || data.adminUsername || null);
+    }).catch(() => {});
     if (chatId) {
       fetch(`/api/loyalty/${chatId}`).then(r => r.json()).then(setLoyaltyBalance).catch(() => {});
     } else {
@@ -108,10 +113,29 @@ export default function Cart() {
   }, [showSuccess]);
 
   const deliveryOptions = [
-    { id: "postal", label: "Envoi Postal", icon: Package, description: "Livraison discrète sous 48h", emoji: "📦" },
-    { id: "meetup", label: "Meet-up", icon: Handshake, description: "Remise en main propre", emoji: "🤝" },
-    { id: "delivery", label: "Livraison", icon: Zap, description: "Livraison express en 2h", emoji: "🚀" },
+    { id: "postal", label: "Envoi Postal", icon: Package, description: "Contactez-nous par message", emoji: "📦", redirect: true },
+    { id: "meetup", label: "Meet-up", icon: Handshake, description: "Contactez-nous par message", emoji: "🤝", redirect: true },
+    { id: "delivery", label: "Livraison", icon: Zap, description: "Livraison express en 2h", emoji: "🚀", redirect: false },
   ];
+
+  const openAdminChat = () => {
+    const username = adminContact || 'Pharmacyhash';
+    const tgLink = `https://t.me/${username}`;
+    try {
+      window.Telegram?.WebApp?.openTelegramLink(tgLink);
+    } catch {
+      window.open(tgLink, '_blank');
+    }
+  };
+
+  const handleDeliverySelect = (optionId: string) => {
+    const option = deliveryOptions.find(o => o.id === optionId);
+    if (option?.redirect) {
+      openAdminChat();
+    } else {
+      setSelectedDelivery(optionId);
+    }
+  };
 
   const goTo = (nextStep: CheckoutStep) => {
     const steps: CheckoutStep[] = ['cart', 'delivery', 'address', 'confirm'];
@@ -144,7 +168,7 @@ export default function Cart() {
   };
 
   const submitOrder = async () => {
-    if (!selectedDelivery || !address.trim() || !postalCode.trim() || !city.trim() || !deliveryTime) {
+    if (!selectedDelivery || !address.trim() || !postalCode.trim() || !city.trim() || !phone.trim() || !deliveryTime) {
       toast({ title: "Information manquante", description: "Veuillez remplir tous les champs", variant: "destructive" });
       return;
     }
@@ -164,7 +188,7 @@ export default function Cart() {
           sessionId, deliveryType: selectedDelivery, deliveryTime,
           promoCode: appliedPromo?.code || null,
           address: address.trim(), postalCode: postalCode.trim(), city: city.trim(),
-          notes: notes.trim() || undefined,
+          phone: phone.trim(), notes: notes.trim() || undefined,
           pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : undefined,
           chatId, username, firstName, telegramInitData
         })
@@ -172,7 +196,7 @@ export default function Cart() {
       if (!response.ok) throw new Error('Checkout failed');
       const data = await response.json();
 
-      setAddress(""); setPostalCode(""); setCity(""); setDeliveryTime(""); setNotes("");
+      setAddress(""); setPostalCode(""); setCity(""); setPhone(""); setDeliveryTime(""); setNotes("");
       setPointsToRedeem(0); setShowRedeemInput(false); setAppliedPromo(null);
       queryClient.invalidateQueries({ queryKey: ['/api/cart', sessionId] });
       setConfirmedOrderCode(data.orderCode);
@@ -522,37 +546,50 @@ export default function Cart() {
               {deliveryOptions.map((option, i) => {
                 const Icon = option.icon;
                 const isSelected = selectedDelivery === option.id;
+                const isRedirect = option.redirect;
                 return (
                   <motion.button
                     key={option.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    onClick={() => setSelectedDelivery(option.id)}
+                    onClick={() => handleDeliverySelect(option.id)}
                     className={cn(
                       "w-full p-5 rounded-2xl border-2 transition-all flex items-center gap-4 text-left group",
-                      isSelected
-                        ? "border-primary bg-primary/10 shadow-[0_0_25px_-5px_rgba(34,197,94,0.3)]"
-                        : "border-white/5 glass-panel hover:border-white/20"
+                      isRedirect
+                        ? "border-blue-500/20 glass-panel hover:border-blue-500/40"
+                        : isSelected
+                          ? "border-primary bg-primary/10 shadow-[0_0_25px_-5px_rgba(34,197,94,0.3)]"
+                          : "border-white/5 glass-panel hover:border-white/20"
                     )}
                     data-testid={`button-delivery-${option.id}`}
                   >
                     <div className={cn(
                       "w-14 h-14 rounded-2xl flex items-center justify-center transition-colors text-2xl",
-                      isSelected ? "bg-primary/20" : "bg-white/5"
+                      isRedirect ? "bg-blue-500/20" : isSelected ? "bg-primary/20" : "bg-white/5"
                     )}>
                       {option.emoji}
                     </div>
                     <div className="flex-1">
                       <p className="font-bold text-base">{option.label}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">{option.description}</p>
+                      {isRedirect && (
+                        <div className="flex items-center gap-1 mt-1.5">
+                          <MessageCircle className="w-3 h-3 text-blue-400" />
+                          <span className="text-[10px] text-blue-400 font-medium">Redirige vers Telegram</span>
+                        </div>
+                      )}
                     </div>
-                    <div className={cn(
-                      "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
-                      isSelected ? "border-primary" : "border-white/10"
-                    )}>
-                      {isSelected && <div className="w-3 h-3 bg-primary rounded-full" />}
-                    </div>
+                    {isRedirect ? (
+                      <ArrowRight className="w-5 h-5 text-blue-400" />
+                    ) : (
+                      <div className={cn(
+                        "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
+                        isSelected ? "border-primary" : "border-white/10"
+                      )}>
+                        {isSelected && <div className="w-3 h-3 bg-primary rounded-full" />}
+                      </div>
+                    )}
                   </motion.button>
                 );
               })}
@@ -617,12 +654,27 @@ export default function Cart() {
               </div>
 
               <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Téléphone *</label>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="06 12 34 56 78"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
+                    data-testid="input-phone"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Instructions (optionnel)</label>
                 <input
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Code porte, etage, etc."
+                  placeholder="Code porte, étage, etc."
                   className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
                   data-testid="input-notes"
                 />
@@ -703,6 +755,10 @@ export default function Cart() {
                 <div>
                   <p className="font-bold text-sm">{deliveryOptions.find(d => d.id === selectedDelivery)?.label}</p>
                   <p className="text-xs text-muted-foreground">{address}, {postalCode} {city}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <Phone className="w-3 h-3 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground">{phone}</p>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1 border-t border-white/5">
@@ -775,7 +831,7 @@ export default function Cart() {
         <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-background/80 backdrop-blur-2xl border-t border-white/5 pb-safe">
           <button
             onClick={() => goTo('confirm')}
-            disabled={!address.trim() || !postalCode.trim() || !city.trim() || !deliveryTime}
+            disabled={!address.trim() || !postalCode.trim() || !city.trim() || !phone.trim() || !deliveryTime}
             className="w-full h-14 bg-primary text-primary-foreground rounded-2xl font-bold text-lg shadow-[0_0_30px_-5px_rgba(34,197,94,0.4)] disabled:opacity-40 disabled:shadow-none hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             data-testid="button-next-confirm"
           >

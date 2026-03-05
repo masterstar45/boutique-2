@@ -117,7 +117,7 @@ export async function registerRoutes(
 
   app.post('/api/checkout', async (req, res) => {
     try {
-      let { sessionId, deliveryType, deliveryTime, promoCode, address, postalCode, city, chatId, username, firstName, telegramInitData, pointsToRedeem } = req.body;
+      let { sessionId, deliveryType, deliveryTime, promoCode, address, postalCode, city, phone, chatId, username, firstName, telegramInitData, pointsToRedeem } = req.body;
 
       if (telegramInitData) {
         console.log(`[Checkout] initData received (length=${telegramInitData.length}), current chatId=${chatId || 'NONE'}, username=${username || 'NONE'}`);
@@ -248,6 +248,9 @@ export async function registerRoutes(
       orderMessage += `\n\nAdresse de livraison:`;
       orderMessage += `\n   ${address}`;
       orderMessage += `\n   ${postalCode} ${city}`;
+      if (phone) {
+        orderMessage += `\n   Tél: ${phone}`;
+      }
 
       const orderCode = 'ORD' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
 
@@ -592,6 +595,16 @@ export async function registerRoutes(
     } catch (err) {
       console.error('Error getting admin stats:', err);
       res.status(500).json({ message: 'Failed to get stats' });
+    }
+  });
+
+  app.get('/api/admin-contact', async (_req, res) => {
+    try {
+      const botUsername = await storage.getBotSetting('bot_username');
+      const adminUsername = await storage.getBotSetting('admin_username');
+      res.json({ botUsername: botUsername || null, adminUsername: adminUsername || null });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to get admin contact' });
     }
   });
 
