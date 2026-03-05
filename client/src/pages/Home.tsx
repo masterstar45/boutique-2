@@ -42,8 +42,8 @@ export default function Home() {
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="mb-4 relative"
         >
-          <div className="w-56 h-28 rounded-3xl overflow-hidden border-2 border-primary/30 shadow-[0_0_40px_-10px_rgba(34,197,94,0.5)] relative bg-black/60 p-3">
-            <img src={logoImage} alt="PharmacyHash" className="w-full h-full object-contain" />
+          <div className="w-28 h-28 rounded-3xl overflow-hidden border-2 border-primary/30 shadow-[0_0_40px_-10px_rgba(34,197,94,0.5)] relative">
+            <img src={logoImage} alt="PharmacyHash" className="w-full h-full object-cover" />
           </div>
           <motion.div
             animate={{ opacity: [0.3, 0.6, 0.3] }}
