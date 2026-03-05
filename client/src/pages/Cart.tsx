@@ -3,7 +3,7 @@ import { useCart, useRemoveFromCart, useClearCart, useUpdateCartQuantity } from 
 import { queryClient } from "@/lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trash2, ArrowRight, ArrowLeft, ShoppingBag, Truck, Users, Mail, Minus, Plus, Tag, X, Check, Loader2, Star, Gift, Clock, ShieldCheck, MapPin, ChevronRight } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,6 +26,7 @@ interface LoyaltySettings {
 type CheckoutStep = 'cart' | 'delivery' | 'address' | 'confirm';
 
 export default function Cart() {
+  const [, navigate] = useLocation();
   const { data: items, isLoading } = useCart();
   const removeItem = useRemoveFromCart();
   const clearCart = useClearCart();
@@ -111,7 +112,11 @@ export default function Cart() {
     setIsSubmitting(true);
     try {
       const sessionId = localStorage.getItem('cart_session_id');
-      const chatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString();
+      const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      const chatId = tgUser?.id?.toString() || undefined;
+      const username = tgUser?.username || undefined;
+      const firstName = tgUser?.first_name || undefined;
+      console.log('[Checkout] Telegram user data:', { chatId, username, firstName, raw: tgUser });
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -121,7 +126,7 @@ export default function Cart() {
           address: address.trim(), postalCode: postalCode.trim(), city: city.trim(),
           notes: notes.trim() || undefined,
           pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : undefined,
-          chatId: chatId || undefined
+          chatId, username, firstName
         })
       });
       if (!response.ok) throw new Error('Checkout failed');
@@ -132,12 +137,6 @@ export default function Cart() {
       queryClient.invalidateQueries({ queryKey: ['/api/cart', sessionId] });
       setConfirmedOrderCode(data.orderCode);
       setShowSuccess(true);
-
-      setTimeout(() => {
-        if (window.Telegram?.WebApp?.close) {
-          window.Telegram?.WebApp?.close();
-        }
-      }, 5000);
     } catch {
       toast({ title: "Erreur", description: "Un probleme est survenu. Veuillez reessayer.", variant: "destructive" });
     } finally { setIsSubmitting(false); }
@@ -194,9 +193,23 @@ export default function Cart() {
             <p className="text-3xl font-mono font-black text-primary tracking-wider" data-testid="text-order-code">{confirmedOrderCode}</p>
           </div>
 
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <p className="text-xs font-medium uppercase tracking-wider">Fermeture automatique...</p>
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <button
+              onClick={() => navigate("/menu")}
+              className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-bold text-sm"
+              data-testid="button-back-to-menu"
+            >
+              Retour au menu
+            </button>
+            {window.Telegram?.WebApp?.close && (
+              <button
+                onClick={() => window.Telegram?.WebApp?.close()}
+                className="w-full py-3 rounded-2xl border border-white/10 text-muted-foreground font-medium text-sm"
+                data-testid="button-close-app"
+              >
+                Fermer
+              </button>
+            )}
           </div>
         </motion.div>
       </div>

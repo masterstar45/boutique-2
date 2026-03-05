@@ -7,93 +7,32 @@ import type { Product, Review } from "@shared/schema";
 // Store bot instance for external access
 let botInstance: TelegramBot | null = null;
 
-// Function to send order confirmation to user
-export async function sendOrderConfirmation(
+export async function sendClientConfirmation(
   chatId: string,
   orderCode: string,
   orderMessage: string,
 ): Promise<void> {
-  console.log(
-    `sendOrderConfirmation called for order ${orderCode} to chatId ${chatId}`,
-  );
   if (!botInstance) {
-    console.log(
-      "Bot not initialized (NODE_ENV=" +
-        process.env.NODE_ENV +
-        "), cannot send order confirmation",
-    );
+    console.log("Bot not initialized, cannot send client confirmation");
     return;
   }
-  console.log("Bot instance available, sending message...");
-
   try {
-    const confirmationMessage = `Commande ${orderCode} confirmee!\n\n${orderMessage}\n\nMerci pour votre commande! Un admin vous contactera bientot.`;
+    const confirmationMessage = `✅ Commande <code>${orderCode}</code> confirmee!\n\n${orderMessage}\n\nMerci pour votre commande! Un admin vous contactera bientot.`;
     await botInstance.sendMessage(parseInt(chatId), confirmationMessage, {
       parse_mode: "HTML",
     });
+    console.log(`Client confirmation sent to ${chatId} for order ${orderCode}`);
   } catch (err) {
     console.error("Error sending confirmation to client:", err);
-  }
-
-  try {
-    const allAdminIds = new Set<string>();
-    const envAdminId = process.env.ADMIN_TELEGRAM_ID;
-    if (envAdminId) {
-      envAdminId.split(",").forEach((id) => allAdminIds.add(id.trim()));
-    }
-    try {
-      const dbAdmins = await storage.getAdmins();
-      dbAdmins.forEach((admin: { telegramId: string }) =>
-        allAdminIds.add(admin.telegramId),
-      );
-    } catch (err) {
-      console.error("Failed to fetch db admins:", err);
-    }
-
-    const adminMessage = `🛒 <b>Nouvelle commande!</b>\n\nCode: <code>${orderCode}</code>\nClient: <code>${chatId}</code>\n\n${orderMessage}`;
-
-    for (const adminId of Array.from(allAdminIds)) {
-      try {
-        await botInstance.sendMessage(parseInt(adminId), adminMessage, {
-          parse_mode: "HTML",
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "📞 Contacter le client",
-                  url: `tg://user?id=${chatId}`,
-                },
-              ],
-              [
-                {
-                  text: "⭐ Ajouter points fidélité",
-                  callback_data: `order_points_${orderCode}_${chatId}`,
-                },
-              ],
-              [
-                {
-                  text: "✅ Marquer traitée",
-                  callback_data: `order_done_${orderCode}`,
-                },
-              ],
-            ],
-          },
-        });
-      } catch (err) {
-        console.error(
-          `Failed to send order notification to admin ${adminId}:`,
-          err,
-        );
-      }
-    }
-  } catch (err) {
-    console.error("Error notifying admins:", err);
   }
 }
 
 export async function notifyAdminsNewOrder(
   orderCode: string,
   orderMessage: string,
+  chatId?: string,
+  username?: string,
+  firstName?: string,
 ): Promise<void> {
   if (!botInstance) {
     console.log("Bot not initialized, cannot notify admins about order");
@@ -115,23 +54,31 @@ export async function notifyAdminsNewOrder(
       console.error("Failed to fetch db admins:", err);
     }
 
-    const adminMessage = `🛒 <b>Nouvelle commande!</b>\n\nCode: <code>${orderCode}</code>\n\n${orderMessage}`;
+    let clientInfo = "";
+    if (firstName || username || chatId) {
+      if (firstName) clientInfo += `👤 Client: <b>${firstName}</b>\n`;
+      if (username) clientInfo += `📱 Username: @${username}\n`;
+      if (chatId) clientInfo += `🆔 ID: <code>${chatId}</code>\n`;
+    } else {
+      clientInfo = "👤 Client non identifié\n";
+    }
+
+    const adminMessage = `🛒 <b>Nouvelle commande!</b>\n\nCode: <code>${orderCode}</code>\n${clientInfo}\n${orderMessage}`;
 
     for (const adminId of Array.from(allAdminIds)) {
       try {
+        const buttons: TelegramBot.InlineKeyboardButton[][] = [];
+        if (chatId) {
+          buttons.push([{ text: "📞 Contacter le client", url: `tg://user?id=${chatId}` }]);
+          buttons.push([{ text: "⭐ Ajouter points fidélité", callback_data: `order_points_${orderCode}_${chatId}` }]);
+        }
+        buttons.push([{ text: "✅ Marquer traitée", callback_data: `order_done_${orderCode}` }]);
+
         await botInstance.sendMessage(parseInt(adminId), adminMessage, {
           parse_mode: "HTML",
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "✅ Marquer traitée",
-                  callback_data: `order_done_${orderCode}`,
-                },
-              ],
-            ],
-          },
+          reply_markup: { inline_keyboard: buttons },
         });
+        console.log(`Order notification sent to admin ${adminId}`);
       } catch (err) {
         console.error(`Failed to send order notification to admin ${adminId}:`, err);
       }

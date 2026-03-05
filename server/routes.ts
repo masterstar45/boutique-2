@@ -117,7 +117,7 @@ export async function registerRoutes(
 
   app.post('/api/checkout', async (req, res) => {
     try {
-      const { sessionId, deliveryType, deliveryTime, promoCode, address, postalCode, city, chatId, pointsToRedeem } = req.body;
+      const { sessionId, deliveryType, deliveryTime, promoCode, address, postalCode, city, chatId, username, firstName, pointsToRedeem } = req.body;
 
       if (!sessionId || !deliveryType) {
         return res.status(400).json({ message: 'Missing sessionId or deliveryType' });
@@ -236,14 +236,13 @@ export async function registerRoutes(
       console.log(`Order ${orderCode} completed. ChatId: ${chatId || 'NOT PROVIDED'}`);
 
       try {
-        const { sendOrderConfirmation, notifyAdminsNewOrder } = await import("./bot");
+        const { sendClientConfirmation, notifyAdminsNewOrder } = await import("./bot");
+        notifyAdminsNewOrder(orderCode, orderMessage, chatId || undefined, username || undefined, firstName || undefined).catch(err => {
+          console.error('Failed to notify admins:', err);
+        });
         if (chatId) {
-          sendOrderConfirmation(chatId, orderCode, orderMessage).catch(err => {
-            console.error('Failed to send order confirmation:', err);
-          });
-        } else {
-          notifyAdminsNewOrder(orderCode, orderMessage).catch(err => {
-            console.error('Failed to notify admins:', err);
+          sendClientConfirmation(chatId, orderCode, orderMessage).catch(err => {
+            console.error('Failed to send client confirmation:', err);
           });
         }
       } catch (e) {
