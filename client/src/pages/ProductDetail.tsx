@@ -36,9 +36,9 @@ export default function ProductDetail() {
   });
 
   const { data: similarProducts } = useQuery<Product[]>({
-    queryKey: ["/api/products", { category: product?.category }],
+    queryKey: ["/api/products"],
     enabled: !!product?.category,
-    select: (products) => products.filter(p => p.id !== product?.id).slice(0, 4),
+    select: (products) => products.filter(p => p.category === product?.category && p.id !== product?.id).slice(0, 4),
   });
 
   const addToCart = useMutation({
