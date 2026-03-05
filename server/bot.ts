@@ -28,12 +28,14 @@ export async function sendOrderConfirmation(
 
   try {
     const confirmationMessage = `Commande ${orderCode} confirmee!\n\n${orderMessage}\n\nMerci pour votre commande! Un admin vous contactera bientot.`;
-
     await botInstance.sendMessage(parseInt(chatId), confirmationMessage, {
       parse_mode: "HTML",
     });
+  } catch (err) {
+    console.error("Error sending confirmation to client:", err);
+  }
 
-    // Also notify admins about new order
+  try {
     const allAdminIds = new Set<string>();
     const envAdminId = process.env.ADMIN_TELEGRAM_ID;
     if (envAdminId) {
@@ -85,7 +87,57 @@ export async function sendOrderConfirmation(
       }
     }
   } catch (err) {
-    console.error("Error sending order confirmation:", err);
+    console.error("Error notifying admins:", err);
+  }
+}
+
+export async function notifyAdminsNewOrder(
+  orderCode: string,
+  orderMessage: string,
+): Promise<void> {
+  if (!botInstance) {
+    console.log("Bot not initialized, cannot notify admins about order");
+    return;
+  }
+
+  try {
+    const allAdminIds = new Set<string>();
+    const envAdminId = process.env.ADMIN_TELEGRAM_ID;
+    if (envAdminId) {
+      envAdminId.split(",").forEach((id) => allAdminIds.add(id.trim()));
+    }
+    try {
+      const dbAdmins = await storage.getAdmins();
+      dbAdmins.forEach((admin: { telegramId: string }) =>
+        allAdminIds.add(admin.telegramId),
+      );
+    } catch (err) {
+      console.error("Failed to fetch db admins:", err);
+    }
+
+    const adminMessage = `🛒 <b>Nouvelle commande!</b>\n\nCode: <code>${orderCode}</code>\n\n${orderMessage}`;
+
+    for (const adminId of Array.from(allAdminIds)) {
+      try {
+        await botInstance.sendMessage(parseInt(adminId), adminMessage, {
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "✅ Marquer traitée",
+                  callback_data: `order_done_${orderCode}`,
+                },
+              ],
+            ],
+          },
+        });
+      } catch (err) {
+        console.error(`Failed to send order notification to admin ${adminId}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("Error notifying admins about order:", err);
   }
 }
 

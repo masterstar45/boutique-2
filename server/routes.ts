@@ -236,10 +236,14 @@ export async function registerRoutes(
       console.log(`Order ${orderCode} completed. ChatId: ${chatId || 'NOT PROVIDED'}`);
 
       try {
-        const { sendOrderConfirmation } = await import("./bot");
+        const { sendOrderConfirmation, notifyAdminsNewOrder } = await import("./bot");
         if (chatId) {
           sendOrderConfirmation(chatId, orderCode, orderMessage).catch(err => {
             console.error('Failed to send order confirmation:', err);
+          });
+        } else {
+          notifyAdminsNewOrder(orderCode, orderMessage).catch(err => {
+            console.error('Failed to notify admins:', err);
           });
         }
       } catch (e) {
