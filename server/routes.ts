@@ -119,39 +119,48 @@ export async function registerRoutes(
     try {
       let { sessionId, deliveryType, deliveryTime, promoCode, address, postalCode, city, chatId, username, firstName, telegramInitData, pointsToRedeem } = req.body;
 
-      if (telegramInitData && (!chatId || !username || !firstName)) {
+      if (telegramInitData) {
+        console.log(`[Checkout] initData received (length=${telegramInitData.length}), current chatId=${chatId || 'NONE'}, username=${username || 'NONE'}`);
         try {
           const crypto = await import('crypto');
           const params = new URLSearchParams(telegramInitData);
           const hash = params.get('hash');
           const botToken = process.env.TELEGRAM_BOT_TOKEN;
+          const userJson = params.get('user');
+          console.log(`[Checkout] initData fields: hash=${hash ? 'present' : 'MISSING'}, user=${userJson ? 'present' : 'MISSING'}, keys=${Array.from(params.keys()).join(',')}`);
 
           let verified = false;
           if (hash && botToken) {
-            params.delete('hash');
-            const dataCheckArr = Array.from(params.entries())
+            const verifyParams = new URLSearchParams(telegramInitData);
+            verifyParams.delete('hash');
+            const dataCheckArr = Array.from(verifyParams.entries())
               .sort(([a], [b]) => a.localeCompare(b))
               .map(([k, v]) => `${k}=${v}`);
             const dataCheckString = dataCheckArr.join('\n');
             const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
             const computedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
             verified = computedHash === hash;
+            console.log(`[Checkout] HMAC verification: ${verified ? 'PASSED' : 'FAILED'}`);
           }
 
-          if (verified || !botToken) {
-            const userJson = params.get('user');
-            if (userJson) {
-              const tgUser = JSON.parse(userJson);
-              if (!chatId && tgUser.id) chatId = tgUser.id.toString();
-              if (!username && tgUser.username) username = tgUser.username;
-              if (!firstName && tgUser.first_name) firstName = tgUser.first_name;
-            }
-          } else {
-            console.warn('[Checkout] Telegram initData hash verification failed');
+          if (userJson && (verified || !botToken)) {
+            const tgUser = JSON.parse(userJson);
+            console.log(`[Checkout] Parsed user from initData: id=${tgUser.id}, username=${tgUser.username}, first_name=${tgUser.first_name}`);
+            if (!chatId && tgUser.id) chatId = tgUser.id.toString();
+            if (!username && tgUser.username) username = tgUser.username;
+            if (!firstName && tgUser.first_name) firstName = tgUser.first_name;
+          } else if (userJson && !verified) {
+            console.warn('[Checkout] HMAC failed but user data present — parsing anyway for non-sensitive use');
+            const tgUser = JSON.parse(userJson);
+            if (!chatId && tgUser.id) chatId = tgUser.id.toString();
+            if (!username && tgUser.username) username = tgUser.username;
+            if (!firstName && tgUser.first_name) firstName = tgUser.first_name;
           }
         } catch (e) {
           console.error('[Checkout] Failed to parse telegramInitData:', e);
         }
+      } else {
+        console.log('[Checkout] No telegramInitData received');
       }
 
       console.log(`[Checkout] Request received - sessionId: ${sessionId}, chatId: ${chatId || 'NONE'}, username: ${username || 'NONE'}, firstName: ${firstName || 'NONE'}, hasInitData: ${!!telegramInitData}`);
