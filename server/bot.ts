@@ -2047,8 +2047,10 @@ export function setupBot() {
       return;
     }
 
-    bot.answerCallbackQuery(query.id);
+    bot.answerCallbackQuery(query.id).catch(() => {});
     const session = getSession(chatId);
+
+   try {
 
     // No operation - for disabled buttons
     if (data === "noop") {
@@ -2092,7 +2094,7 @@ export function setupBot() {
     if (data === "stats_reset_revenue") {
       await storage.resetDailyStats();
       bot.answerCallbackQuery(query.id, {
-        text: "Chiffre d'affaires remis a zero!",
+        text: "Chiffre d'affaires remis à zéro !",
       });
       sendStats(chatId, messageId);
       return;
@@ -3341,6 +3343,15 @@ export function setupBot() {
         .catch(() => {});
       return;
     }
+
+   } catch (err) {
+     console.error("Error in callback_query handler:", err);
+     try {
+       bot.sendMessage(chatId, "❌ Une erreur est survenue. Veuillez réessayer.", {
+         reply_markup: { inline_keyboard: [[{ text: "🔙 Retour au menu", callback_data: "menu_main" }]] }
+       });
+     } catch (_) {}
+   }
   });
 
   // === TEXT MESSAGE HANDLER ===
@@ -3352,6 +3363,8 @@ export function setupBot() {
 
     const session = getSession(chatId);
     const userIsAdmin = await isAdmin(chatId);
+
+   try {
 
     // Allow password input for non-admin users in awaiting_password state
     if (session.state === "awaiting_password") {
@@ -4213,7 +4226,7 @@ export function setupBot() {
 
       bot.sendMessage(
         chatId,
-        `📢 Diffusion terminee!\n\n✅ Envoye: ${sent}\n❌ Echec: ${failed}`,
+        `📢 Diffusion terminée!\n\n✅ Envoyé : ${sent}\n❌ Échec : ${failed}`,
         {
           reply_markup: {
             inline_keyboard: [
@@ -4224,6 +4237,13 @@ export function setupBot() {
       );
       return;
     }
+
+   } catch (err) {
+     console.error("Error in message handler:", err);
+     try {
+       bot.sendMessage(chatId, "❌ Une erreur est survenue. Veuillez réessayer.");
+     } catch (_) {}
+   }
   });
 
   // === PHOTO HANDLER ===
@@ -4320,7 +4340,7 @@ export function setupBot() {
       });
     } catch (err) {
       console.error("Error updating video:", err);
-      bot.sendMessage(chatId, "Erreur lors de la mise a jour de la video.");
+      bot.sendMessage(chatId, "Erreur lors de la mise à jour de la vidéo.");
       resetSession(chatId);
     }
   });
