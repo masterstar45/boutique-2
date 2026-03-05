@@ -58,8 +58,22 @@ export default function Account() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
 
-  const isTelegramConnected = !!window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  const userChatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString();
+  let tgUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+  if (!tgUserId) {
+    try {
+      const initData = window.Telegram?.WebApp?.initData;
+      if (initData) {
+        const params = new URLSearchParams(initData);
+        const userJson = params.get('user');
+        if (userJson) {
+          const user = JSON.parse(userJson);
+          tgUserId = user.id;
+        }
+      }
+    } catch {}
+  }
+  const isTelegramConnected = !!tgUserId;
+  const userChatId = tgUserId?.toString();
 
   const fetchData = useCallback(async (showRefresh = false) => {
     if (showRefresh) setIsRefreshing(true);

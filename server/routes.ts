@@ -117,8 +117,44 @@ export async function registerRoutes(
 
   app.post('/api/checkout', async (req, res) => {
     try {
-      const { sessionId, deliveryType, deliveryTime, promoCode, address, postalCode, city, chatId, username, firstName, pointsToRedeem } = req.body;
-      console.log(`[Checkout] Request received - sessionId: ${sessionId}, chatId: ${chatId || 'NONE'}, username: ${username || 'NONE'}, firstName: ${firstName || 'NONE'}`);
+      let { sessionId, deliveryType, deliveryTime, promoCode, address, postalCode, city, chatId, username, firstName, telegramInitData, pointsToRedeem } = req.body;
+
+      if (telegramInitData && (!chatId || !username || !firstName)) {
+        try {
+          const crypto = await import('crypto');
+          const params = new URLSearchParams(telegramInitData);
+          const hash = params.get('hash');
+          const botToken = process.env.TELEGRAM_BOT_TOKEN;
+
+          let verified = false;
+          if (hash && botToken) {
+            params.delete('hash');
+            const dataCheckArr = Array.from(params.entries())
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([k, v]) => `${k}=${v}`);
+            const dataCheckString = dataCheckArr.join('\n');
+            const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+            const computedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+            verified = computedHash === hash;
+          }
+
+          if (verified || !botToken) {
+            const userJson = params.get('user');
+            if (userJson) {
+              const tgUser = JSON.parse(userJson);
+              if (!chatId && tgUser.id) chatId = tgUser.id.toString();
+              if (!username && tgUser.username) username = tgUser.username;
+              if (!firstName && tgUser.first_name) firstName = tgUser.first_name;
+            }
+          } else {
+            console.warn('[Checkout] Telegram initData hash verification failed');
+          }
+        } catch (e) {
+          console.error('[Checkout] Failed to parse telegramInitData:', e);
+        }
+      }
+
+      console.log(`[Checkout] Request received - sessionId: ${sessionId}, chatId: ${chatId || 'NONE'}, username: ${username || 'NONE'}, firstName: ${firstName || 'NONE'}, hasInitData: ${!!telegramInitData}`);
 
       if (!sessionId || !deliveryType) {
         return res.status(400).json({ message: 'Missing sessionId or deliveryType' });

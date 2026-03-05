@@ -59,7 +59,20 @@ export default function Cart() {
   ];
 
   useEffect(() => {
-    const chatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString();
+    let chatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id?.toString();
+    if (!chatId) {
+      try {
+        const initData = window.Telegram?.WebApp?.initData;
+        if (initData) {
+          const params = new URLSearchParams(initData);
+          const userJson = params.get('user');
+          if (userJson) {
+            const user = JSON.parse(userJson);
+            chatId = user.id?.toString();
+          }
+        }
+      } catch {}
+    }
     fetch('/api/loyalty-settings').then(r => r.json()).then(setLoyaltySettings).catch(() => {});
     if (chatId) {
       fetch(`/api/loyalty/${chatId}`).then(r => r.json()).then(setLoyaltyBalance).catch(() => {});
@@ -116,7 +129,8 @@ export default function Cart() {
       const chatId = tgUser?.id?.toString() || undefined;
       const username = tgUser?.username || undefined;
       const firstName = tgUser?.first_name || undefined;
-      console.log('[Checkout] Telegram user data:', { chatId, username, firstName, raw: tgUser });
+      const telegramInitData = window.Telegram?.WebApp?.initData || undefined;
+      console.log('[Checkout] Telegram user data:', { chatId, username, firstName, hasInitData: !!telegramInitData });
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -126,7 +140,7 @@ export default function Cart() {
           address: address.trim(), postalCode: postalCode.trim(), city: city.trim(),
           notes: notes.trim() || undefined,
           pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : undefined,
-          chatId, username, firstName
+          chatId, username, firstName, telegramInitData
         })
       });
       if (!response.ok) throw new Error('Checkout failed');

@@ -3,6 +3,7 @@ interface TelegramWebApp {
   close(): void;
   expand(): void;
   ready(): void;
+  initData?: string;
   initDataUnsafe?: {
     user?: {
       id?: number;
