@@ -265,6 +265,21 @@ export async function registerRoutes(
         );
       }
 
+      let pointsEarned = 0;
+      if (chatId && total > 0) {
+        const earnRate = loyaltySettings.earnRate / 100;
+        pointsEarned = Math.floor(total * earnRate);
+        if (pointsEarned > 0) {
+          await storage.addLoyaltyPoints(
+            chatId,
+            pointsEarned,
+            'purchase',
+            orderCode,
+            `Points gagnes pour commande ${orderCode}`
+          );
+        }
+      }
+
       const botUsernameSetting = await storage.getBotSetting('bot_username');
       const botUsername = botUsernameSetting || 'Zjzhhdhdjdbot';
 
@@ -291,7 +306,7 @@ export async function registerRoutes(
       res.json({
         orderCode,
         telegramUrl,
-        pointsEarned: 0,
+        pointsEarned,
         pointsRedeemed: actualPointsRedeemed
       });
     } catch (err) {
