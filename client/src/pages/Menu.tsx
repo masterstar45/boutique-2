@@ -7,9 +7,6 @@ import { motion } from "framer-motion";
 export default function Menu() {
   const [search, setSearch] = useState<string>("");
   const { data: products, isLoading, error } = useProducts("", search);
-  const [activeTab, setActiveTab] = useState("Tout");
-  
-  const categories = ["Tout", "Fleurs", "Résines", "Vapes", "Comestibles"];
 
   if (error) {
     return (
@@ -53,22 +50,6 @@ export default function Menu() {
           </button>
         </div>
         
-        {/* Categories (Mock functionality for now) */}
-        <div className="px-4 pb-4 overflow-x-auto hide-scrollbar flex gap-2">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveTab(cat)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 ${
-                activeTab === cat 
-                  ? "bg-primary text-primary-foreground shadow-[0_0_15px_-3px_rgba(34,197,94,0.4)]" 
-                  : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
       </header>
 
       {/* Grid */}

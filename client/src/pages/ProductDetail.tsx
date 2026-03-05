@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useRoute } from "wouter";
-import { ArrowLeft, MoreVertical, ChevronDown, X, Minus, Plus, ShoppingBag, ShieldCheck, Leaf, Star, Sparkles } from "lucide-react";
+import { ArrowLeft, MoreVertical, ChevronDown, X, Minus, Plus, ShoppingBag, Leaf, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -183,16 +183,6 @@ export default function ProductDetail() {
             </div>
           </div>
           
-          <div className="flex gap-4 mt-6">
-            <div className="flex-1 glass-panel rounded-2xl p-3 flex flex-col items-center justify-center text-center">
-              <ShieldCheck className="w-6 h-6 text-primary mb-1" />
-              <span className="text-[10px] text-muted-foreground uppercase font-semibold">Qualité testée</span>
-            </div>
-            <div className="flex-1 glass-panel rounded-2xl p-3 flex flex-col items-center justify-center text-center">
-              <Sparkles className="w-6 h-6 text-primary mb-1" />
-              <span className="text-[10px] text-muted-foreground uppercase font-semibold">Premium</span>
-            </div>
-          </div>
 
           <div className="mt-8">
             <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Description</h3>
