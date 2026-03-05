@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { MessageCircle, Star, X, Send } from "lucide-react";
+import { MessageCircle, Star, X, Send, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Review } from "@shared/schema";
 import { motion, AnimatePresence } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Reviews() {
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
+  const { toast } = useToast();
   
   const { data: reviews = [], isLoading } = useQuery<Review[]>({
     queryKey: ['/api/reviews']
@@ -35,17 +37,22 @@ export default function Reviews() {
           }
         } catch {}
       }
-      return apiRequest('POST', '/api/reviews', { text, chatId, username, firstName });
+      const res = await apiRequest('POST', '/api/reviews', { text, chatId, username, firstName });
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/reviews'] });
       setMessage("");
       setShowForm(false);
+      toast({ title: "Merci !", description: "Votre avis a été envoyé et sera publié après validation." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Erreur", description: "Impossible d'envoyer votre avis. Veuillez réessayer.", variant: "destructive" });
     }
   });
 
   const handleSubmit = () => {
-    if (message.trim()) {
+    if (message.trim() && !submitReview.isPending) {
       submitReview.mutate(message);
     }
   };
