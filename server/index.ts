@@ -61,6 +61,35 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='loyalty_transactions' AND column_name='delta') THEN
+          ALTER TABLE loyalty_transactions ADD COLUMN delta integer NOT NULL DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='loyalty_transactions' AND column_name='reason') THEN
+          ALTER TABLE loyalty_transactions ADD COLUMN reason text NOT NULL DEFAULT 'manual';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='loyalty_transactions' AND column_name='description') THEN
+          ALTER TABLE loyalty_transactions ADD COLUMN description text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='loyalty_transactions' AND column_name='created_at') THEN
+          ALTER TABLE loyalty_transactions ADD COLUMN created_at text NOT NULL DEFAULT '';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='loyalty_transactions' AND column_name='order_code') THEN
+          ALTER TABLE loyalty_transactions ADD COLUMN order_code text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='loyalty_balances' AND column_name='updated_at') THEN
+          ALTER TABLE loyalty_balances ADD COLUMN updated_at text NOT NULL DEFAULT '';
+        END IF;
+      END $$;
+    `);
+    console.log("Database migration check completed");
+  } catch (err) {
+    console.error("Database migration check failed:", err);
+  }
+
   await registerRoutes(httpServer, app);
 
   try {

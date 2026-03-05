@@ -1,0 +1,101 @@
+2:42:14 AM [express] POST /api/checkout 500 in 685ms :: {"message":"Checkout failed"}
+[Checkout] initData received (length=622), current chatId=8396493289, username=Pharmacyhash
+[Checkout] initData fields: hash=present, user=present, keys=query_id,user,auth_date,signature,hash
+[Checkout] HMAC verification: PASSED
+[Checkout] Parsed user from initData: id=8396493289, username=Pharmacyhash, first_name=PharmacyH - Service Clients ☎️
+[Checkout] Request received - sessionId: 5fk9j5umd9j, chatId: 8396493289, username: Pharmacyhash, firstName: PharmacyH - Service Clients ☎️, hasInitData: true
+Checkout error: error: column "delta" of relation "loyalty_transactions" does not exist
+    at /app/dist/index.cjs:67:38108
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async v2.addLoyaltyPoints (/app/dist/index.cjs:81:77153)
+    at async /app/dist/index.cjs:691:512 {
+  length: 138,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '68',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_target.c',
+  line: '1065',
+  routine: 'checkInsertTargets'
+}
+2:42:26 AM [express] POST /api/checkout 500 in 680ms :: {"message":"Checkout failed"}
+[Checkout] initData received (length=622), current chatId=8396493289, username=Pharmacyhash
+[Checkout] initData fields: hash=present, user=present, keys=query_id,user,auth_date,signature,hash
+[Checkout] HMAC verification: PASSED
+[Checkout] Parsed user from initData: id=8396493289, username=Pharmacyhash, first_name=PharmacyH - Service Clients ☎️
+[Checkout] Request received - sessionId: 5fk9j5umd9j, chatId: 8396493289, username: Pharmacyhash, firstName: PharmacyH - Service Clients ☎️, hasInitData: true
+  schema: undefined,
+  line: '1065',
+  table: undefined,
+  routine: 'checkInsertTargets'
+}
+  internalPosition: undefined,
+2:42:37 AM [express] POST /api/checkout 500 in 677ms :: {"message":"Checkout failed"}
+  code: '42703',
+Checkout error: error: column "delta" of relation "loyalty_transactions" does not exist
+  internalQuery: undefined,
+    at /app/dist/index.cjs:67:38108
+  detail: undefined,
+  where: undefined,
+  column: undefined,
+  hint: undefined,
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+  dataType: undefined,
+    at async /app/dist/index.cjs:691:512 {
+  position: '68',
+    at async v2.addLoyaltyPoints (/app/dist/index.cjs:81:77153)
+  length: 138,
+  severity: 'ERROR',
+  constraint: undefined,
+  file: 'parse_target.c',
+2:42:45 AM [express] GET /api/cart/5fk9j5umd9j 304 in 246ms :: [{"id":50,"sessionId":"5fk9j5umd9j","productId":11,"quantity":1,"selectedPrice":120,"selectedWeight":"5g","product":{"id":11,"name":"f","brand":"f","description":"f","price":50000,"imageUrl":"/images/pharmacyhash-product.jpg","videoUrl":"https://api.telegram.org/file/bot8048674802:AAFFlHAKpJ3K2-2b4h0noTv5sbmekFU8C7w/videos/file_10.mp4","category":"f","tags":[],"sticker":null,"stickerFlag":null,"priceOptions":[{"price":50,"weight":"2g"},{"price":120,"weight":"5g"},{"price":220,"weight":"10g"}],"stock":null}}]
+2:42:45 AM [express] GET /api/background-settings 304 in 568ms :: {"bg_preset":"neon","bg_color1":"120,100%,50%","bg_color2":"180,100%,50%","bg_color3":"300,100%,50%","bg_opacity":"0.35","bg_speed":"18"}
+2:42:45 AM [express] GET /api/products 304 in 63ms :: [{"id":11,"name":"f","brand":"f","description":"f","price":50000,"imageUrl":"/images/pharmacyhash-product.jpg","videoUrl":"https://api.telegram.org/file/bot8048674802:AAFFlHAKpJ3K2-2b4h0noTv5sbmekFU8C7w/videos/file_10.mp4","category":"f","tags":[],"sticker":null,"stickerFlag":null,"priceOptions":[{"price":50,"weight":"2g"},{"price":120,"weight":"5g"},{"price":220,"weight":"10g"}],"stock":null}]
+2:42:46 AM [express] GET /api/loyalty/8396493289 304 in 127ms :: {"points":0,"tier":"bronze","totalEarned":0,"settings":{"earnRate":100,"redeemRate":100,"silverThreshold":100000000,"goldThreshold":1000000000}}
+2:42:46 AM [express] GET /api/loyalty-settings 304 in 63ms :: {"id":1,"earnRate":100,"redeemRate":100,"bronzeThreshold":0,"silverThreshold":100000000,"goldThreshold":1000000000,"silverMultiplier":125,"goldMultiplier":150}
+2:42:47 AM [express] DELETE /api/cart/session/5fk9j5umd9j 204 in 65ms
+2:42:47 AM [express] GET /api/cart/5fk9j5umd9j 200 in 64ms :: []
+2:42:50 AM [express] GET /api/products/11 304 in 64ms :: {"id":11,"name":"f","brand":"f","description":"f","price":50000,"imageUrl":"/images/pharmacyhash-product.jpg","videoUrl":"https://api.telegram.org/file/bot8048674802:AAFFlHAKpJ3K2-2b4h0noTv5sbmekFU8C7w/videos/file_10.mp4","category":"f","tags":[],"sticker":null,"stickerFlag":null,"priceOptions":[{"price":50,"weight":"2g"},{"price":120,"weight":"5g"},{"price":220,"weight":"10g"}],"stock":null}
+2:42:53 AM [express] POST /api/cart 200 in 131ms :: {"id":51,"sessionId":"5fk9j5umd9j","productId":11,"quantity":1,"selectedPrice":120,"selectedWeight":"5g"}
+2:42:53 AM [express] GET /api/cart/5fk9j5umd9j 200 in 64ms :: [{"id":51,"sessionId":"5fk9j5umd9j","productId":11,"quantity":1,"selectedPrice":120,"selectedWeight":"5g","product":{"id":11,"name":"f","brand":"f","description":"f","price":50000,"imageUrl":"/images/pharmacyhash-product.jpg","videoUrl":"https://api.telegram.org/file/bot8048674802:AAFFlHAKpJ3K2-2b4h0noTv5sbmekFU8C7w/videos/file_10.mp4","category":"f","tags":[],"sticker":null,"stickerFlag":null,"priceOptions":[{"price":50,"weight":"2g"},{"price":120,"weight":"5g"},{"price":220,"weight":"10g"}],"stock":null}}]
+2:43:08 AM [express] GET /api/background-settings 304 in 568ms :: {"bg_preset":"neon","bg_color1":"120,100%,50%","bg_color2":"180,100%,50%","bg_color3":"300,100%,50%","bg_opacity":"0.35","bg_speed":"18"}
+2:43:09 AM [express] GET /api/products 304 in 63ms :: [{"id":11,"name":"f","brand":"f","description":"f","price":50000,"imageUrl":"/images/pharmacyhash-product.jpg","videoUrl":"https://api.telegram.org/file/bot8048674802:AAFFlHAKpJ3K2-2b4h0noTv5sbmekFU8C7w/videos/file_10.mp4","category":"f","tags":[],"sticker":null,"stickerFlag":null,"priceOptions":[{"price":50,"weight":"2g"},{"price":120,"weight":"5g"},{"price":220,"weight":"10g"}],"stock":null}]
+2:43:10 AM [express] GET /api/loyalty-settings 304 in 64ms :: {"id":1,"earnRate":100,"redeemRate":100,"bronzeThreshold":0,"silverThreshold":100000000,"goldThreshold":1000000000,"silverMultiplier":125,"goldMultiplier":150}
+2:43:10 AM [express] GET /api/loyalty/8396493289 304 in 122ms :: {"points":0,"tier":"bronze","totalEarned":0,"settings":{"earnRate":100,"redeemRate":100,"silverThreshold":100000000,"goldThreshold":1000000000}}
+2:43:08 AM [express] GET /api/cart/5fk9j5umd9j 304 in 246ms :: [{"id":51,"sessionId":"5fk9j5umd9j","productId":11,"quantity":1,"selectedPrice":120,"selectedWeight":"5g","product":{"id":11,"name":"f","brand":"f","description":"f","price":50000,"imageUrl":"/images/pharmacyhash-product.jpg","videoUrl":"https://api.telegram.org/file/bot8048674802:AAFFlHAKpJ3K2-2b4h0noTv5sbmekFU8C7w/videos/file_10.mp4","category":"f","tags":[],"sticker":null,"stickerFlag":null,"priceOptions":[{"price":50,"weight":"2g"},{"price":120,"weight":"5g"},{"price":220,"weight":"10g"}],"stock":null}}]
+[Checkout] initData received (length=622), current chatId=8396493289, username=Pharmacyhash
+[Checkout] initData fields: hash=present, user=present, keys=query_id,user,auth_date,signature,hash
+[Checkout] HMAC verification: PASSED
+[Checkout] Parsed user from initData: id=8396493289, username=Pharmacyhash, first_name=PharmacyH - Service Clients ☎️
+[Checkout] Request received - sessionId: 5fk9j5umd9j, chatId: 8396493289, username: Pharmacyhash, firstName: PharmacyH - Service Clients ☎️, hasInitData: true
+  constraint: undefined,
+  file: 'parse_target.c',
+  line: '1065',
+  routine: 'checkInsertTargets'
+}
+2:43:24 AM [express] POST /api/checkout 500 in 684ms :: {"message":"Checkout failed"}
+Checkout error: error: column "delta" of relation "loyalty_transactions" does not exist
+    at /app/dist/index.cjs:67:38108
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async v2.addLoyaltyPoints (/app/dist/index.cjs:81:77153)
+    at async /app/dist/index.cjs:691:512 {
+  length: 138,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '68',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,

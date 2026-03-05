@@ -264,29 +264,33 @@ export async function registerRoutes(
       const today = new Date().toISOString().split('T')[0];
       await storage.updateDailyStats(today, 1, Math.round(total * 100));
 
-      if (chatId && actualPointsRedeemed > 0) {
-        await storage.addLoyaltyPoints(
-          chatId,
-          -actualPointsRedeemed,
-          'redemption',
-          orderCode,
-          `Points utilises pour commande ${orderCode}`
-        );
-      }
-
       let pointsEarned = 0;
-      if (chatId && total > 0) {
-        const earnRate = loyaltySettings.earnRate / 100;
-        pointsEarned = Math.floor(total * earnRate);
-        if (pointsEarned > 0) {
+      try {
+        if (chatId && actualPointsRedeemed > 0) {
           await storage.addLoyaltyPoints(
             chatId,
-            pointsEarned,
-            'purchase',
+            -actualPointsRedeemed,
+            'redemption',
             orderCode,
-            `Points gagnes pour commande ${orderCode}`
+            `Points utilises pour commande ${orderCode}`
           );
         }
+
+        if (chatId && total > 0) {
+          const earnRate = loyaltySettings.earnRate / 100;
+          pointsEarned = Math.floor(total * earnRate);
+          if (pointsEarned > 0) {
+            await storage.addLoyaltyPoints(
+              chatId,
+              pointsEarned,
+              'purchase',
+              orderCode,
+              `Points gagnes pour commande ${orderCode}`
+            );
+          }
+        }
+      } catch (loyaltyErr) {
+        console.error('Loyalty points error (non-blocking):', loyaltyErr);
       }
 
       const botUsernameSetting = await storage.getBotSetting('bot_username');
