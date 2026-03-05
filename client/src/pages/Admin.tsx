@@ -141,18 +141,7 @@ function ProductFormDialog({
               data-testid="input-product-description"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Prix (centimes) *</label>
-              <input
-                type="number"
-                value={form.price}
-                onChange={(e) => handleChange("price", parseInt(e.target.value) || 0)}
-                className="w-full bg-background border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
-                required
-                data-testid="input-product-price"
-              />
-            </div>
+          <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Categorie *</label>
               <input
@@ -469,7 +458,7 @@ export default function AdminDashboard() {
           name: data.name,
           brand: data.brand,
           description: data.description,
-          price: data.price,
+          price: 0,
           imageUrl: data.imageUrl,
           videoUrl: data.videoUrl || null,
           category: data.category,
@@ -504,7 +493,7 @@ export default function AdminDashboard() {
           name: data.name,
           brand: data.brand,
           description: data.description,
-          price: data.price,
+          price: 0,
           imageUrl: data.imageUrl,
           videoUrl: data.videoUrl || null,
           category: data.category,
@@ -841,7 +830,7 @@ export default function AdminDashboard() {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm truncate">{product.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{product.brand} - {product.category}</p>
-                    <p className="text-xs font-bold text-primary mt-0.5">{formatPrice(product.price)}</p>
+                    <p className="text-xs font-bold text-primary mt-0.5">{((product.priceOptions as any[]) || []).length} option(s) de prix</p>
                   </div>
                   <div className="flex gap-1">
                     <button

@@ -9,7 +9,7 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   brand: text("brand").notNull(),
   description: text("description").notNull(),
-  price: integer("price").notNull(), // stored in cents (base price)
+  price: integer("price").notNull().default(0),
   imageUrl: text("image_url").notNull(),
   videoUrl: text("video_url"),
   category: text("category").notNull(),

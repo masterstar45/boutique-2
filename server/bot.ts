@@ -148,7 +148,6 @@ interface AdminSession {
     | "awaiting_name"
     | "awaiting_brand"
     | "awaiting_description"
-    | "awaiting_price"
     | "awaiting_category"
     | "awaiting_image"
     | "awaiting_edit_value"
@@ -1180,7 +1179,6 @@ export function setupBot() {
       `📦 Produit #${product.id}\n\n` +
       `📝 Nom: ${product.name}\n` +
       `🏷️ Marque: ${product.brand}\n` +
-      `💰 Prix de base: ${(product.price / 100).toFixed(2)} EUR\n` +
       `📁 Categorie: ${product.category}\n` +
       `📊 Stock: ${product.stock || "Non defini"}\n` +
       `📄 Description: ${product.description}\n\n` +
@@ -1191,15 +1189,11 @@ export function setupBot() {
         [
           { text: "✏️ Modifier nom", callback_data: `edit_name_${productId}` },
           {
-            text: "💰 Modifier prix",
-            callback_data: `edit_price_${productId}`,
-          },
-        ],
-        [
-          {
             text: "🏷️ Modifier marque",
             callback_data: `edit_brand_${productId}`,
           },
+        ],
+        [
           {
             text: "📁 Modifier categorie",
             callback_data: `edit_category_${productId}`,
@@ -3926,25 +3920,10 @@ export function setupBot() {
 
     if (session.state === "awaiting_description") {
       session.newProduct!.description = text;
-      session.state = "awaiting_price";
-      bot.sendMessage(
-        chatId,
-        `Description enregistree.\n\nEtape 4/5: Entrez le prix en centimes (ex: 5000 pour 50EUR):`,
-      );
-      return;
-    }
-
-    if (session.state === "awaiting_price") {
-      const price = parseInt(text);
-      if (isNaN(price) || price <= 0) {
-        bot.sendMessage(chatId, "Prix invalide. Entrez un nombre positif:");
-        return;
-      }
-      session.newProduct!.price = price;
       session.state = "awaiting_category";
       bot.sendMessage(
         chatId,
-        `Prix: ${(price / 100).toFixed(2)} EUR\n\nEtape 5/5: Entrez la categorie:`,
+        `Description enregistree.\n\nEtape 4/4: Entrez la categorie:`,
       );
       return;
     }
@@ -3957,7 +3936,7 @@ export function setupBot() {
           name: session.newProduct!.name!,
           brand: session.newProduct!.brand!,
           description: session.newProduct!.description!,
-          price: session.newProduct!.price!,
+          price: 0,
           category: text,
           imageUrl: "/images/pharmacyhash-product.jpg",
           tags: [],
@@ -3969,11 +3948,17 @@ export function setupBot() {
           chatId,
           `Produit créé avec succès!\n\n` +
             `ID: ${newProduct.id}\n` +
-            `Nom: ${newProduct.name}\n` +
-            `Prix: ${(newProduct.price / 100).toFixed(2)} EUR`,
+            `Nom: ${newProduct.name}\n\n` +
+            `Ajoutez maintenant les options de prix via le detail du produit.`,
           {
             reply_markup: {
               inline_keyboard: [
+                [
+                  {
+                    text: "⚖️ Ajouter options de prix",
+                    callback_data: `price_options_${newProduct.id}`,
+                  },
+                ],
                 [
                   {
                     text: "Voir le produit",

@@ -10,10 +10,15 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const [, navigate] = useLocation();
 
-  const formattedPrice = new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-  }).format(product.price / 100);
+  const priceOptions = (product.priceOptions || []) as { price: number; weight: string }[];
+
+  let priceDisplay = "";
+  if (priceOptions.length > 0) {
+    const prices = priceOptions.map(o => o.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    priceDisplay = min === max ? `${min}€` : `${min}€ - ${max}€`;
+  }
 
   return (
     <motion.div 
@@ -32,7 +37,6 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
         )}
         
-        {/* Subtle radial gradient behind image */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1)_0%,transparent_70%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         
         <img 
@@ -58,7 +62,11 @@ export function ProductCard({ product }: ProductCardProps) {
         
         <div className="mt-auto pt-3 flex items-center justify-between border-t border-white/5">
           <div className="flex flex-col">
-            <span className="text-base font-extrabold text-foreground">{formattedPrice}</span>
+            {priceDisplay ? (
+              <span className="text-sm font-extrabold text-foreground" data-testid={`text-price-${product.id}`}>{priceDisplay}</span>
+            ) : (
+              <span className="text-xs font-medium text-muted-foreground">Voir options</span>
+            )}
             {product.stock && (
               <span className="text-[10px] text-muted-foreground flex items-center mt-0.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mr-1.5 shadow-[0_0_5px_rgba(34,197,94,0.8)]" />

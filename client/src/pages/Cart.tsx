@@ -144,18 +144,18 @@ export default function Cart() {
   };
 
   const subtotal = items?.reduce((sum, item) => {
-    const price = item.selectedPrice ? item.selectedPrice * 100 : item.product.price;
+    const price = item.selectedPrice ? item.selectedPrice : 0;
     return sum + price * item.quantity;
   }, 0) || 0;
   const promoDiscount = appliedPromo ? Math.round(subtotal * (appliedPromo.discountPercent / 100)) : 0;
-  const loyaltyDiscount = loyaltySettings && pointsToRedeem > 0 ? Math.round((pointsToRedeem / loyaltySettings.redeemRate) * 100) : 0;
+  const loyaltyDiscount = loyaltySettings && pointsToRedeem > 0 ? Math.round(pointsToRedeem / loyaltySettings.redeemRate) : 0;
   const total = Math.max(0, subtotal - promoDiscount - loyaltyDiscount);
   const maxRedeemablePoints = loyaltyBalance?.points || 0;
-  const earnablePoints = loyaltySettings ? Math.floor((total / 100) * (loyaltySettings.earnRate / 100)) : 0;
+  const earnablePoints = loyaltySettings ? Math.floor(total * (loyaltySettings.earnRate / 100)) : 0;
   const itemCount = items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
 
-  const formatPrice = (cents: number) =>
-    new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(cents / 100);
+  const formatPrice = (euros: number) =>
+    new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(euros);
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center">
@@ -325,11 +325,10 @@ export default function Cart() {
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <div>
-                          {item.selectedPrice && item.selectedWeight ? (
-                            <p className="text-sm font-black">{item.selectedPrice * item.quantity}€ <span className="text-[10px] text-muted-foreground font-medium ml-1">{item.selectedWeight}</span></p>
-                          ) : (
-                            <p className="text-sm font-black">{formatPrice(item.product.price * item.quantity)}</p>
-                          )}
+                          <p className="text-sm font-black">
+                            {item.selectedPrice ? `${item.selectedPrice * item.quantity}€` : "0€"}
+                            {item.selectedWeight && <span className="text-[10px] text-muted-foreground font-medium ml-1">{item.selectedWeight}</span>}
+                          </p>
                         </div>
                         <div className="flex items-center bg-black/50 rounded-full border border-white/10 overflow-hidden">
                           <button
@@ -632,7 +631,7 @@ export default function Cart() {
                     </div>
                   </div>
                   <span className="text-sm font-black shrink-0 ml-2">
-                    {item.selectedPrice ? `${item.selectedPrice * item.quantity}€` : formatPrice(item.product.price * item.quantity)}
+                    {item.selectedPrice ? `${item.selectedPrice * item.quantity}€` : "0€"}
                   </span>
                 </div>
               ))}

@@ -71,14 +71,6 @@ export default function ProductDetail() {
     });
   };
 
-  const handleSimpleAdd = () => {
-    if (!product) return;
-    addToCart.mutate({
-      productId: product.id,
-      quantity: 1,
-    });
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center pb-20">
@@ -221,14 +213,9 @@ export default function ProductDetail() {
             ))}
           </div>
         ) : (
-          <Button
-            className="w-full h-14 rounded-2xl text-lg font-bold shadow-[0_0_30px_-5px_rgba(34,197,94,0.4)]"
-            onClick={handleSimpleAdd}
-            disabled={addToCart.isPending}
-            data-testid="button-add-to-cart"
-          >
-            {addToCart.isPending ? "Ajout..." : `Ajouter au panier - ${(product.price / 100).toFixed(0)}€`}
-          </Button>
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground">Aucune option de prix disponible pour le moment.</p>
+          </div>
         )}
       </div>
 

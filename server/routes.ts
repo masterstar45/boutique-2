@@ -140,7 +140,7 @@ export async function registerRoutes(
       };
 
       const subtotal = items.reduce((sum, item) => {
-        const price = item.selectedPrice ? item.selectedPrice * 100 : item.product.price;
+        const price = item.selectedPrice ? item.selectedPrice : 0;
         return sum + price * item.quantity;
       }, 0);
 
@@ -162,11 +162,11 @@ export async function registerRoutes(
         const balance = await storage.getLoyaltyBalance(chatId);
         if (balance && balance.points >= pointsToRedeem) {
           actualPointsRedeemed = Math.min(pointsToRedeem, balance.points);
-          pointsDiscount = Math.round((actualPointsRedeemed / loyaltySettings.redeemRate) * 100);
+          pointsDiscount = Math.round(actualPointsRedeemed / loyaltySettings.redeemRate);
           const maxDiscount = subtotal - promoDiscount;
           if (pointsDiscount > maxDiscount) {
             pointsDiscount = maxDiscount;
-            actualPointsRedeemed = Math.ceil((pointsDiscount / 100) * loyaltySettings.redeemRate);
+            actualPointsRedeemed = Math.ceil(pointsDiscount * loyaltySettings.redeemRate);
           }
         }
       }
@@ -174,27 +174,27 @@ export async function registerRoutes(
       const totalDiscount = promoDiscount + pointsDiscount;
       const total = subtotal - totalDiscount;
 
-      const formatPrice = (cents: number) => (cents / 100).toFixed(2) + ' EUR';
+      const formatEuros = (euros: number) => euros.toFixed(2) + ' EUR';
 
       let orderMessage = 'Nouvelle Commande PharmacyHash\n\n';
       orderMessage += 'Produits:\n';
       items.forEach(item => {
         const priceDisplay = item.selectedPrice && item.selectedWeight
           ? `${item.selectedPrice}€ ${item.selectedWeight}`
-          : formatPrice(item.product.price);
-        const itemTotal = item.selectedPrice ? item.selectedPrice * 100 * item.quantity : item.product.price * item.quantity;
-        orderMessage += `  - ${item.product.name} (${priceDisplay}) x${item.quantity} = ${formatPrice(itemTotal)}\n`;
+          : '0€';
+        const itemTotal = (item.selectedPrice || 0) * item.quantity;
+        orderMessage += `  - ${item.product.name} (${priceDisplay}) x${item.quantity} = ${formatEuros(itemTotal)}\n`;
       });
-      orderMessage += `\nSous-total: ${formatPrice(subtotal)}`;
+      orderMessage += `\nSous-total: ${formatEuros(subtotal)}`;
       if (validatedPromo && promoDiscount > 0) {
         orderMessage += `\nCode promo: ${validatedPromo.code} (-${validatedPromo.discountPercent}%)`;
-        orderMessage += `\nReduction promo: -${formatPrice(promoDiscount)}`;
+        orderMessage += `\nReduction promo: -${formatEuros(promoDiscount)}`;
       }
       if (actualPointsRedeemed > 0) {
         orderMessage += `\nPoints utilises: ${actualPointsRedeemed} pts`;
-        orderMessage += `\nReduction fidelite: -${formatPrice(pointsDiscount)}`;
+        orderMessage += `\nReduction fidelite: -${formatEuros(pointsDiscount)}`;
       }
-      orderMessage += `\nTotal: ${formatPrice(total)}`;
+      orderMessage += `\nTotal: ${formatEuros(total)}`;
       orderMessage += `\n\nMode de livraison: ${deliveryLabels[deliveryType] || deliveryType}`;
       if (deliveryTime) {
         orderMessage += `\nHoraire souhaite: ${deliveryTime}`;
@@ -216,7 +216,7 @@ export async function registerRoutes(
       });
 
       const today = new Date().toISOString().split('T')[0];
-      await storage.updateDailyStats(today, 1, total);
+      await storage.updateDailyStats(today, 1, Math.round(total * 100));
 
       if (chatId && actualPointsRedeemed > 0) {
         await storage.addLoyaltyPoints(
