@@ -1,8 +1,11 @@
 import TelegramBot from "node-telegram-bot-api";
-import { createReadStream, existsSync } from "fs";
+import { createReadStream, createWriteStream, existsSync, unlinkSync } from "fs";
 import { resolve } from "path";
 import { storage } from "./storage";
 import type { Product, Review } from "@shared/schema";
+import { execSync } from "child_process";
+import https from "https";
+import http from "http";
 
 // Store bot instance for external access
 let botInstance: TelegramBot | null = null;
@@ -164,6 +167,7 @@ interface AdminSession {
     | "awaiting_new_password"
     | "awaiting_password_label"
     | "awaiting_start_media"
+    | "awaiting_audio"
     | "awaiting_user_search"
     | "awaiting_user_msg_id"
     | "awaiting_user_msg_text"
@@ -1218,8 +1222,14 @@ export function setupBot() {
         ],
         [
           {
-            text: "🖼️ Changer image/video",
+            text: "🖼️ Changer image/vidéo",
             callback_data: `edit_image_${productId}`,
+          },
+        ],
+        [
+          {
+            text: "🎵 Changer la musique",
+            callback_data: `edit_audio_${productId}`,
           },
         ],
         [
@@ -2804,15 +2814,38 @@ export function setupBot() {
         | "description"
         | "price"
         | "category"
-        | "image";
+        | "image"
+        | "audio";
       const productId = parseInt(parts[2]);
+
+      if (field === "audio") {
+        try {
+          const product = await storage.getProduct(productId);
+          if (!product || !product.videoUrl) {
+            bot.answerCallbackQuery(query.id, { text: "Ce produit n'a pas de vidéo !" });
+            return;
+          }
+          session.state = "awaiting_audio";
+          session.editingProductId = productId;
+          bot
+            .editMessageText(
+              "🎵 Envoyez un fichier audio (MP3, M4A, OGG...) pour remplacer le son de la vidéo.\n\n⏳ Le traitement peut prendre quelques secondes.\n\nOu tapez /cancel pour annuler.",
+              { chat_id: chatId, message_id: messageId },
+            )
+            .catch(() => {});
+        } catch (err) {
+          console.error("Error checking product video:", err);
+          bot.answerCallbackQuery(query.id, { text: "Erreur lors de la vérification" });
+        }
+        return;
+      }
 
       if (field === "image") {
         session.state = "awaiting_image";
         session.editingProductId = productId;
         bot
           .editMessageText(
-            "Envoyez maintenant une photo ou video pour ce produit.\n\nOu tapez /cancel pour annuler.",
+            "Envoyez maintenant une photo ou vidéo pour ce produit.\n\nOu tapez /cancel pour annuler.",
             { chat_id: chatId, message_id: messageId },
           )
           .catch(() => {});
@@ -4399,6 +4432,159 @@ export function setupBot() {
     } catch (err) {
       console.error("Error updating video:", err);
       bot.sendMessage(chatId, "Erreur lors de la mise à jour de la vidéo.");
+      resetSession(chatId);
+    }
+  });
+
+  // === AUDIO HANDLER (replace video sound) ===
+  const downloadFile = (url: string, dest: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const mod = url.startsWith("https") ? https : http;
+      const file = createWriteStream(dest);
+      mod.get(url, (response) => {
+        if (response.statusCode === 301 || response.statusCode === 302) {
+          const redirectUrl = response.headers.location;
+          if (redirectUrl) {
+            downloadFile(redirectUrl, dest).then(resolve).catch(reject);
+            return;
+          }
+        }
+        response.pipe(file);
+        file.on("finish", () => { file.close(); resolve(); });
+      }).on("error", (err) => { reject(err); });
+    });
+  };
+
+  const processAudioForProduct = async (chatId: number, audioFileId: string) => {
+    const session = getSession(chatId);
+    const productId = session.editingProductId!;
+
+    try {
+      const product = await storage.getProduct(productId);
+      if (!product || !product.videoUrl) {
+        bot.sendMessage(chatId, "❌ Ce produit n'a pas de vidéo.");
+        resetSession(chatId);
+        return;
+      }
+
+      const statusMsg = await bot.sendMessage(chatId, "⏳ Traitement en cours... Téléchargement des fichiers.");
+
+      const videoFile = await bot.getFile(audioFileId);
+      const audioUrl = `https://api.telegram.org/file/bot${token}/${videoFile.file_path}`;
+      const videoUrl = product.videoUrl;
+
+      const tmpDir = "/tmp";
+      const timestamp = Date.now();
+      const audioExt = videoFile.file_path?.split(".").pop() || "mp3";
+      const tmpAudio = `${tmpDir}/audio_${timestamp}.${audioExt}`;
+      const tmpVideo = `${tmpDir}/video_${timestamp}.mp4`;
+      const tmpOutput = `${tmpDir}/output_${timestamp}.mp4`;
+
+      await downloadFile(audioUrl, tmpAudio);
+      await downloadFile(videoUrl, tmpVideo);
+
+      bot.editMessageText("⏳ Remplacement de l'audio en cours...", {
+        chat_id: chatId,
+        message_id: statusMsg.message_id,
+      }).catch(() => {});
+
+      execSync(
+        `ffmpeg -y -i "${tmpVideo}" -i "${tmpAudio}" -c:v copy -map 0:v:0 -map 1:a:0 -shortest "${tmpOutput}"`,
+        { timeout: 120000 }
+      );
+
+      bot.editMessageText("⏳ Upload de la vidéo...", {
+        chat_id: chatId,
+        message_id: statusMsg.message_id,
+      }).catch(() => {});
+
+      const sentVideo = await bot.sendVideo(chatId, createReadStream(tmpOutput) as any, {
+        caption: `✅ Musique appliquée au produit "${product.name}" !`,
+      });
+
+      if (sentVideo.video) {
+        const newVideoFileId = sentVideo.video.file_id;
+        const newFile = await bot.getFile(newVideoFileId);
+        const newVideoUrl = `https://api.telegram.org/file/bot${token}/${newFile.file_path}`;
+        await storage.updateProduct(productId, { videoUrl: newVideoUrl });
+      }
+
+      try { unlinkSync(tmpAudio); } catch {}
+      try { unlinkSync(tmpVideo); } catch {}
+      try { unlinkSync(tmpOutput); } catch {}
+
+      bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+      resetSession(chatId);
+
+    } catch (err) {
+      console.error("Error processing audio for product:", err);
+      bot.sendMessage(chatId, "❌ Erreur lors du traitement audio. Vérifiez que le fichier est valide.", {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🔙 Retour au menu", callback_data: "menu_main" }],
+          ],
+        },
+      });
+      resetSession(chatId);
+      try { unlinkSync(`/tmp/audio_${Date.now()}.mp3`); } catch {}
+      try { unlinkSync(`/tmp/video_${Date.now()}.mp4`); } catch {}
+      try { unlinkSync(`/tmp/output_${Date.now()}.mp4`); } catch {}
+    }
+  };
+
+  bot.on("audio", async (msg) => {
+    const chatId = msg.chat.id;
+    if (!(await isAdmin(chatId))) return;
+
+    const session = getSession(chatId);
+    if (session.state !== "awaiting_audio" || !session.editingProductId) return;
+
+    try {
+      const audio = msg.audio!;
+      await processAudioForProduct(chatId, audio.file_id);
+    } catch (err) {
+      console.error("Error handling audio:", err);
+      bot.sendMessage(chatId, "❌ Erreur lors du traitement du fichier audio.");
+      resetSession(chatId);
+    }
+  });
+
+  bot.on("document", async (msg) => {
+    const chatId = msg.chat.id;
+    if (!(await isAdmin(chatId))) return;
+
+    const session = getSession(chatId);
+    if (session.state !== "awaiting_audio" || !session.editingProductId) return;
+
+    const doc = msg.document!;
+    const mime = doc.mime_type || "";
+    if (!mime.startsWith("audio/") && !mime.includes("ogg") && !mime.includes("mp3") && !mime.includes("m4a") && !mime.includes("wav") && !mime.includes("flac")) {
+      bot.sendMessage(chatId, "❌ Ce fichier n'est pas un format audio reconnu. Envoyez un MP3, M4A, OGG, WAV ou FLAC.");
+      return;
+    }
+
+    try {
+      await processAudioForProduct(chatId, doc.file_id);
+    } catch (err) {
+      console.error("Error handling document audio:", err);
+      bot.sendMessage(chatId, "❌ Erreur lors du traitement du fichier audio.");
+      resetSession(chatId);
+    }
+  });
+
+  bot.on("voice", async (msg) => {
+    const chatId = msg.chat.id;
+    if (!(await isAdmin(chatId))) return;
+
+    const session = getSession(chatId);
+    if (session.state !== "awaiting_audio" || !session.editingProductId) return;
+
+    try {
+      const voice = msg.voice!;
+      await processAudioForProduct(chatId, voice.file_id);
+    } catch (err) {
+      console.error("Error handling voice:", err);
+      bot.sendMessage(chatId, "❌ Erreur lors du traitement du message vocal.");
       resetSession(chatId);
     }
   });
