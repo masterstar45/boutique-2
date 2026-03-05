@@ -163,7 +163,7 @@ interface AdminSession {
     | "awaiting_password"
     | "awaiting_new_password"
     | "awaiting_password_label"
-    | "awaiting_start_photo"
+    | "awaiting_start_media"
     | "awaiting_user_search"
     | "awaiting_user_msg_id"
     | "awaiting_user_msg_text"
@@ -286,7 +286,7 @@ export function setupBot() {
         [{ text: "🏷️ Codes Promo", callback_data: "menu_promo_codes" }],
         [{ text: "🎯 Fidélité", callback_data: "menu_loyalty" }],
         [{ text: "🔐 Mots de passe", callback_data: "menu_passwords" }],
-        [{ text: "🖼️ Photo de bienvenue", callback_data: "menu_start_photo" }],
+        [{ text: "🖼️ Média de bienvenue", callback_data: "menu_start_photo" }],
         [{ text: "👤 Utilisateurs", callback_data: "menu_users" }],
         [{ text: "🔘 Boutons Client", callback_data: "menu_client_buttons" }],
         [{ text: "📢 Envoyer une Promo", callback_data: "menu_promo" }],
@@ -1973,8 +1973,21 @@ export function setupBot() {
 
     const welcomeKeyboard = { inline_keyboard: keyboardButtons };
 
-    if (customPhotoFileId) {
-      // Use custom photo from Telegram file_id
+    const customVideoFileId = await storage.getBotSetting("start_video_file_id");
+
+    if (customVideoFileId) {
+      try {
+        await bot.sendVideo(chatId, customVideoFileId, {
+          caption: welcomeCaption,
+          reply_markup: welcomeKeyboard,
+        });
+      } catch (err) {
+        console.error("Error sending custom video:", err);
+        bot.sendMessage(chatId, welcomeCaption, {
+          reply_markup: welcomeKeyboard,
+        });
+      }
+    } else if (customPhotoFileId) {
       try {
         await bot.sendPhoto(chatId, customPhotoFileId, {
           caption: welcomeCaption,
@@ -3065,22 +3078,27 @@ export function setupBot() {
       return;
     }
 
-    // === START PHOTO MENU ===
+    // === START MEDIA MENU ===
     if (data === "menu_start_photo") {
       const currentPhoto = await storage.getBotSetting("start_photo_file_id");
-      let text = "🖼️ Photo de bienvenue\n\n";
-      text += currentPhoto
-        ? "Une photo personnalisée est configurée.\n"
-        : "Aucune photo personnalisée. La photo par défaut sera utilisée.\n";
-      text += "\nEnvoyez une nouvelle photo pour la changer.";
+      const currentVideo = await storage.getBotSetting("start_video_file_id");
+      let text = "🖼️ Média de bienvenue\n\n";
+      if (currentVideo) {
+        text += "🎬 Une vidéo personnalisée est configurée.\n";
+      } else if (currentPhoto) {
+        text += "📷 Une photo personnalisée est configurée.\n";
+      } else {
+        text += "Aucun média personnalisé. La photo par défaut sera utilisée.\n";
+      }
+      text += "\nEnvoyez une photo ou une vidéo pour la changer.";
 
-      session.state = "awaiting_start_photo";
+      session.state = "awaiting_start_media";
 
       const buttons: TelegramBot.InlineKeyboardButton[][] = [];
-      if (currentPhoto) {
+      if (currentPhoto || currentVideo) {
         buttons.push([
           {
-            text: "🗑️ Supprimer la photo personnalisée",
+            text: "🗑️ Supprimer le média",
             callback_data: "start_photo_delete",
           },
         ]);
@@ -3099,8 +3117,9 @@ export function setupBot() {
 
     if (data === "start_photo_delete") {
       await storage.setBotSetting("start_photo_file_id", "");
+      await storage.setBotSetting("start_video_file_id", "");
       resetSession(chatId);
-      bot.answerCallbackQuery(query.id, { text: "Photo supprimée" });
+      bot.answerCallbackQuery(query.id, { text: "Média supprimé" });
       sendMainMenu(chatId, messageId);
       return;
     }
@@ -3384,15 +3403,29 @@ export function setupBot() {
         const customPhotoFileId = await storage.getBotSetting(
           "start_photo_file_id",
         );
+        const customVideoFileId = await storage.getBotSetting(
+          "start_video_file_id",
+        );
         const welcomeCaption =
-          "Mot de passe correct! Bienvenue dans l'univers PharmacyHash!\nUn clic et hop - la Mini App s'ouvre pour toi.";
+          "Mot de passe correct ! Bienvenue dans l'univers PharmacyHash !\nUn clic et hop - la Mini App s'ouvre pour toi.";
         const welcomeKeyboard = {
           inline_keyboard: [
             [{ text: "Ouvrir PharmacyHash", web_app: { url: webAppUrl } }],
           ],
         };
 
-        if (customPhotoFileId) {
+        if (customVideoFileId) {
+          try {
+            await bot.sendVideo(chatId, customVideoFileId, {
+              caption: welcomeCaption,
+              reply_markup: welcomeKeyboard,
+            });
+          } catch (err) {
+            bot.sendMessage(chatId, welcomeCaption, {
+              reply_markup: welcomeKeyboard,
+            });
+          }
+        } else if (customPhotoFileId) {
           try {
             await bot.sendPhoto(chatId, customPhotoFileId, {
               caption: welcomeCaption,
@@ -4253,14 +4286,15 @@ export function setupBot() {
 
     const session = getSession(chatId);
 
-    // Handle start photo update
-    if (session.state === "awaiting_start_photo") {
+    // Handle start media update (photo)
+    if (session.state === "awaiting_start_media") {
       try {
         const photo = msg.photo![msg.photo!.length - 1];
         await storage.setBotSetting("start_photo_file_id", photo.file_id);
+        await storage.setBotSetting("start_video_file_id", "");
         resetSession(chatId);
 
-        bot.sendMessage(chatId, "✅ Photo de bienvenue mise a jour!", {
+        bot.sendMessage(chatId, "✅ Photo de bienvenue mise à jour !", {
           reply_markup: {
             inline_keyboard: [
               [{ text: "🔙 Retour au menu", callback_data: "menu_main" }],
@@ -4269,7 +4303,7 @@ export function setupBot() {
         });
       } catch (err) {
         console.error("Error updating start photo:", err);
-        bot.sendMessage(chatId, "Erreur lors de la mise a jour de la photo.");
+        bot.sendMessage(chatId, "Erreur lors de la mise à jour de la photo.");
         resetSession(chatId);
       }
       return;
@@ -4313,6 +4347,30 @@ export function setupBot() {
     if (!(await isAdmin(chatId))) return;
 
     const session = getSession(chatId);
+
+    // Handle start media update (video)
+    if (session.state === "awaiting_start_media") {
+      try {
+        const video = msg.video!;
+        await storage.setBotSetting("start_video_file_id", video.file_id);
+        await storage.setBotSetting("start_photo_file_id", "");
+        resetSession(chatId);
+
+        bot.sendMessage(chatId, "✅ Vidéo de bienvenue mise à jour !", {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "🔙 Retour au menu", callback_data: "menu_main" }],
+            ],
+          },
+        });
+      } catch (err) {
+        console.error("Error updating start video:", err);
+        bot.sendMessage(chatId, "Erreur lors de la mise à jour de la vidéo.");
+        resetSession(chatId);
+      }
+      return;
+    }
+
     if (session.state !== "awaiting_image" || !session.editingProductId) return;
 
     try {
