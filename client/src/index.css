@@ -161,47 +161,7 @@
   will-change: transform;
 }
 
-.animated-bg-orb-1 {
-  top: -15%;
-  left: -10%;
-  width: 55vw;
-  height: 55vw;
-  background: radial-gradient(circle, hsl(150 80% 45% / 0.2), hsl(150 80% 45% / 0.05));
-  animation: orb-drift-1 18s ease-in-out infinite;
-}
-
-.animated-bg-orb-2 {
-  bottom: -15%;
-  right: -10%;
-  width: 60vw;
-  height: 60vw;
-  background: radial-gradient(circle, hsl(170 80% 40% / 0.18), hsl(170 80% 40% / 0.03));
-  animation: orb-drift-2 22s ease-in-out infinite;
-}
-
-.animated-bg-orb-3 {
-  top: 40%;
-  left: 30%;
-  width: 40vw;
-  height: 40vw;
-  background: radial-gradient(circle, hsl(140 70% 35% / 0.12), hsl(140 70% 35% / 0.02));
-  animation: orb-drift-3 15s ease-in-out infinite;
-}
-
 .animated-bg-particles {
   position: absolute;
   inset: 0;
-  background-image:
-    radial-gradient(1px 1px at 10% 20%, hsl(150 80% 45% / 0.3) 50%, transparent 50%),
-    radial-gradient(1px 1px at 30% 65%, hsl(170 80% 40% / 0.25) 50%, transparent 50%),
-    radial-gradient(1.5px 1.5px at 55% 15%, hsl(150 80% 45% / 0.2) 50%, transparent 50%),
-    radial-gradient(1px 1px at 70% 80%, hsl(140 70% 35% / 0.3) 50%, transparent 50%),
-    radial-gradient(1px 1px at 85% 40%, hsl(170 80% 40% / 0.2) 50%, transparent 50%),
-    radial-gradient(1.5px 1.5px at 20% 85%, hsl(150 80% 45% / 0.25) 50%, transparent 50%),
-    radial-gradient(1px 1px at 45% 45%, hsl(140 70% 35% / 0.2) 50%, transparent 50%),
-    radial-gradient(1px 1px at 90% 10%, hsl(150 80% 45% / 0.15) 50%, transparent 50%),
-    radial-gradient(1.5px 1.5px at 60% 55%, hsl(170 80% 40% / 0.2) 50%, transparent 50%),
-    radial-gradient(1px 1px at 5% 50%, hsl(140 70% 35% / 0.25) 50%, transparent 50%);
-  animation: orb-drift-1 30s linear infinite;
-  opacity: 0.8;
 }

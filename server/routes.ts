@@ -527,6 +527,36 @@ export async function registerRoutes(
     }
   });
 
+  app.get('/api/background-settings', async (_req, res) => {
+    try {
+      const keys = ['bg_preset', 'bg_color1', 'bg_color2', 'bg_color3', 'bg_opacity', 'bg_speed'];
+      const settings: Record<string, string | null> = {};
+      for (const key of keys) {
+        settings[key] = await storage.getBotSetting(key);
+      }
+      res.json(settings);
+    } catch (err) {
+      console.error('Error getting background settings:', err);
+      res.json({});
+    }
+  });
+
+  app.put('/api/admin/background-settings', async (req, res) => {
+    try {
+      const { bg_preset, bg_color1, bg_color2, bg_color3, bg_opacity, bg_speed } = req.body;
+      if (bg_preset !== undefined) await storage.setBotSetting('bg_preset', bg_preset);
+      if (bg_color1 !== undefined) await storage.setBotSetting('bg_color1', bg_color1);
+      if (bg_color2 !== undefined) await storage.setBotSetting('bg_color2', bg_color2);
+      if (bg_color3 !== undefined) await storage.setBotSetting('bg_color3', bg_color3);
+      if (bg_opacity !== undefined) await storage.setBotSetting('bg_opacity', bg_opacity);
+      if (bg_speed !== undefined) await storage.setBotSetting('bg_speed', bg_speed);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error updating background settings:', err);
+      res.status(500).json({ message: 'Failed to update settings' });
+    }
+  });
+
   app.get('/api/admin/orders/new-count', async (_req, res) => {
     try {
       const count = await storage.getRecentOrdersCount(5);
