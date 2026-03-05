@@ -16,7 +16,26 @@ export default function Reviews() {
 
   const submitReview = useMutation({
     mutationFn: async (text: string) => {
-      return apiRequest('POST', '/api/reviews', { text });
+      const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      let chatId = tgUser?.id?.toString();
+      let username = tgUser?.username;
+      let firstName = tgUser?.first_name;
+      if (!chatId) {
+        try {
+          const initData = window.Telegram?.WebApp?.initData;
+          if (initData) {
+            const params = new URLSearchParams(initData);
+            const userJson = params.get("user");
+            if (userJson) {
+              const u = JSON.parse(userJson);
+              chatId = u.id?.toString();
+              username = u.username;
+              firstName = u.first_name;
+            }
+          }
+        } catch {}
+      }
+      return apiRequest('POST', '/api/reviews', { text, chatId, username, firstName });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/reviews'] });

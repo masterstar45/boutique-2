@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useRoute } from "wouter";
-import { ArrowLeft, MoreVertical, ChevronDown, X, Minus, Plus, ShoppingBag, Leaf, Star } from "lucide-react";
+import { ArrowLeft, MoreVertical, ChevronDown, X, Minus, Plus, ShoppingBag, Leaf, Star, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +27,7 @@ export default function ProductDetail() {
   const [selectedOption, setSelectedOption] = useState<{ price: number; weight: string } | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
 
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ["/api/products", productId],
@@ -119,27 +120,35 @@ export default function ProductDetail() {
         {/* Subtle radial gradient behind image */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-background/5 mix-blend-overlay z-10" />
 
-        {product.videoUrl ? (
+        {showVideo && product.videoUrl ? (
           <video
             src={product.videoUrl}
             className="w-full h-full object-cover"
             controls
             autoPlay
-            muted
-            loop
             playsInline
             data-testid={`video-product-${product.id}`}
+            onEnded={() => setShowVideo(false)}
           />
         ) : (
-          <motion.img
-            initial={{ scale: 1.1, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.6 }}
-            src={product.imageUrl}
-            alt={product.name}
-            className="w-full h-full object-cover"
-            data-testid={`img-product-${product.id}`}
-          />
+          <div className="relative w-full h-full" onClick={() => { if (product.videoUrl) setShowVideo(true); }}>
+            <motion.img
+              initial={{ scale: 1.1, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.6 }}
+              src={product.imageUrl}
+              alt={product.name}
+              className="w-full h-full object-cover"
+              data-testid={`img-product-${product.id}`}
+            />
+            {product.videoUrl && (
+              <div className="absolute inset-0 flex items-center justify-center z-10 cursor-pointer">
+                <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.5)] hover:bg-black/70 transition-colors">
+                  <Play className="w-7 h-7 text-white ml-1" fill="white" />
+                </div>
+              </div>
+            )}
+          </div>
         )}
         
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent z-10" />

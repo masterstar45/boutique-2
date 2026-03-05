@@ -347,6 +347,11 @@ export default function AdminDashboard() {
   const [newOrderCount, setNewOrderCount] = useState(0);
   const lastCountRef = useRef(0);
 
+  const quickImageRef = useRef<HTMLInputElement>(null);
+  const quickVideoRef = useRef<HTMLInputElement>(null);
+  const [quickUploadProductId, setQuickUploadProductId] = useState<number | null>(null);
+  const [quickUploading, setQuickUploading] = useState<string | null>(null);
+
   useEffect(() => {
     const poll = async () => {
       try {
@@ -562,6 +567,28 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/promo-codes"] });
     },
   });
+
+  const quickUploadFile = async (file: File, productId: number, field: 'imageUrl' | 'videoUrl') => {
+    setQuickUploading(`${field}-${productId}`);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      await fetch(`/api/admin/products/${productId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: data.url }),
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+    } catch {
+      alert("Erreur lors de l'upload");
+    } finally {
+      setQuickUploading(null);
+      setQuickUploadProductId(null);
+    }
+  };
 
   const filteredOrders = (ordersData?.orders || []).filter((order: Order) => {
     if (!orderSearch) return true;
@@ -822,38 +849,125 @@ export default function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">Aucun produit</p>
               </Card>
             ) : (
-              (products || []).map((product: Product) => (
-                <div key={product.id} className="glass-panel p-3 rounded-xl border border-white/5 flex items-center gap-3" data-testid={`card-product-${product.id}`}>
-                  <div className="w-14 h-14 rounded-lg bg-white/5 overflow-hidden flex-shrink-0">
-                    <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+              <>
+                <input
+                  ref={quickImageRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file && quickUploadProductId) {
+                      quickUploadFile(file, quickUploadProductId, 'imageUrl');
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                <input
+                  ref={quickVideoRef}
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file && quickUploadProductId) {
+                      quickUploadFile(file, quickUploadProductId, 'videoUrl');
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                {(products || []).map((product: Product) => (
+                  <div key={product.id} className="glass-panel p-3 rounded-xl border border-white/5" data-testid={`card-product-${product.id}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-lg bg-white/5 overflow-hidden flex-shrink-0 relative">
+                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                        {product.videoUrl && (
+                          <div className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded bg-primary/80 flex items-center justify-center">
+                            <Video className="w-2.5 h-2.5 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm truncate">{product.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{product.brand} - {product.category}</p>
+                        <p className="text-xs font-bold text-primary mt-0.5">{((product.priceOptions as any[]) || []).length} option(s) de prix</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setEditingProduct(product)}
+                          className="p-2 text-blue-500/60 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors"
+                          data-testid={`button-edit-product-${product.id}`}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Supprimer "${product.name}" ?`)) {
+                              deleteProduct.mutate(product.id);
+                            }
+                          }}
+                          className="p-2 text-red-500/60 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                          data-testid={`button-delete-product-${product.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-2 pt-2 border-t border-white/5">
+                      <button
+                        onClick={() => {
+                          setQuickUploadProductId(product.id);
+                          setTimeout(() => quickImageRef.current?.click(), 50);
+                        }}
+                        disabled={quickUploading === `imageUrl-${product.id}`}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                        data-testid={`button-quick-image-${product.id}`}
+                      >
+                        {quickUploading === `imageUrl-${product.id}` ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Image className="w-3.5 h-3.5" />
+                        )}
+                        Photo
+                      </button>
+                      <button
+                        onClick={() => {
+                          setQuickUploadProductId(product.id);
+                          setTimeout(() => quickVideoRef.current?.click(), 50);
+                        }}
+                        disabled={quickUploading === `videoUrl-${product.id}`}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                        data-testid={`button-quick-video-${product.id}`}
+                      >
+                        {quickUploading === `videoUrl-${product.id}` ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Video className="w-3.5 h-3.5" />
+                        )}
+                        Video
+                      </button>
+                      {product.videoUrl && (
+                        <button
+                          onClick={async () => {
+                            if (confirm('Supprimer la vidéo ?')) {
+                              await fetch(`/api/admin/products/${product.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ videoUrl: null }),
+                              });
+                              queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+                            }
+                          }}
+                          className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-xs text-red-400 hover:text-red-300 transition-colors"
+                          data-testid={`button-remove-video-${product.id}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm truncate">{product.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{product.brand} - {product.category}</p>
-                    <p className="text-xs font-bold text-primary mt-0.5">{((product.priceOptions as any[]) || []).length} option(s) de prix</p>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setEditingProduct(product)}
-                      className="p-2 text-blue-500/60 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors"
-                      data-testid={`button-edit-product-${product.id}`}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm(`Supprimer "${product.name}" ?`)) {
-                          deleteProduct.mutate(product.id);
-                        }
-                      }}
-                      className="p-2 text-red-500/60 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                      data-testid={`button-delete-product-${product.id}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))
+                ))}
+              </>
             )}
           </TabsContent>
 
