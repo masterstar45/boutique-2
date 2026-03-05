@@ -103,6 +103,7 @@ export interface IStorage {
   getDailyStats(date: string): Promise<DailyStats | undefined>;
   updateDailyStats(date: string, orderCount: number, revenue: number): Promise<DailyStats>;
   getRecentDailyStats(days: number): Promise<DailyStats[]>;
+  resetDailyStats(): Promise<void>;
 
   getLoyaltyBalance(chatId: string): Promise<LoyaltyBalance | undefined>;
   upsertLoyaltyBalance(chatId: string, points: number, tier: string, totalEarned: number): Promise<LoyaltyBalance>;
@@ -400,6 +401,10 @@ export class DatabaseStorage implements IStorage {
 
   async getRecentDailyStats(days: number): Promise<DailyStats[]> {
     return await db.select().from(dailyStats).orderBy(desc(dailyStats.date)).limit(days);
+  }
+
+  async resetDailyStats(): Promise<void> {
+    await db.delete(dailyStats);
   }
 
   async getLoyaltyBalance(chatId: string): Promise<LoyaltyBalance | undefined> {
