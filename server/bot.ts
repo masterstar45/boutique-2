@@ -228,12 +228,12 @@ export function setupBot() {
     return;
   }
 
-  // Only run bot in production to avoid conflicts
   const isProduction = process.env.NODE_ENV === "production";
+
   if (!isProduction) {
-    console.log(
-      "Bot disabled in development mode to avoid conflicts. Bot runs only in production.",
-    );
+    console.log("Dev mode: bot polling disabled, but message sending is enabled.");
+    const bot = new TelegramBot(token, { polling: false });
+    botInstance = bot;
     return;
   }
 
