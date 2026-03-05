@@ -118,12 +118,12 @@ export default function ProductDetail() {
         </div>
 
         {/* Subtle radial gradient behind image */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-background/5 mix-blend-overlay z-10" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-background/5 mix-blend-overlay z-[1] pointer-events-none" />
 
         {showVideo && product.videoUrl ? (
           <video
             src={product.videoUrl}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover relative z-[2]"
             controls
             autoPlay
             playsInline
@@ -131,7 +131,7 @@ export default function ProductDetail() {
             onEnded={() => setShowVideo(false)}
           />
         ) : (
-          <div className="relative w-full h-full" onClick={() => { if (product.videoUrl) setShowVideo(true); }}>
+          <div className="relative w-full h-full cursor-pointer z-[2]" onClick={() => { if (product.videoUrl) setShowVideo(true); }}>
             <motion.img
               initial={{ scale: 1.1, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -142,8 +142,8 @@ export default function ProductDetail() {
               data-testid={`img-product-${product.id}`}
             />
             {product.videoUrl && (
-              <div className="absolute inset-0 flex items-center justify-center z-10 cursor-pointer">
-                <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.5)] hover:bg-black/70 transition-colors">
+              <div className="absolute inset-0 flex items-center justify-center z-30 cursor-pointer">
+                <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.5)] hover:bg-black/70 active:scale-95 transition-all">
                   <Play className="w-7 h-7 text-white ml-1" fill="white" />
                 </div>
               </div>
@@ -151,7 +151,7 @@ export default function ProductDetail() {
           </div>
         )}
         
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent z-10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent z-[3] pointer-events-none" />
         
         {product.sticker && (
           <div className="absolute bottom-6 left-6 z-20 flex items-center gap-2 bg-primary/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.4)] border border-primary/20">
