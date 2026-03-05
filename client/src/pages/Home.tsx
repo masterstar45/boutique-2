@@ -2,7 +2,6 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowRight, ShieldCheck, Zap, Lock, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import backgroundImage from "@assets/background.png";
 import logoImage from "@assets/pharmacy-hash-logo.png";
 import type { Product } from "@shared/schema";
 
@@ -33,16 +32,7 @@ export default function Home() {
   return (
     <div className="relative min-h-screen flex flex-col text-white overflow-hidden">
       
-      <div 
-        className="absolute inset-0 z-0 opacity-40 mix-blend-overlay"
-        style={{
-          backgroundImage: `url(${backgroundImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      />
-      
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent z-0" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-0" />
       
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center z-10 pt-16 pb-24">
         

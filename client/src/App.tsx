@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BottomNav } from "@/components/BottomNav";
 import { AnimatePresence, motion } from "framer-motion";
-import backgroundImage from "@assets/background.png";
+import bgVideoUrl from "@assets/fotor_creation_2026-03-05_1772731700946.mp4";
 
 interface BgSettings {
   bg_preset: string | null;
@@ -180,16 +180,17 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <div 
-          className="fixed inset-0 z-0"
-          style={{
-            backgroundImage: `linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.85)), url(${backgroundImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center top',
-            backgroundAttachment: 'fixed',
-            backgroundRepeat: 'no-repeat'
-          }}
-        />
+        <div className="fixed inset-0 z-0 overflow-hidden">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+            src={bgVideoUrl}
+          />
+          <div className="absolute inset-0 bg-black/60" />
+        </div>
         <AnimatedBg />
         <div className="relative z-10 bg-transparent min-h-screen text-foreground font-body antialiased">
           <Router />
