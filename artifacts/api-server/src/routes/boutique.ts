@@ -496,9 +496,9 @@ router.get("/admin/stats", async (req, res) => {
 
 // ─── Client Buttons (/start) ─────────────────────────────────────────────────
 
-// Eager migration: ensure the client_buttons table and full_width column exist.
-// This runs once when the module is loaded and is awaited by every route handler.
-const clientButtonsReady: Promise<void> = (async () => {
+// Ensure the table + full_width column exist. Using ADD COLUMN without IF NOT EXISTS
+// so it works on older Postgres; we catch the "already exists" error intentionally.
+async function setupClientButtons() {
   try {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS client_buttons (
@@ -507,25 +507,49 @@ const clientButtonsReady: Promise<void> = (async () => {
         url TEXT NOT NULL,
         emoji TEXT,
         active BOOLEAN NOT NULL DEFAULT TRUE,
-        position INTEGER NOT NULL DEFAULT 0,
-        full_width BOOLEAN NOT NULL DEFAULT TRUE
+        position INTEGER NOT NULL DEFAULT 0
       );
     `);
-    await db.execute(sql`
-      ALTER TABLE client_buttons ADD COLUMN IF NOT EXISTS full_width BOOLEAN NOT NULL DEFAULT TRUE;
-    `);
   } catch (e: any) {
-    console.error("client_buttons migration error:", e?.message);
+    console.error("client_buttons CREATE error:", e?.message);
   }
-})();
+  try {
+    await db.execute(sql`ALTER TABLE client_buttons ADD COLUMN full_width BOOLEAN NOT NULL DEFAULT TRUE;`);
+    console.log("client_buttons: full_width column added");
+  } catch {
+    // already exists — ignore
+  }
+}
+
+const clientButtonsReady: Promise<void> = setupClientButtons();
+
+// Raw-SQL helpers — bypass Drizzle schema so queries work even if full_width is missing
+async function rawSelectButtons() {
+  const res = await db.execute(sql`
+    SELECT id, label, url, emoji, active, position,
+           COALESCE(full_width, TRUE) AS full_width
+    FROM client_buttons ORDER BY position;
+  `);
+  return res.rows;
+}
+
+async function rawInsertButton(label: string, url: string, emoji: string | null, position: number, fullWidth: boolean) {
+  const res = await db.execute(sql`
+    INSERT INTO client_buttons (label, url, emoji, active, position, full_width)
+    VALUES (${label}, ${url}, ${emoji}, TRUE, ${position}, ${fullWidth})
+    RETURNING *;
+  `);
+  return res.rows[0];
+}
+
 
 router.get("/admin/client-buttons", async (_req, res) => {
   await clientButtonsReady;
   try {
-    const rows = await db.select().from(clientButtons).orderBy(clientButtons.position);
+    const rows = await rawSelectButtons();
     res.json(rows);
   } catch (err: any) {
-    console.error("GET client-buttons error:", err?.message);
+    console.error("GET client-buttons error:", err?.message, err?.cause?.message);
     res.json([]);
   }
 });
@@ -535,24 +559,23 @@ router.post("/admin/client-buttons", async (req, res) => {
   try {
     const { label, url, emoji, position, fullWidth } = req.body;
     if (!label || !url) return res.status(400).json({ error: "label and url required" });
-    const maxPos = await db.select({ max: sql<number>`max(position)` }).from(clientButtons);
-    const nextPos = (maxPos[0]?.max ?? -1) + 1;
-    const [row] = await db.insert(clientButtons).values({
-      label, url, emoji: emoji || null, active: true,
-      position: position ?? nextPos,
-      fullWidth: fullWidth !== false,
-    }).returning();
+    const maxRes = await db.execute(sql`SELECT COALESCE(MAX(position), -1) + 1 AS next FROM client_buttons;`);
+    const nextPos = Number((maxRes.rows[0] as any).next ?? 0);
+    const row = await rawInsertButton(label, url, emoji || null, position ?? nextPos, fullWidth !== false);
     res.json(row);
   } catch (err: any) {
-    console.error("POST client-buttons error:", err);
-    res.status(500).json({ error: err.message || "Erreur serveur" });
+    const pg = err?.cause?.message || err?.cause?.code || "";
+    console.error("POST client-buttons error:", err?.message, pg);
+    res.status(500).json({ error: err.message || "Erreur serveur", pg });
   }
 });
 
 router.patch("/admin/client-buttons/:id", async (req, res) => {
   await clientButtonsReady;
   try {
+    const id = Number(req.params.id);
     const { label, url, emoji, active, position, fullWidth } = req.body;
+    // Build update via drizzle for type safety
     const update: Record<string, any> = {};
     if (label !== undefined) update.label = label;
     if (url !== undefined) update.url = url;
@@ -560,11 +583,12 @@ router.patch("/admin/client-buttons/:id", async (req, res) => {
     if (active !== undefined) update.active = active;
     if (position !== undefined) update.position = position;
     if (fullWidth !== undefined) update.fullWidth = fullWidth;
-    const [row] = await db.update(clientButtons).set(update).where(eq(clientButtons.id, Number(req.params.id))).returning();
+    const [row] = await db.update(clientButtons).set(update).where(eq(clientButtons.id, id)).returning();
     res.json(row);
   } catch (err: any) {
-    console.error("PATCH client-buttons error:", err);
-    res.status(500).json({ error: err.message || "Erreur serveur" });
+    const pg = err?.cause?.message || err?.cause?.code || "";
+    console.error("PATCH client-buttons error:", err?.message, pg);
+    res.status(500).json({ error: err.message || "Erreur serveur", pg });
   }
 });
 
