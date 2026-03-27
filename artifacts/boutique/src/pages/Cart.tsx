@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, ChevronLeft, Send, MapPin, Phone, Clock } from "lucide-react";
+import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, ChevronLeft, Send, MapPin, Phone, Clock, ExternalLink } from "lucide-react";
 import { TopBar } from "@/components/TopBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "@/hooks/use-session";
@@ -193,17 +193,46 @@ export default function Cart() {
                   className={`w-full p-5 rounded-[1.5rem] border-2 text-left flex items-center gap-4 transition-all active:scale-[0.98] ${deliveryMode === opt.id ? "border-primary bg-primary/10 shadow-[0_0_20px_-5px_rgba(147,51,234,0.2)]" : "border-white/5 glass-panel"}`}
                 >
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${deliveryMode === opt.id ? "bg-primary/20" : "bg-white/5"}`}>{opt.emoji}</div>
-                  <h3 className="font-bold text-lg">{opt.label}</h3>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg">{opt.label}</h3>
+                    {opt.id === "relais" && (
+                      <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                        <ExternalLink className="w-3 h-3" /> Redirige vers notre Telegram
+                      </p>
+                    )}
+                  </div>
                 </button>
               ))}
 
               <button
                 disabled={!deliveryMode}
-                onClick={() => setStep("details")}
+                onClick={() => {
+                  if (deliveryMode === "relais") {
+                    const tg = (window as any).Telegram?.WebApp;
+                    const url = "https://t.me/SOSLePlug75";
+                    if (tg?.openLink) {
+                      tg.openLink(url);
+                    } else {
+                      window.open(url, "_blank");
+                    }
+                  } else {
+                    setStep("details");
+                  }
+                }}
                 className="w-full mt-8 h-16 bg-primary text-primary-foreground rounded-2xl font-black text-lg flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform"
               >
-                Continuer <ArrowRight className="w-5 h-5" />
+                {deliveryMode === "relais" ? (
+                  <><ExternalLink className="w-5 h-5" /> Contacter sur Telegram</>
+                ) : (
+                  <>Continuer <ArrowRight className="w-5 h-5" /></>
+                )}
               </button>
+
+              {deliveryMode === "relais" && (
+                <p className="text-center text-xs text-muted-foreground pb-2">
+                  Vous serez redirigé vers <span className="text-primary font-bold">@SOSLePlug75</span> pour choisir votre point relais 📦
+                </p>
+              )}
             </motion.div>
           )}
 
