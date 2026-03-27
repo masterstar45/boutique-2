@@ -44,34 +44,36 @@
 }
 
 :root {
-  --background: 150 10% 4%;
+  /* Fond très sombre violet/noir comme l'image */
+  --background: 265 30% 4%;
   --foreground: 0 0% 98%;
-  
-  --card: 150 10% 8%;
+
+  --card: 265 20% 7%;
   --card-foreground: 0 0% 98%;
-  
-  --popover: 150 10% 6%;
+
+  --popover: 265 20% 6%;
   --popover-foreground: 0 0% 98%;
-  
-  --primary: 150 80% 45%; 
-  --primary-foreground: 150 10% 4%;
-  
-  --secondary: 150 10% 12%;
+
+  /* Violet néon principal — couleur dominante de l'image */
+  --primary: 270 90% 65%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 265 20% 12%;
   --secondary-foreground: 0 0% 98%;
-  
-  --muted: 150 10% 16%;
-  --muted-foreground: 150 5% 65%;
-  
-  --accent: 150 80% 45%;
-  --accent-foreground: 150 10% 4%;
-  
+
+  --muted: 265 15% 16%;
+  --muted-foreground: 265 10% 60%;
+
+  --accent: 185 100% 50%;
+  --accent-foreground: 265 30% 4%;
+
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 150 10% 16%;
-  --input: 150 10% 16%;
-  --ring: 150 80% 45%;
-  
+  --border: 265 20% 16%;
+  --input: 265 20% 16%;
+  --ring: 270 90% 65%;
+
   --radius: 1rem;
 }
 
@@ -100,18 +102,18 @@
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 20px);
   }
-  
+
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
-  
+
   .hide-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .glass-panel {
-    @apply bg-card/60 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)];
+    @apply bg-card/60 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)];
   }
 
   .shine-effect {
@@ -136,8 +138,27 @@
     z-index: 5;
   }
 
+  /* Glow violet néon */
   .glow-text {
-    text-shadow: 0 0 20px rgba(34, 197, 94, 0.4), 0 0 40px rgba(34, 197, 94, 0.15);
+    text-shadow:
+      0 0 10px rgba(168, 85, 247, 0.9),
+      0 0 30px rgba(168, 85, 247, 0.5),
+      0 0 60px rgba(168, 85, 247, 0.25);
+  }
+
+  /* Glow cyan */
+  .glow-cyan {
+    text-shadow:
+      0 0 10px rgba(0, 255, 255, 0.9),
+      0 0 30px rgba(0, 255, 255, 0.5);
+  }
+
+  /* Dégradé graffiti style image */
+  .gradient-plug {
+    background: linear-gradient(135deg, #a855f7, #06b6d4, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   .shimmer-btn {
@@ -154,7 +175,7 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(255, 255, 255, 0.15),
+      rgba(255, 255, 255, 0.2),
       transparent
     );
     transition: left 0.7s ease-in-out;

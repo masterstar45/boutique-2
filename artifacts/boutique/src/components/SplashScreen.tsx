@@ -81,10 +81,10 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
               transition={{ delay: 0.3, duration: 0.5 }}
               className="text-center"
             >
-              <h1 className="text-4xl font-black font-display text-primary tracking-tight">
-                SOS LE PLUG
+              <h1 className="text-3xl font-black font-display tracking-tight gradient-plug glow-text">
+                🔌 SOS LE PLUG 🔌
               </h1>
-              <p className="text-xs text-muted-foreground tracking-[0.3em] uppercase mt-1">
+              <p className="text-xs text-purple-400/80 tracking-[0.3em] uppercase mt-1">
                 Premium Selection
               </p>
             </motion.div>

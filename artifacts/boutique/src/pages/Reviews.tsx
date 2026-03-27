@@ -48,7 +48,7 @@ export default function Reviews() {
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Partagez votre expérience avec PharmacyHash..."
+              placeholder="Partagez votre expérience avec 🔌 SOS LE PLUG 🔌..."
               className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none h-28 mb-4 relative z-10"
             />
             <button 
