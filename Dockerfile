@@ -18,6 +18,9 @@ RUN PORT=3000 BASE_PATH=/ NODE_ENV=development pnpm --filter @workspace/boutique
 
 RUN pnpm --filter @workspace/api-server run build
 
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 EXPOSE 3000
 
-CMD ["node", "--enable-source-maps", "/app/artifacts/api-server/dist/index.mjs"]
+CMD ["/bin/sh", "/app/start.sh"]
