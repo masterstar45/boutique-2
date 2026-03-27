@@ -54,6 +54,11 @@ async function runMigrations() {
   await runMigration("add full_width column", sql`
     ALTER TABLE client_buttons ADD COLUMN IF NOT EXISTS full_width BOOLEAN NOT NULL DEFAULT TRUE;
   `);
+
+  // Add admin notes column to orders
+  await runMigration("add orders notes", sql`
+    ALTER TABLE orders ADD COLUMN notes TEXT;
+  `);
 }
 
 runMigrations().then(() => {

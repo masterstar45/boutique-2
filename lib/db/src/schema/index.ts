@@ -43,6 +43,7 @@ export const orders = pgTable("orders", {
   deliveryType: text("delivery_type").notNull(),
   status: text("status").notNull().default("pending"),
   createdAt: text("created_at"),
+  notes: text("notes"),
 });
 
 export const favorites = pgTable("favorites", {

@@ -368,6 +368,110 @@ router.delete("/admin/orders/:orderCode", async (req, res) => {
   res.status(204).send();
 });
 
+// Save admin notes on an order (lazy-add column if missing)
+router.patch("/admin/orders/:orderCode/notes", async (req, res) => {
+  const doUpdate = async () =>
+    db.execute(sql`UPDATE orders SET notes = ${req.body.notes ?? null} WHERE order_code = ${req.params.orderCode}`);
+  try {
+    await doUpdate();
+    res.json({ ok: true });
+  } catch (err: any) {
+    if (err?.cause?.code === "42703" || err?.message?.includes("notes")) {
+      try {
+        await db.execute(sql`ALTER TABLE orders ADD COLUMN notes TEXT`);
+        await doUpdate();
+        return res.json({ ok: true });
+      } catch (e2: any) { return res.status(500).json({ error: e2.message }); }
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Admin: enriched order list (with user info) ──────────────────────────────
+router.get("/admin/orders/enriched", async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const offset = Number(req.query.offset) || 0;
+    const status = req.query.status as string | undefined;
+
+    let q = db.select().from(orders).orderBy(desc(orders.id)).limit(limit).offset(offset).$dynamic();
+    if (status) q = q.where(eq(orders.status, status));
+    const result = await q;
+
+    const chatIds = [...new Set(result.map(o => o.chatId).filter(Boolean))] as string[];
+    const users = chatIds.length > 0
+      ? await db.select().from(botUsers).where(or(...chatIds.map(id => eq(botUsers.chatId, id))))
+      : [];
+    const userMap: Record<string, any> = {};
+    users.forEach(u => { userMap[u.chatId] = u; });
+
+    const [totalResult] = await db.select({ count: count() }).from(orders);
+    res.json({
+      orders: result.map(o => ({ ...o, user: o.chatId ? (userMap[o.chatId] ?? null) : null })),
+      total: totalResult?.count || 0,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Admin: bot users list ────────────────────────────────────────────────────
+router.get("/admin/bot-users", async (req, res) => {
+  try {
+    const search = req.query.search as string | undefined;
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const offset = Number(req.query.offset) || 0;
+
+    let q = db.select().from(botUsers).orderBy(desc(botUsers.id)).limit(limit).offset(offset).$dynamic();
+    if (search) {
+      q = q.where(or(
+        ilike(botUsers.username, `%${search}%`),
+        ilike(botUsers.firstName, `%${search}%`),
+        eq(botUsers.chatId, search),
+      ));
+    }
+    const [users, totalResult] = await Promise.all([
+      q,
+      db.select({ count: count() }).from(botUsers),
+    ]);
+    res.json({ users, total: totalResult[0]?.count || 0 });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Orders for a specific user
+router.get("/admin/user-orders/:chatId", async (req, res) => {
+  try {
+    const result = await db.select().from(orders)
+      .where(eq(orders.chatId, req.params.chatId))
+      .orderBy(desc(orders.id)).limit(20);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Send a Telegram message from admin bot to any chatId
+router.post("/admin/send-telegram", async (req, res) => {
+  const { chatId, text } = req.body;
+  if (!chatId || !text) return res.status(400).json({ error: "chatId and text required" });
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return res.status(500).json({ error: "Bot token not configured" });
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+    });
+    const data = await r.json() as any;
+    if (!data.ok) return res.status(400).json({ error: data.description });
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 
 router.get("/reviews", async (req, res) => {

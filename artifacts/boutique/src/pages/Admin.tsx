@@ -12,18 +12,20 @@ import {
   Package, Users, DollarSign, ShoppingBag, Shield,
   Check, X, Plus, Trash2, Edit3, Tag, Star, ChevronRight,
   Clock, Truck, CheckCircle, AlertCircle, Eye, RefreshCw, BarChart3,
-  Upload, Video, Image as ImageIcon, UserCog
+  Upload, Video, Image as ImageIcon, UserCog, UserCheck,
+  MessageSquare, Send, Search, Lock, Unlock, FileText,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const TABS = [
-  { id: "dashboard", label: "Stats", icon: BarChart3 },
-  { id: "orders", label: "Commandes", icon: ShoppingBag },
-  { id: "products", label: "Produits", icon: Package },
-  { id: "reviews", label: "Avis", icon: Star },
-  { id: "promos", label: "Promos", icon: Tag },
-  { id: "bot", label: "Boutons Bot", icon: Users },
-  { id: "admins", label: "Admins", icon: UserCog },
+  { id: "dashboard", label: "Stats",    icon: BarChart3 },
+  { id: "orders",    label: "Commandes",icon: ShoppingBag },
+  { id: "products",  label: "Produits", icon: Package },
+  { id: "reviews",   label: "Avis",     icon: Star },
+  { id: "users",     label: "Clients",  icon: UserCheck },
+  { id: "promos",    label: "Promos",   icon: Tag },
+  { id: "bot",       label: "Bot",      icon: Users },
+  { id: "admins",    label: "Admins",   icon: UserCog },
 ];
 
 const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
@@ -59,14 +61,70 @@ export default function Admin() {
   const [editProduct, setEditProduct] = useState<any>(null);
   const qc = useQueryClient();
 
+  // ── Enriched orders (with user info) ──
+  const [enrichedOrders, setEnrichedOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const fetchEnrichedOrders = async () => {
+    setOrdersLoading(true);
+    try {
+      const r = await fetch(`${API}/admin/orders/enriched`);
+      const data = await r.json();
+      setEnrichedOrders(data.orders || []);
+      const nm: Record<string, string> = {};
+      data.orders?.forEach((o: any) => { if (o.notes) nm[o.orderCode] = o.notes; });
+      setOrderNotes(nm);
+    } finally { setOrdersLoading(false); }
+  };
+  useEffect(() => { if (tab === "orders") fetchEnrichedOrders(); }, [tab]);
+
+  // ── Order contact & notes ──
+  const [contactOrder, setContactOrder] = useState<string | null>(null);
+  const [contactMsg, setContactMsg] = useState("");
+  const [sendingContact, setSendingContact] = useState(false);
+  const [contactOk, setContactOk] = useState<string | null>(null);
+  const [orderNotes, setOrderNotes] = useState<Record<string, string>>({});
+  const [savingNotes, setSavingNotes] = useState<string | null>(null);
+
+  const sendOrderContact = async (chatId: string) => {
+    if (!contactMsg.trim()) return;
+    setSendingContact(true);
+    try {
+      const r = await fetch(`${API}/admin/send-telegram`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId, text: contactMsg }),
+      });
+      if (r.ok) {
+        setContactOk(chatId); setContactMsg(""); setContactOrder(null);
+        setTimeout(() => setContactOk(null), 3000);
+      }
+    } finally { setSendingContact(false); }
+  };
+
+  const saveOrderNotes = async (orderCode: string) => {
+    setSavingNotes(orderCode);
+    try {
+      await fetch(`${API}/admin/orders/${orderCode}/notes`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: orderNotes[orderCode] || null }),
+      });
+    } finally { setSavingNotes(null); }
+  };
+
+  const MSG_TEMPLATES = [
+    "✅ Votre commande a été confirmée !",
+    "🚀 Votre commande est en route !",
+    "📦 Votre commande est disponible.",
+    "⚠️ Problème avec votre commande. Contactez-nous.",
+  ];
+
   const { data: stats, refetch: refetchStats } = useGetAdminStats({} as any);
   const { data: ordersData, refetch: refetchOrders } = useListOrders({}, { query: { enabled: tab === "orders" } as any });
   const { data: products, refetch: refetchProducts } = useListProducts({}, { query: { enabled: tab === "products" } as any });
   const { data: reviews, refetch: refetchReviews } = useGetPendingReviews({ query: { enabled: tab === "reviews" } as any });
   const { data: promos, refetch: refetchPromos } = useListPromoCodes({ query: { enabled: tab === "promos" } as any });
 
-  const { mutate: updateStatus } = useUpdateOrderStatus({ mutation: { onSuccess: () => { refetchOrders(); refetchStats(); } } });
-  const { mutate: deleteOrder } = useDeleteOrder({ mutation: { onSuccess: () => { refetchOrders(); refetchStats(); } } });
+  const { mutate: updateStatus } = useUpdateOrderStatus({ mutation: { onSuccess: () => { refetchOrders(); refetchStats(); fetchEnrichedOrders(); } } });
+  const { mutate: deleteOrder } = useDeleteOrder({ mutation: { onSuccess: () => { refetchOrders(); refetchStats(); fetchEnrichedOrders(); } } });
   const { mutate: deleteProduct } = useDeleteProduct({ mutation: { onSuccess: () => { refetchProducts(); refetchStats(); } } });
   const { mutate: createProduct } = useCreateProduct({ mutation: { onSuccess: () => { refetchProducts(); refetchStats(); setShowProductForm(false); setEditProduct(null); } } });
   const { mutate: updateProduct } = useUpdateProduct({ mutation: { onSuccess: () => { refetchProducts(); setShowProductForm(false); setEditProduct(null); } } });
@@ -92,36 +150,23 @@ export default function Admin() {
 
       {/* Tabs — grille compacte 4+3 */}
       <div className="px-3 py-2 border-b border-white/5 bg-black/20">
-        <div className="grid grid-cols-4 gap-1.5 mb-1.5">
-          {TABS.slice(0, 4).map(t => {
-            const Icon = t.icon;
-            const active = tab === t.id;
-            return (
-              <button
-                key={t.id} onClick={() => setTab(t.id)}
-                className={`flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl text-[10px] font-bold transition-all active:scale-95 ${active ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground bg-white/5 border border-transparent hover:text-foreground"}`}
-              >
-                <Icon className="w-4 h-4" />
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
-        <div className="grid grid-cols-3 gap-1.5">
-          {TABS.slice(4).map(t => {
-            const Icon = t.icon;
-            const active = tab === t.id;
-            return (
-              <button
-                key={t.id} onClick={() => setTab(t.id)}
-                className={`flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl text-[10px] font-bold transition-all active:scale-95 ${active ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground bg-white/5 border border-transparent hover:text-foreground"}`}
-              >
-                <Icon className="w-4 h-4" />
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
+        {[TABS.slice(0, 4), TABS.slice(4)].map((row, ri) => (
+          <div key={ri} className={`grid grid-cols-4 gap-1.5 ${ri === 0 ? "mb-1.5" : ""}`}>
+            {row.map(t => {
+              const Icon = t.icon;
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id} onClick={() => setTab(t.id)}
+                  className={`flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl text-[10px] font-bold transition-all active:scale-95 ${active ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground bg-white/5 border border-transparent hover:text-foreground"}`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       <main className="p-4">
@@ -174,22 +219,37 @@ export default function Admin() {
             {/* ── COMMANDES ── */}
             {tab === "orders" && (
               <div className="space-y-3">
-                {!ordersData?.orders?.length && (
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">{enrichedOrders.length} commande{enrichedOrders.length !== 1 ? "s" : ""}</p>
+                  <button onClick={fetchEnrichedOrders} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all">
+                    <RefreshCw className={`w-3.5 h-3.5 ${ordersLoading ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+                {!enrichedOrders.length && !ordersLoading && (
                   <div className="text-center py-12 text-muted-foreground">
                     <ShoppingBag className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p className="text-sm">Aucune commande</p>
                   </div>
                 )}
-                {ordersData?.orders?.map(order => {
+                {enrichedOrders.map(order => {
                   const parsed = (() => { try { return JSON.parse(order.orderData); } catch { return {}; } })();
                   const total = parsed.items?.reduce((s: number, i: any) => s + (i.selectedPrice || i.product?.price || 0) * i.quantity, 0) ?? 0;
+                  const u = order.user;
+                  const displayName = u?.firstName || u?.username
+                    ? `${u.firstName || ""}${u.username ? ` @${u.username}` : ""}`.trim()
+                    : order.chatId ? `#${order.chatId}` : "Anonyme";
+                  const isDetailOpen = orderDetail?.id === order.id;
+                  const isContactOpen = contactOrder === order.orderCode;
                   return (
                     <div key={order.id} className="glass-panel rounded-[1.5rem] overflow-hidden">
                       <div className="p-4">
-                        <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-start justify-between mb-1.5">
                           <div>
                             <p className="font-black text-sm">#{order.orderCode}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{order.chatId ? `@${order.chatId}` : "Anonyme"} · {order.deliveryType === "delivery" ? "Livraison" : "Click & Collect"}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {displayName} · {order.deliveryType === "delivery" ? "🚚 Livraison" : "🏪 C&C"}
+                            </p>
+                            {order.createdAt && <p className="text-[10px] text-muted-foreground/60 mt-0.5">{new Date(order.createdAt).toLocaleDateString("fr-FR", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" })}</p>}
                           </div>
                           <StatusBadge status={order.status} />
                         </div>
@@ -199,47 +259,99 @@ export default function Admin() {
                         </div>
                       </div>
 
-                      <div className="border-t border-white/5 px-4 py-2.5 flex gap-2">
-                        <button
-                          onClick={() => setOrderDetail(orderDetail?.id === order.id ? null : { ...order, parsed })}
-                          className="flex-1 py-1.5 rounded-lg bg-white/5 text-xs font-bold flex items-center justify-center gap-1 hover:bg-white/10 active:scale-95 transition-all"
-                        >
+                      {/* Actions */}
+                      <div className="border-t border-white/5 px-3 py-2 flex gap-1.5">
+                        <button onClick={() => setOrderDetail(isDetailOpen ? null : { ...order, parsed })}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all ${isDetailOpen ? "bg-primary/20 text-primary" : "bg-white/5 hover:bg-white/10"}`}>
                           <Eye className="w-3.5 h-3.5" /> Détails
                         </button>
+                        {order.chatId && (
+                          <button onClick={() => { setContactOrder(isContactOpen ? null : order.orderCode); setContactMsg(""); }}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all ${isContactOpen ? "bg-blue-500/20 text-blue-400" : "bg-white/5 hover:bg-white/10"}`}>
+                            {contactOk === order.chatId
+                              ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Envoyé</>
+                              : <><MessageSquare className="w-3.5 h-3.5" /> Contact</>}
+                          </button>
+                        )}
                         {STATUS_NEXT[order.status] && (
-                          <button
-                            onClick={() => updateStatus({ orderCode: order.orderCode, data: { status: STATUS_NEXT[order.status] } })}
-                            className="flex-1 py-1.5 rounded-lg bg-primary/20 text-primary text-xs font-bold flex items-center justify-center gap-1 hover:bg-primary/30 active:scale-95 transition-all"
-                          >
+                          <button onClick={() => updateStatus({ orderCode: order.orderCode, data: { status: STATUS_NEXT[order.status] } })}
+                            className="flex-1 py-1.5 rounded-lg bg-primary/20 text-primary text-xs font-bold flex items-center justify-center gap-1 hover:bg-primary/30 active:scale-95 transition-all">
                             <Check className="w-3.5 h-3.5" /> {STATUS_CONFIG[STATUS_NEXT[order.status]]?.label}
                           </button>
                         )}
-                        <button
-                          onClick={() => { if (confirm("Supprimer cette commande ?")) deleteOrder({ orderCode: order.orderCode }); }}
-                          className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 active:scale-95 transition-all"
-                        >
+                        <button onClick={() => { if (confirm("Supprimer ?")) deleteOrder({ orderCode: order.orderCode }); }}
+                          className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 active:scale-95 transition-all">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
 
+                      {/* Contact panel */}
                       <AnimatePresence>
-                        {orderDetail?.id === order.id && (
+                        {isContactOpen && order.chatId && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-t border-white/5">
+                            <div className="p-3 space-y-2">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Message rapide</p>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                {MSG_TEMPLATES.map((tpl, i) => (
+                                  <button key={i} onClick={() => setContactMsg(tpl)}
+                                    className="text-[10px] px-2 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all border border-white/10 text-left leading-tight">
+                                    {tpl}
+                                  </button>
+                                ))}
+                              </div>
+                              <textarea value={contactMsg} onChange={e => setContactMsg(e.target.value)} rows={2}
+                                placeholder="Message personnalisé…"
+                                className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all resize-none" />
+                              <button onClick={() => sendOrderContact(order.chatId!)} disabled={!contactMsg.trim() || sendingContact}
+                                className="w-full py-2.5 rounded-xl font-bold text-white text-xs disabled:opacity-50 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                                style={{ background: "linear-gradient(135deg, hsl(210,90%,55%), hsl(240,90%,55%))" }}>
+                                <Send className="w-3.5 h-3.5" /> {sendingContact ? "Envoi…" : "Envoyer via Telegram"}
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Detail panel */}
+                      <AnimatePresence>
+                        {isDetailOpen && (
                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t border-white/5 overflow-hidden">
-                            <div className="p-4 space-y-2">
-                              {orderDetail.parsed.items?.map((item: any, i: number) => (
+                            <div className="p-4 space-y-3">
+                              {u && (
+                                <div className="flex items-center gap-2 pb-2 border-b border-white/5">
+                                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                                    {(u.firstName || u.username || "?")[0].toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold truncate">{u.firstName} {u.username ? `@${u.username}` : ""}</p>
+                                    <p className="text-[10px] text-muted-foreground font-mono">{u.chatId}</p>
+                                  </div>
+                                  {u.isUnlocked ? <Unlock className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                                </div>
+                              )}
+                              {parsed.items?.map((item: any, i: number) => (
                                 <div key={i} className="flex items-center gap-3">
-                                  <img src={item.product?.imageUrl || ""} alt="" className="w-10 h-10 rounded-lg object-cover bg-white/5" />
+                                  <img src={item.product?.imageUrl || ""} alt="" className="w-10 h-10 rounded-lg object-cover bg-white/5 shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold truncate">{item.product?.name}</p>
-                                    <p className="text-xs text-muted-foreground">{item.quantity}× · {((item.selectedPrice || item.product?.price || 0) / 100).toFixed(2)}€</p>
+                                    <p className="text-xs text-muted-foreground">{item.quantity}× · {((item.selectedPrice || item.product?.price || 0) / 100).toFixed(2)}€{item.selectedWeight ? ` · ${item.selectedWeight}` : ""}</p>
                                   </div>
                                 </div>
                               ))}
-                              {orderDetail.parsed.deliveryAddress && (
-                                <p className="text-xs text-muted-foreground pt-1 border-t border-white/5">
-                                  📍 {orderDetail.parsed.deliveryAddress}
+                              {parsed.deliveryAddress && <p className="text-xs text-muted-foreground pt-1 border-t border-white/5">📍 {parsed.deliveryAddress}</p>}
+                              {parsed.promoCode && <p className="text-xs text-emerald-400 font-bold">🏷️ Promo : {parsed.promoCode}</p>}
+                              <div className="pt-1 border-t border-white/5">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
+                                  <FileText className="w-3 h-3" /> Notes admin
                                 </p>
-                              )}
+                                <textarea value={orderNotes[order.orderCode] || ""} onChange={e => setOrderNotes(n => ({ ...n, [order.orderCode]: e.target.value }))}
+                                  rows={2} placeholder="Note interne…"
+                                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all resize-none" />
+                                <button onClick={() => saveOrderNotes(order.orderCode)} disabled={savingNotes === order.orderCode}
+                                  className="mt-1.5 w-full py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold active:scale-95 transition-all disabled:opacity-50">
+                                  {savingNotes === order.orderCode ? "Sauvegarde…" : "💾 Sauvegarder la note"}
+                                </button>
+                              </div>
                             </div>
                           </motion.div>
                         )}
@@ -335,6 +447,9 @@ export default function Admin() {
 
             {/* ── PROMOS ── */}
             {tab === "promos" && <PromoTab promos={promos ?? []} onDelete={id => deletePromo({ id })} onCreate={data => createPromo({ data })} />}
+
+            {/* ── CLIENTS ── */}
+            {tab === "users" && <UsersTab />}
 
             {/* ── BOT /start ── */}
             {tab === "bot" && <BotStartTab />}
@@ -980,6 +1095,185 @@ function BotStartTab() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── Users Tab ────────────────────────────────────────────────────────────────
+
+function UsersTab() {
+  const [users, setUsers] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [contactId, setContactId] = useState<string | null>(null);
+  const [contactMsg, setContactMsg] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sentOk, setSentOk] = useState<string | null>(null);
+  const [ordersFor, setOrdersFor] = useState<string | null>(null);
+  const [userOrders, setUserOrders] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  const fetchUsers = async (q = search) => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/admin/bot-users?search=${encodeURIComponent(q)}&limit=50`);
+      const data = await r.json();
+      setUsers(data.users || []);
+      setTotal(data.total || 0);
+    } finally { setLoading(false); }
+  };
+
+  const fetchUserOrders = async (chatId: string) => {
+    if (ordersFor === chatId) { setOrdersFor(null); return; }
+    setOrdersFor(chatId);
+    setOrdersLoading(true);
+    try {
+      const r = await fetch(`${API}/admin/user-orders/${chatId}`);
+      setUserOrders(await r.json());
+    } finally { setOrdersLoading(false); }
+  };
+
+  const sendMsg = async () => {
+    if (!contactId || !contactMsg.trim()) return;
+    setSending(true);
+    try {
+      const r = await fetch(`${API}/admin/send-telegram`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: contactId, text: contactMsg }),
+      });
+      if (r.ok) { setSentOk(contactId); setContactMsg(""); setContactId(null); setTimeout(() => setSentOk(null), 3000); }
+    } finally { setSending(false); }
+  };
+
+  useEffect(() => { fetchUsers(""); }, []);
+
+  const MSG_TEMPLATES = [
+    "👋 Bonjour ! Une question ?",
+    "✅ Votre commande est prête !",
+    "🎁 Offre spéciale pour vous !",
+    "📢 Nouveau produit disponible !",
+  ];
+
+  return (
+    <div className="space-y-3">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          value={search} onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && fetchUsers(search)}
+          placeholder="Rechercher par nom, @username, ID…"
+          className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm focus:outline-none focus:border-primary transition-all"
+        />
+        <button onClick={() => fetchUsers(search)} className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs text-primary font-bold">
+          OK
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">{total} client{total !== 1 ? "s" : ""} au total</p>
+        <button onClick={() => fetchUsers(search)} className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+        </button>
+      </div>
+
+      {!users.length && !loading && (
+        <div className="text-center py-12 text-muted-foreground">
+          <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">Aucun client trouvé</p>
+        </div>
+      )}
+
+      {users.map(u => {
+        const initials = (u.firstName || u.username || u.chatId)[0].toUpperCase();
+        const isContactOpen = contactId === u.chatId;
+        const isOrdersOpen = ordersFor === u.chatId;
+        return (
+          <div key={u.id} className="glass-panel rounded-[1.5rem] overflow-hidden">
+            <div className="p-3 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary shrink-0">
+                {initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm truncate">{u.firstName || "—"} {u.username ? <span className="text-muted-foreground font-normal">@{u.username}</span> : ""}</p>
+                <p className="text-[10px] text-muted-foreground font-mono">{u.chatId}</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {sentOk === u.chatId
+                  ? <span className="text-[10px] text-emerald-400 font-bold">✓ Envoyé</span>
+                  : <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${u.isUnlocked ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>
+                      {u.isUnlocked ? "🔓" : "🔒"}
+                    </span>
+                }
+              </div>
+            </div>
+
+            {/* User actions */}
+            <div className="border-t border-white/5 px-3 py-2 flex gap-1.5">
+              <button onClick={() => { setContactId(isContactOpen ? null : u.chatId); setContactMsg(""); }}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all ${isContactOpen ? "bg-blue-500/20 text-blue-400" : "bg-white/5 hover:bg-white/10"}`}>
+                <MessageSquare className="w-3.5 h-3.5" /> Message
+              </button>
+              <button onClick={() => fetchUserOrders(u.chatId)}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all ${isOrdersOpen ? "bg-primary/20 text-primary" : "bg-white/5 hover:bg-white/10"}`}>
+                <ShoppingBag className="w-3.5 h-3.5" /> Commandes
+              </button>
+            </div>
+
+            {/* Contact panel */}
+            <AnimatePresence>
+              {isContactOpen && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-t border-white/5">
+                  <div className="p-3 space-y-2">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {MSG_TEMPLATES.map((tpl, i) => (
+                        <button key={i} onClick={() => setContactMsg(tpl)}
+                          className="text-[10px] px-2 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all border border-white/10 text-left leading-tight">
+                          {tpl}
+                        </button>
+                      ))}
+                    </div>
+                    <textarea value={contactMsg} onChange={e => setContactMsg(e.target.value)} rows={2}
+                      placeholder="Message personnalisé…"
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all resize-none" />
+                    <button onClick={sendMsg} disabled={!contactMsg.trim() || sending}
+                      className="w-full py-2.5 rounded-xl font-bold text-white text-xs disabled:opacity-50 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                      style={{ background: "linear-gradient(135deg, hsl(210,90%,55%), hsl(240,90%,55%))" }}>
+                      <Send className="w-3.5 h-3.5" /> {sending ? "Envoi…" : "Envoyer via Telegram"}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Orders panel */}
+            <AnimatePresence>
+              {isOrdersOpen && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-t border-white/5">
+                  <div className="p-3 space-y-2">
+                    {ordersLoading && <p className="text-xs text-center text-muted-foreground py-2">Chargement…</p>}
+                    {!ordersLoading && !userOrders.length && <p className="text-xs text-center text-muted-foreground py-2">Aucune commande</p>}
+                    {userOrders.map(o => {
+                      const parsed = (() => { try { return JSON.parse(o.orderData); } catch { return {}; } })();
+                      const total = parsed.items?.reduce((s: number, i: any) => s + (i.selectedPrice || i.product?.price || 0) * i.quantity, 0) ?? 0;
+                      return (
+                        <div key={o.id} className="flex items-center justify-between bg-black/20 rounded-xl px-3 py-2">
+                          <div>
+                            <p className="text-xs font-bold">#{o.orderCode}</p>
+                            <p className="text-[10px] text-muted-foreground">{(total / 100).toFixed(2)}€ · {parsed.items?.length ?? 0} art.</p>
+                          </div>
+                          <StatusBadge status={o.status} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
     </div>
   );
 }
