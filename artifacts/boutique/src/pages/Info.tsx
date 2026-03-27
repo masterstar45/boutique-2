@@ -1,4 +1,4 @@
-import { Clock, ShieldCheck, HelpCircle, FileText } from "lucide-react";
+import { Clock, ShieldCheck, FileText, Send } from "lucide-react";
 import { motion } from "framer-motion";
 import { TopBar } from "@/components/TopBar";
 
@@ -42,24 +42,20 @@ export default function Info() {
           </ul>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-panel p-6 rounded-[2rem]">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/20 flex items-center justify-center text-blue-500">
-              <HelpCircle className="w-6 h-6" />
-            </div>
-            <h2 className="font-bold text-lg">F.A.Q</h2>
-          </div>
-
-          <div className="space-y-4">
-            <div className="border-b border-white/10 pb-4">
-              <h3 className="font-bold text-sm mb-2 text-foreground">Quels sont les délais de livraison ?</h3>
-              <p className="text-sm text-muted-foreground">La livraison standard prend 24 à 48 heures ouvrées selon votre localisation.</p>
-            </div>
-            <div className="border-b border-white/10 pb-4">
-              <h3 className="font-bold text-sm mb-2 text-foreground">Les colis sont-ils discrets ?</h3>
-              <p className="text-sm text-muted-foreground">Absolument. Tous nos envois sont double-scellés sous vide dans des emballages neutres sans aucune mention de notre boutique.</p>
-            </div>
-          </div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <a
+            href="https://t.me/SOSLePlug75"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-3 w-full py-5 rounded-[2rem] font-bold text-lg text-white transition-transform active:scale-95"
+            style={{
+              background: "linear-gradient(135deg, #2AABEE 0%, #229ED9 100%)",
+              boxShadow: "0 0 30px -8px rgba(42,171,238,0.6)",
+            }}
+          >
+            <Send className="w-6 h-6" />
+            Contacter le support
+          </a>
         </motion.div>
       </main>
     </div>
