@@ -77,11 +77,16 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-[#0d0a1a]">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#0d0a1a]/95 backdrop-blur border-b border-white/5 px-4 py-3 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-          <Shield className="w-4 h-4 text-primary" />
+      <header className="sticky top-0 z-50 bg-[#0d0a1a]/95 backdrop-blur border-b border-white/5 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+            <Shield className="w-4 h-4 text-primary" />
+          </div>
+          <span className="font-black text-base gradient-plug">Admin Panel</span>
         </div>
-        <span className="font-black text-base gradient-plug">Admin Panel</span>
+        <a href="/" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-white">
+          <ShoppingBag className="w-4 h-4" /> Boutique
+        </a>
       </header>
 
       {/* Tabs */}
