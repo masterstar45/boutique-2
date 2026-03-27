@@ -84,20 +84,6 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
           <div className="absolute inset-0 bg-gradient-to-b from-purple-950/20 via-transparent to-black/50" />
 
           <div className="relative z-10 flex flex-col items-center gap-6">
-            {/* Logo */}
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
-              className="w-28 h-28 rounded-[2rem] shadow-[0_0_60px_-10px_rgba(147,51,234,0.7)] overflow-hidden"
-            >
-              <img
-                src={`${import.meta.env.BASE_URL}logo.jpg`}
-                alt="SOS LE PLUG"
-                className="w-full h-full object-cover"
-              />
-            </motion.div>
-
             {/* Nom de la boutique */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
