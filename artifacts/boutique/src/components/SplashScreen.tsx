@@ -47,13 +47,16 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
           initial={{ opacity: 1 }}
           exit={{ opacity: 0, scale: 1.05 }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background overflow-hidden"
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
         >
-          {/* Fond animé */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full bg-primary/5 blur-[120px] animate-pulse" />
-            <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] rounded-full bg-primary/8 blur-[100px] animate-pulse" style={{ animationDelay: "0.5s" }} />
-          </div>
+          {/* Fond : même image que le reste de la boutique */}
+          <img
+            src={`${import.meta.env.BASE_URL}bg.png`}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-black/70" />
+          <div className="absolute inset-0 bg-gradient-to-b from-purple-950/20 via-transparent to-black/50" />
 
           <div className="relative z-10 flex flex-col items-center gap-6">
             {/* Logo */}
