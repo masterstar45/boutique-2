@@ -29,6 +29,9 @@ const queryClient = new QueryClient({
 });
 
 function isTelegramConnected(): boolean {
+  // Le panel admin est toujours accessible (protégé par chat ID)
+  const path = window.location.pathname;
+  if (path.endsWith("/admin") || path.includes("/admin")) return true;
   const tg = (window as any).Telegram?.WebApp;
   if (tg?.initData && tg.initData.length > 0) return true;
   if (localStorage.getItem("telegram_chat_id")) return true;
