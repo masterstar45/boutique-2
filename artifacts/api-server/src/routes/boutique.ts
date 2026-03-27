@@ -502,29 +502,39 @@ router.get("/admin/client-buttons", async (_req, res) => {
 });
 
 router.post("/admin/client-buttons", async (req, res) => {
-  const { label, url, emoji, position, fullWidth } = req.body;
-  if (!label || !url) return res.status(400).json({ error: "label and url required" });
-  const maxPos = await db.select({ max: sql<number>`max(position)` }).from(clientButtons);
-  const nextPos = (maxPos[0]?.max ?? -1) + 1;
-  const [row] = await db.insert(clientButtons).values({
-    label, url, emoji: emoji || null, active: true,
-    position: position ?? nextPos,
-    fullWidth: fullWidth !== false,
-  }).returning();
-  res.json(row);
+  try {
+    const { label, url, emoji, position, fullWidth } = req.body;
+    if (!label || !url) return res.status(400).json({ error: "label and url required" });
+    const maxPos = await db.select({ max: sql<number>`max(position)` }).from(clientButtons);
+    const nextPos = (maxPos[0]?.max ?? -1) + 1;
+    const [row] = await db.insert(clientButtons).values({
+      label, url, emoji: emoji || null, active: true,
+      position: position ?? nextPos,
+      fullWidth: fullWidth !== false,
+    }).returning();
+    res.json(row);
+  } catch (err: any) {
+    console.error("POST client-buttons error:", err);
+    res.status(500).json({ error: err.message || "Erreur serveur" });
+  }
 });
 
 router.patch("/admin/client-buttons/:id", async (req, res) => {
-  const { label, url, emoji, active, position, fullWidth } = req.body;
-  const update: Record<string, any> = {};
-  if (label !== undefined) update.label = label;
-  if (url !== undefined) update.url = url;
-  if (emoji !== undefined) update.emoji = emoji;
-  if (active !== undefined) update.active = active;
-  if (position !== undefined) update.position = position;
-  if (fullWidth !== undefined) update.fullWidth = fullWidth;
-  const [row] = await db.update(clientButtons).set(update).where(eq(clientButtons.id, Number(req.params.id))).returning();
-  res.json(row);
+  try {
+    const { label, url, emoji, active, position, fullWidth } = req.body;
+    const update: Record<string, any> = {};
+    if (label !== undefined) update.label = label;
+    if (url !== undefined) update.url = url;
+    if (emoji !== undefined) update.emoji = emoji;
+    if (active !== undefined) update.active = active;
+    if (position !== undefined) update.position = position;
+    if (fullWidth !== undefined) update.fullWidth = fullWidth;
+    const [row] = await db.update(clientButtons).set(update).where(eq(clientButtons.id, Number(req.params.id))).returning();
+    res.json(row);
+  } catch (err: any) {
+    console.error("PATCH client-buttons error:", err);
+    res.status(500).json({ error: err.message || "Erreur serveur" });
+  }
 });
 
 // ─── Bot Settings ─────────────────────────────────────────────────────────────

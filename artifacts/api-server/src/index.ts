@@ -18,22 +18,42 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-async function runMigrations() {
+async function runMigration(label: string, query: Parameters<typeof db.execute>[0]) {
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS bot_settings (
-        id SERIAL PRIMARY KEY,
-        key TEXT NOT NULL UNIQUE,
-        value TEXT NOT NULL
-      );
-    `);
-    await db.execute(sql`
-      ALTER TABLE client_buttons ADD COLUMN IF NOT EXISTS full_width BOOLEAN NOT NULL DEFAULT TRUE;
-    `);
-    logger.info("DB migrations applied");
-  } catch (err) {
-    logger.warn({ err }, "Migration warning (non-fatal)");
+    await db.execute(query);
+    logger.info(`Migration OK: ${label}`);
+  } catch (err: any) {
+    logger.warn(`Migration skip (${label}): ${err.message?.slice(0, 80)}`);
   }
+}
+
+async function runMigrations() {
+  // Ensure bot_settings table exists
+  await runMigration("create bot_settings", sql`
+    CREATE TABLE IF NOT EXISTS bot_settings (
+      id SERIAL PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      value TEXT NOT NULL
+    );
+  `);
+
+  // Ensure client_buttons table exists with all columns (including full_width)
+  await runMigration("create client_buttons", sql`
+    CREATE TABLE IF NOT EXISTS client_buttons (
+      id SERIAL PRIMARY KEY,
+      label TEXT NOT NULL,
+      url TEXT NOT NULL,
+      emoji TEXT,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      position INTEGER NOT NULL DEFAULT 0,
+      full_width BOOLEAN NOT NULL DEFAULT TRUE
+    );
+  `);
+
+  // Add full_width to existing client_buttons tables that are missing it
+  await runMigration("add full_width column", sql`
+    ALTER TABLE client_buttons ADD COLUMN IF NOT EXISTS full_width BOOLEAN NOT NULL DEFAULT TRUE;
+  `);
 }
 
 runMigrations().then(() => {
