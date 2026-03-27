@@ -433,17 +433,24 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
     name: product?.name ?? "",
     brand: product?.brand ?? "",
     description: product?.description ?? "",
-    price: product ? String(product.price) : "",
     imageUrl: product?.imageUrl ?? "",
     videoUrl: "",
     category: product?.category ?? CATEGORIES[0],
     stock: product?.stock ?? "disponible",
     sticker: product?.sticker ?? "",
   });
+  const [priceOptions, setPriceOptions] = useState<{ weight: string; price: string }[]>(
+    () => (product?.priceOptions ?? []).map((o: any) => ({ weight: String(o.weight), price: String(o.price) }))
+  );
   const [imageLoading, setImageLoading] = useState(false);
   const [videoLoading, setVideoLoading] = useState(false);
   const imageRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
+
+  const addOption = () => setPriceOptions(opts => [...opts, { weight: "", price: "" }]);
+  const removeOption = (i: number) => setPriceOptions(opts => opts.filter((_, idx) => idx !== i));
+  const setOption = (i: number, key: "weight" | "price", val: string) =>
+    setPriceOptions(opts => opts.map((o, idx) => idx === i ? { ...o, [key]: val } : o));
 
   // Si édition et hasVideo, charger la vraie data: URL de la vidéo
   useEffect(() => {
@@ -478,7 +485,10 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
 
   const handleSubmit = () => {
     if (!form.name || !form.imageUrl) return alert("Nom et image requis");
-    const data = { ...form, price: Number(form.price) || 0, tags: [], priceOptions: [] };
+    if (priceOptions.length === 0) return alert("Ajoute au moins une option de prix");
+    const parsedOptions = priceOptions.map(o => ({ weight: o.weight.trim(), price: Number(o.price) || 0 }));
+    const minPrice = Math.min(...parsedOptions.map(o => o.price));
+    const data = { ...form, price: Math.round(minPrice * 100), tags: [], priceOptions: parsedOptions };
     if (product) onUpdate(product.id, data);
     else onCreate(data);
   };
@@ -570,23 +580,52 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Prix (centimes)</label>
-              <input
-                value={form.price} onChange={e => set("price", e.target.value)}
-                type="number" placeholder="1000 = 10€"
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:border-primary focus:outline-none"
-              />
+          {/* Options de prix */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs text-muted-foreground uppercase tracking-wider">Options de prix *</label>
+              <button onClick={addOption}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/20 text-primary text-xs font-bold hover:bg-primary/30 transition-all active:scale-95">
+                <Plus className="w-3 h-3" /> Ajouter
+              </button>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Stock</label>
-              <input
-                value={form.stock} onChange={e => set("stock", e.target.value)}
-                placeholder="disponible / épuisé"
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:border-primary focus:outline-none"
-              />
+            {priceOptions.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-3 border border-dashed border-white/10 rounded-xl">
+                Aucune option — clique sur Ajouter
+              </p>
+            )}
+            <div className="space-y-2">
+              {priceOptions.map((opt, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    value={opt.weight} onChange={e => setOption(i, "weight", e.target.value)}
+                    placeholder="ex: 1g, 3g, 5g"
+                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  />
+                  <div className="flex items-center bg-black/40 border border-white/10 rounded-xl overflow-hidden focus-within:border-primary">
+                    <input
+                      value={opt.price} onChange={e => setOption(i, "price", e.target.value)}
+                      type="number" placeholder="10"
+                      className="w-16 bg-transparent px-3 py-2 text-sm focus:outline-none"
+                    />
+                    <span className="pr-3 text-sm text-muted-foreground font-bold">€</span>
+                  </div>
+                  <button onClick={() => removeOption(i)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all shrink-0">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
+          </div>
+
+          {/* Stock */}
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Stock</label>
+            <input
+              value={form.stock} onChange={e => set("stock", e.target.value)}
+              placeholder="disponible / épuisé"
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:border-primary focus:outline-none"
+            />
           </div>
 
           <div>
