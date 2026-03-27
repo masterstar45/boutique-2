@@ -91,31 +91,11 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
               transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
               className="w-28 h-28 rounded-[2rem] shadow-[0_0_60px_-10px_rgba(147,51,234,0.7)] overflow-hidden"
             >
-              <svg viewBox="0 0 112 112" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <rect width="112" height="112" fill="#0d0a1a"/>
-                <defs>
-                  <linearGradient id="plugGrad" x1="0" y1="0" x2="112" y2="112" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#a855f7"/>
-                    <stop offset="50%" stopColor="#06b6d4"/>
-                    <stop offset="100%" stopColor="#ec4899"/>
-                  </linearGradient>
-                  <linearGradient id="plugGrad2" x1="0" y1="0" x2="0" y2="112" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#a855f7" stopOpacity="0.15"/>
-                    <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.05"/>
-                  </linearGradient>
-                </defs>
-                <rect width="112" height="112" fill="url(#plugGrad2)"/>
-                <rect x="1" y="1" width="110" height="110" rx="19" stroke="url(#plugGrad)" strokeWidth="1.5" strokeOpacity="0.5"/>
-                {/* Plug icon */}
-                <rect x="49" y="14" width="6" height="14" rx="2" fill="url(#plugGrad)"/>
-                <rect x="57" y="14" width="6" height="14" rx="2" fill="url(#plugGrad)"/>
-                <path d="M38 28 H74 V44 C74 55 65 62 56 62 C47 62 38 55 38 44 Z" fill="url(#plugGrad)" fillOpacity="0.9"/>
-                <rect x="52" y="62" width="8" height="10" rx="2" fill="url(#plugGrad)"/>
-                <path d="M44 72 H68 V80 C68 83 65 86 56 86 C47 86 44 83 44 80 Z" fill="url(#plugGrad)" fillOpacity="0.7"/>
-                <rect x="52" y="86" width="8" height="12" rx="2" fill="url(#plugGrad)" fillOpacity="0.5"/>
-                {/* SOS text */}
-                <text x="56" y="104" textAnchor="middle" fontFamily="Arial Black, sans-serif" fontWeight="900" fontSize="9" fill="url(#plugGrad)" letterSpacing="3">SOS LE PLUG</text>
-              </svg>
+              <img
+                src={`${import.meta.env.BASE_URL}logo.jpg`}
+                alt="SOS LE PLUG"
+                className="w-full h-full object-cover"
+              />
             </motion.div>
 
             {/* Nom de la boutique */}
