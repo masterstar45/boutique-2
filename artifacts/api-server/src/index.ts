@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { setupWebhook } from "./routes/telegram";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,8 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  if (process.env.NODE_ENV === "production") {
+    setupWebhook().catch((e) => logger.error({ e }, "Webhook setup failed"));
+  }
 });

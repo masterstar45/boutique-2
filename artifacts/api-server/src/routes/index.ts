@@ -1,10 +1,12 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import boutiqueRouter from "./boutique";
+import telegramRouter from "./telegram";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(boutiqueRouter);
+router.use(telegramRouter);
 
 export default router;
