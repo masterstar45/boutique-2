@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 const DELIVERY_MODES = [
   { id: "livraison", label: "Livraison à domicile", emoji: "🛵" },
   { id: "relais", label: "Point Relais", emoji: "📦" },
+  { id: "meetup", label: "Meet Up", emoji: "🤝" },
 ];
 
 const TIME_SLOTS = [
@@ -28,6 +29,7 @@ export default function Cart() {
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [timeSlot, setTimeSlot] = useState("");
+  const [meetupSlot, setMeetupSlot] = useState("");
 
   const { data: cartItems, isLoading } = useGetCart(sessionId, { query: { enabled: !!sessionId } });
 
@@ -189,7 +191,7 @@ export default function Cart() {
               {DELIVERY_MODES.map(opt => (
                 <button
                   key={opt.id}
-                  onClick={() => setDeliveryMode(opt.id)}
+                  onClick={() => { setDeliveryMode(opt.id); setMeetupSlot(""); }}
                   className={`w-full p-5 rounded-[1.5rem] border-2 text-left flex items-center gap-4 transition-all active:scale-[0.98] ${deliveryMode === opt.id ? "border-primary bg-primary/10 shadow-[0_0_20px_-5px_rgba(147,51,234,0.2)]" : "border-white/5 glass-panel"}`}
                 >
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${deliveryMode === opt.id ? "bg-primary/20" : "bg-white/5"}`}>{opt.emoji}</div>
@@ -197,31 +199,89 @@ export default function Cart() {
                     <h3 className="font-bold text-lg">{opt.label}</h3>
                     {opt.id === "relais" && (
                       <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                        <ExternalLink className="w-3 h-3" /> Redirige vers notre Telegram
+                        <ExternalLink className="w-3 h-3" /> Via Telegram — point de retrait
+                      </p>
+                    )}
+                    {opt.id === "meetup" && (
+                      <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                        <ExternalLink className="w-3 h-3" /> Rendez-vous — choisir un horaire
                       </p>
                     )}
                   </div>
                 </button>
               ))}
 
+              {/* Sélecteur d'horaire Meet Up */}
+              <AnimatePresence>
+                {deliveryMode === "meetup" && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="glass-panel p-5 rounded-[1.5rem]">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Clock className="w-4 h-4 text-primary" />
+                        <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Horaire souhaité</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {TIME_SLOTS.map(slot => (
+                          <button
+                            key={slot.id}
+                            onClick={() => setMeetupSlot(slot.id)}
+                            className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all active:scale-95 ${meetupSlot === slot.id ? "border-primary bg-primary/15" : "border-white/10 bg-black/30"}`}
+                          >
+                            <span className="text-xl">{slot.emoji}</span>
+                            <span className="text-[11px] font-bold">{slot.label}</span>
+                            <span className="text-[9px] text-muted-foreground">{slot.hours}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <button
-                disabled={!deliveryMode}
+                disabled={
+                  !deliveryMode ||
+                  (deliveryMode === "meetup" && !meetupSlot)
+                }
                 onClick={() => {
                   if (deliveryMode === "relais") {
                     const tg = (window as any).Telegram?.WebApp;
                     const url = "https://t.me/SOSLePlug75";
-                    if (tg?.openLink) {
-                      tg.openLink(url);
-                    } else {
-                      window.open(url, "_blank");
-                    }
+                    if (tg?.openLink) tg.openLink(url);
+                    else window.open(url, "_blank");
+                  } else if (deliveryMode === "meetup") {
+                    const slot = TIME_SLOTS.find(s => s.id === meetupSlot);
+                    const lines: string[] = [];
+                    lines.push("🤝 Meet Up — SOS LE PLUG");
+                    lines.push("");
+                    lines.push("📦 Commande :");
+                    cartItems?.forEach(item => {
+                      const price = item.selectedPrice || item.product.price;
+                      lines.push(`• ${item.product.name}${item.selectedWeight ? ` (${item.selectedWeight})` : ""} × ${item.quantity} = ${price * item.quantity}€`);
+                    });
+                    lines.push("");
+                    lines.push(`💰 Total : ${total}€`);
+                    lines.push("");
+                    lines.push(`⏰ Horaire souhaité : ${slot?.emoji} ${slot?.label} (${slot?.hours})`);
+                    if (chatId) lines.push(`\n👤 ID Telegram : ${chatId}`);
+                    const msg = lines.join("\n");
+                    const url = `https://t.me/SOSLePlug75?text=${encodeURIComponent(msg)}`;
+                    const tg = (window as any).Telegram?.WebApp;
+                    if (tg?.openLink) tg.openLink(url);
+                    else window.open(url, "_blank");
                   } else {
                     setStep("details");
                   }
                 }}
-                className="w-full mt-8 h-16 bg-primary text-primary-foreground rounded-2xl font-black text-lg flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform"
+                className="w-full mt-2 h-16 bg-primary text-primary-foreground rounded-2xl font-black text-lg flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform"
               >
-                {deliveryMode === "relais" ? (
+                {deliveryMode === "relais" || deliveryMode === "meetup" ? (
                   <><ExternalLink className="w-5 h-5" /> Contacter sur Telegram</>
                 ) : (
                   <>Continuer <ArrowRight className="w-5 h-5" /></>
@@ -230,7 +290,12 @@ export default function Cart() {
 
               {deliveryMode === "relais" && (
                 <p className="text-center text-xs text-muted-foreground pb-2">
-                  Vous serez redirigé vers <span className="text-primary font-bold">@SOSLePlug75</span> pour choisir votre point relais 📦
+                  Redirigé vers <span className="text-primary font-bold">@SOSLePlug75</span> pour votre point relais 📦
+                </p>
+              )}
+              {deliveryMode === "meetup" && (
+                <p className="text-center text-xs text-muted-foreground pb-2">
+                  Votre commande + horaire seront envoyés à <span className="text-primary font-bold">@SOSLePlug75</span> 🤝
                 </p>
               )}
             </motion.div>
