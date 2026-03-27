@@ -62,7 +62,7 @@ async function main() {
 
   // Lister les fichiers à pousser (en excluant node_modules, .git, dist, etc.)
   const excludePatterns = [
-    "node_modules", ".git", "dist", ".local", "pnpm-lock.yaml",
+    "node_modules", ".git", "dist", ".local",
     ".replit", "replit.nix", ".cache", "*.log", ".env",
     "tsconfig.tsbuildinfo", "/tmp"
   ];
@@ -82,7 +82,7 @@ async function main() {
     if (relativePath.startsWith(".git/") || relativePath.includes("node_modules/") || 
         relativePath.includes("/dist/") || relativePath.includes("/.local/") ||
         relativePath.endsWith(".log") || relativePath.endsWith(".map") ||
-        relativePath.endsWith(".tsbuildinfo") || relativePath.includes("pnpm-lock")) {
+        relativePath.endsWith(".tsbuildinfo")) {
       continue;
     }
 

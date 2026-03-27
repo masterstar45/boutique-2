@@ -1,0 +1,22 @@
+FROM node:20-alpine
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+ENV COREPACK_INTEGRITY_KEYS=0
+ENV NODE_ENV=production
+
+RUN corepack enable && corepack prepare pnpm@10.26.1 --activate
+
+WORKDIR /app
+
+COPY . .
+
+RUN pnpm install --frozen-lockfile=false
+
+RUN PORT=3000 BASE_PATH=/ NODE_ENV=development pnpm --filter @workspace/boutique run build
+
+RUN pnpm --filter @workspace/api-server run build
+
+EXPOSE 3000
+
+CMD ["node", "--enable-source-maps", "/app/artifacts/api-server/dist/index.mjs"]
