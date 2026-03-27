@@ -496,28 +496,36 @@ router.get("/admin/stats", async (req, res) => {
 
 // ─── Client Buttons (/start) ─────────────────────────────────────────────────
 
-// Ensure the table + full_width column exist. Using ADD COLUMN without IF NOT EXISTS
-// so it works on older Postgres; we catch the "already exists" error intentionally.
+// Ensure the table + all columns exist.
+// ADD COLUMN without IF NOT EXISTS — we catch "already exists" errors intentionally.
 async function setupClientButtons() {
+  // 1. Ensure table exists with the bare minimum
   try {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS client_buttons (
         id SERIAL PRIMARY KEY,
         label TEXT NOT NULL,
-        url TEXT NOT NULL,
-        emoji TEXT,
-        active BOOLEAN NOT NULL DEFAULT TRUE,
-        position INTEGER NOT NULL DEFAULT 0
+        url TEXT NOT NULL
       );
     `);
   } catch (e: any) {
     console.error("client_buttons CREATE error:", e?.message);
   }
-  try {
-    await db.execute(sql`ALTER TABLE client_buttons ADD COLUMN full_width BOOLEAN NOT NULL DEFAULT TRUE;`);
-    console.log("client_buttons: full_width column added");
-  } catch {
-    // already exists — ignore
+
+  // 2. Add each optional column independently — safe to run repeatedly
+  const migrations: Array<[string, string]> = [
+    ["emoji",      "ALTER TABLE client_buttons ADD COLUMN emoji TEXT;"],
+    ["active",     "ALTER TABLE client_buttons ADD COLUMN active BOOLEAN NOT NULL DEFAULT TRUE;"],
+    ["position",   "ALTER TABLE client_buttons ADD COLUMN position INTEGER NOT NULL DEFAULT 0;"],
+    ["full_width", "ALTER TABLE client_buttons ADD COLUMN full_width BOOLEAN NOT NULL DEFAULT TRUE;"],
+  ];
+  for (const [name, ddl] of migrations) {
+    try {
+      await db.execute(sql.raw(ddl));
+      console.log(`client_buttons: column '${name}' added`);
+    } catch {
+      // column already exists — expected on subsequent restarts
+    }
   }
 }
 
