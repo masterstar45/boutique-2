@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "@/hooks/use-session";
 
@@ -10,6 +10,9 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
   const { saveChatId, saveUsername } = useSession();
   const [username, setUsername] = useState<string | null>(null);
   const [phase, setPhase] = useState<"logo" | "user" | "out">("logo");
+  // Ref stable pour éviter que le changement de référence onDone ne reset les timers
+  const onDoneRef = useRef(onDone);
+  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
   useEffect(() => {
     // 1. Priorité : Telegram Mini App WebApp SDK
@@ -50,15 +53,16 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
   }, []);
 
   useEffect(() => {
+    // Timers déclenchés une seule fois au montage (ref stable = pas de reset)
     const t1 = setTimeout(() => setPhase("user"), 1200);
     const t2 = setTimeout(() => setPhase("out"), 2800);
-    const t3 = setTimeout(onDone, 3300);
+    const t3 = setTimeout(() => onDoneRef.current(), 3300);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
     };
-  }, [onDone]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <AnimatePresence>
