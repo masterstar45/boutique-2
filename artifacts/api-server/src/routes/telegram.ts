@@ -91,12 +91,14 @@ router.post("/telegram/webhook", async (req, res) => {
       `━━━━━━━━━━━━━━━━━\n\n` +
       `💡 Cliquez sur le bouton ci-dessous pour accéder à votre espace`;
 
+    const boutiquUrl = `${BASE_URL}?tg_user=${encodeURIComponent(from.username ?? from.first_name ?? "")}&tg_id=${encodeURIComponent(userId)}`;
+
     await sendMessage(chatId, welcomeText, {
       reply_markup: {
         inline_keyboard: [[
           {
             text: "🛒 Accéder à la Boutique",
-            url: BASE_URL,
+            url: boutiquUrl,
           },
         ]],
       },

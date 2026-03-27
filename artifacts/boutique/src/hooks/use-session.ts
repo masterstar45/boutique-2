@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 export function useSession() {
   const [sessionId, setSessionId] = useState<string>("");
   const [chatId, setChatId] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
 
   useEffect(() => {
     let sid = localStorage.getItem("cart_session_id");
@@ -14,6 +15,9 @@ export function useSession() {
 
     const cid = localStorage.getItem("telegram_chat_id");
     if (cid) setChatId(cid);
+
+    const uname = localStorage.getItem("telegram_username");
+    if (uname) setUsername(uname);
   }, []);
 
   const saveChatId = (id: string) => {
@@ -21,10 +25,17 @@ export function useSession() {
     setChatId(id);
   };
 
-  const clearChatId = () => {
-    localStorage.removeItem("telegram_chat_id");
-    setChatId("");
+  const saveUsername = (uname: string) => {
+    localStorage.setItem("telegram_username", uname);
+    setUsername(uname);
   };
 
-  return { sessionId, chatId, saveChatId, clearChatId };
+  const clearChatId = () => {
+    localStorage.removeItem("telegram_chat_id");
+    localStorage.removeItem("telegram_username");
+    setChatId("");
+    setUsername("");
+  };
+
+  return { sessionId, chatId, username, saveChatId, saveUsername, clearChatId };
 }

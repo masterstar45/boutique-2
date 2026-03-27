@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { BottomNav } from "@/components/BottomNav";
+import { SplashScreen } from "@/components/SplashScreen";
 
 // Pages
 import Home from "@/pages/Home";
@@ -42,10 +44,13 @@ function Router() {
 }
 
 function App() {
+  const [splashDone, setSplashDone] = useState(false);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
           <div className="relative z-10 bg-transparent min-h-screen text-foreground font-body antialiased selection:bg-primary/30">
             <AnimatedBackground />
             <div className="relative z-20">

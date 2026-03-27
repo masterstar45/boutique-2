@@ -5,7 +5,7 @@ import { User, Package, Star, KeyRound, Save, LogOut } from "lucide-react";
 import { format } from "date-fns";
 
 export default function Account() {
-  const { chatId, saveChatId, clearChatId } = useSession();
+  const { chatId, username, saveChatId, clearChatId } = useSession();
   const [inputChatId, setInputChatId] = useState(chatId);
 
   const { data: orders } = useGetMyOrders(chatId, { query: { enabled: !!chatId } });
@@ -59,12 +59,17 @@ export default function Account() {
         {/* Profile Card */}
         <div className="glass-panel p-6 rounded-[2rem] flex items-center gap-5 relative overflow-hidden">
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center shrink-0 border border-primary/30">
-            <User className="w-8 h-8 text-primary" />
+          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center shrink-0 border border-primary/30 text-2xl">
+            {username ? "👤" : <User className="w-8 h-8 text-primary" />}
           </div>
-          <div>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Identifiant</p>
-            <p className="font-display font-black text-xl">{chatId}</p>
+          <div className="min-w-0">
+            {username && (
+              <p className="font-display font-black text-xl text-primary truncate">@{username}</p>
+            )}
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-0.5">
+              {username ? "Telegram ID" : "Identifiant"}
+            </p>
+            <p className="font-mono text-sm text-white/70 truncate">{chatId}</p>
           </div>
         </div>
 
