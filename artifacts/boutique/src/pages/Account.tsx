@@ -1,13 +1,30 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useSession } from "@/hooks/use-session";
 import { useGetMyOrders, useGetLoyaltyBalance } from "@workspace/api-client-react";
-import { User, Package, Star, KeyRound, Save, LogOut } from "lucide-react";
+import { User, Package, Star, KeyRound, Save, LogOut, Shield, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { TopBar } from "@/components/TopBar";
 
 export default function Account() {
   const { chatId, username, saveChatId, clearChatId } = useSession();
   const [inputChatId, setInputChatId] = useState(chatId);
+  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem("admin_auth") === "admin123");
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminPass, setAdminPass] = useState("");
+  const [adminError, setAdminError] = useState(false);
+
+  const handleAdminLogin = () => {
+    if (adminPass === "admin123") {
+      localStorage.setItem("admin_auth", "admin123");
+      setIsAdmin(true);
+      setShowAdminModal(false);
+      setAdminPass("");
+    } else {
+      setAdminError(true);
+      setTimeout(() => setAdminError(false), 1500);
+    }
+  };
 
   const { data: orders } = useGetMyOrders(chatId, { query: { enabled: !!chatId } });
   const { data: loyalty } = useGetLoyaltyBalance(chatId, { query: { enabled: !!chatId } });
@@ -74,6 +91,27 @@ export default function Account() {
           </div>
         </div>
 
+        {/* Bouton Admin — visible uniquement si authentifié */}
+        {isAdmin && (
+          <Link href="/admin">
+            <div className="relative overflow-hidden rounded-[2rem] p-[1px] cursor-pointer group">
+              <div className="absolute inset-0 rounded-[2rem]" style={{ background: "linear-gradient(135deg, #a855f7, #06b6d4, #ec4899)" }} />
+              <div className="relative glass-panel rounded-[calc(2rem-1px)] p-5 flex items-center justify-between bg-black/70">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #a855f7, #06b6d4)" }}>
+                    <Shield className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-black text-base text-white">Panel Admin</p>
+                    <p className="text-xs text-purple-400 font-medium">Gérer la boutique</p>
+                  </div>
+                </div>
+                <Settings className="w-5 h-5 text-muted-foreground group-hover:text-white group-hover:rotate-45 transition-all duration-300" />
+              </div>
+            </div>
+          </Link>
+        )}
+
         {/* Loyalty Points */}
         <div className="glass-panel p-6 rounded-[2rem] relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
@@ -128,7 +166,61 @@ export default function Account() {
             )}
           </div>
         </div>
+        {/* Accès admin discret pour non-admins */}
+        {!isAdmin && (
+          <div className="flex justify-center pt-4 pb-2">
+            <button
+              onClick={() => setShowAdminModal(true)}
+              className="flex items-center gap-1.5 text-xs text-white/20 hover:text-white/50 transition-colors"
+            >
+              <Shield className="w-3 h-3" /> Admin
+            </button>
+          </div>
+        )}
       </main>
+
+      {/* Modal admin login */}
+      {showAdminModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-6" onClick={() => setShowAdminModal(false)}>
+          <div className="w-full max-w-sm glass-panel rounded-[2rem] p-6 border border-purple-500/20" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #a855f7, #06b6d4)" }}>
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-black text-lg">Accès Admin</h3>
+                <p className="text-xs text-muted-foreground">Entrez votre mot de passe</p>
+              </div>
+            </div>
+            <input
+              type="password"
+              value={adminPass}
+              onChange={e => setAdminPass(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleAdminLogin()}
+              placeholder="Mot de passe"
+              autoFocus
+              className={`w-full bg-black/40 border rounded-2xl px-5 py-4 text-center focus:outline-none transition-all text-lg font-bold mb-4 ${adminError ? "border-red-500 animate-pulse" : "border-white/10 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"}`}
+            />
+            {adminError && <p className="text-xs text-red-400 text-center mb-4">Mot de passe incorrect</p>}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowAdminModal(false); setAdminPass(""); }}
+                className="flex-1 py-3 glass-panel rounded-2xl text-sm font-bold hover:border-white/20 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleAdminLogin}
+                disabled={!adminPass}
+                className="flex-1 py-3 rounded-2xl text-sm font-black text-white disabled:opacity-50 transition-all active:scale-95"
+                style={{ background: "linear-gradient(135deg, #a855f7, #06b6d4)" }}
+              >
+                Connexion
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
