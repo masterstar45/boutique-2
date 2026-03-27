@@ -74,7 +74,6 @@ function TelegramGate() {
               className="w-full h-full object-cover object-top scale-150" />
           </div>
           <div>
-            <div className="luxury-badge mb-2.5 mx-auto">Accès Exclusif</div>
             <h1 className="font-display font-semibold tracking-[0.1em] uppercase gradient-gold glow-gold text-2xl">
               SOS LE PLUG
             </h1>

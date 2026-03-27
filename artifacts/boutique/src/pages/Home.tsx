@@ -63,7 +63,6 @@ export default function Home() {
 
           {/* Title */}
           <div>
-            <div className="luxury-badge mb-3 mx-auto">Maison de Confiance</div>
             <h1 className="font-display font-semibold tracking-[0.1em] uppercase gradient-gold glow-gold"
               style={{ fontSize: "clamp(1.75rem, 7vw, 2.4rem)" }}>
               SOS LE PLUG

@@ -114,7 +114,6 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
               transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               className="text-center"
             >
-              <div className="luxury-badge mb-4">Maison de Confiance</div>
               <h1 className="font-display font-semibold tracking-[0.12em] uppercase glow-gold gradient-gold"
                 style={{ fontSize: "clamp(1.6rem, 6vw, 2.2rem)" }}>
                 SOS LE PLUG
