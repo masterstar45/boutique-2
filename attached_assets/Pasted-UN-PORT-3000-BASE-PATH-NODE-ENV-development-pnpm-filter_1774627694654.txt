@@ -1,0 +1,39 @@
+UN PORT=3000 BASE_PATH=/ NODE_ENV=development pnpm --filter @workspace/boutique run build
+2s
+> @workspace/boutique@0.0.0 build /app/artifacts/boutique
+> vite build --config vite.config.ts
+vite v7.3.1 building client environment for production...
+(node:19) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///app/postcss.config.js?t=1774627562827 is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+transforming...
+✓ 4 modules transformed.
+✗ Build failed in 436ms
+error during build:
+[vite:css] Failed to load PostCSS config (searchPath: /app/artifacts/boutique): [Error] Loading PostCSS Plugin failed: Cannot find module 'autoprefixer'
+Require stack:
+- /app/postcss.config.js
+(@/app/postcss.config.js)
+Error: Loading PostCSS Plugin failed: Cannot find module 'autoprefixer'
+
+Require stack:
+- /app/postcss.config.js
+(@/app/postcss.config.js)
+    at load (file:///app/node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:7660:10)
+    at async Promise.all (index 1)
+    at async plugins (file:///app/node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:7682:11)
+    at async processResult (file:///app/node_modules/.pnpm/vite@7.3.1_@types+node@25.3.5_jiti@2.6.1_lightningcss@1.31.1_tsx@4.21.0_yaml@2.8.2/node_modules/vite/dist/node/chunks/config.js:7721:13)
+file: /app/artifacts/boutique/src/index.css
+/app/artifacts/boutique:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/boutique@0.0.0 build: `vite build --config vite.config.ts`
+Exit status 1
+Dockerfile:16
+-------------------
+14 |     RUN pnpm install --frozen-lockfile=false
+15 |
+16 | >>> RUN PORT=3000 BASE_PATH=/ NODE_ENV=development pnpm --filter @workspace/boutique run build
+17 |
+18 |     RUN pnpm --filter @workspace/api-server run build
+-------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c PORT=3000 BASE_PATH=/ NODE_ENV=development pnpm --filter @workspace/boutique run build" did not complete successfully: exit code: 1
