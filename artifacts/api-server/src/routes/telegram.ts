@@ -36,6 +36,19 @@ async function sendPhoto(chatId: string | number, photoUrl: string, caption: str
   }
 }
 
+async function sendVideo(chatId: string | number, videoId: string, caption: string, extra: object = {}) {
+  if (!BOT_TOKEN) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, video: videoId, caption, parse_mode: "HTML", ...extra }),
+    });
+  } catch (err) {
+    console.error("Telegram sendVideo error:", err);
+  }
+}
+
 function buildKeyboard(buttons: typeof clientButtons.$inferSelect[]): any[][] {
   if (buttons.length === 0) {
     return [[{ text: "🛒 Accéder à la Boutique", web_app: { url: BASE_URL } }]];
@@ -141,9 +154,14 @@ router.post("/telegram/webhook", async (req, res) => {
 
     const keyboard = buildKeyboard(dbButtons);
 
+    const mediaType = settings["start_media_type"] || "photo";
     try {
       if (photoUrl) {
-        await sendPhoto(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+        if (mediaType === "video") {
+          await sendVideo(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+        } else {
+          await sendPhoto(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+        }
       } else {
         await sendMessage(chatId, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
       }

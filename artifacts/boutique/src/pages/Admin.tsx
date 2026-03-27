@@ -661,7 +661,8 @@ const BOT_URL = `https://boutique-2-production.up.railway.app`;
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
-      onClick={() => onChange(!value)}
+      type="button"
+      onClick={e => { e.preventDefault(); e.stopPropagation(); onChange(!value); }}
       className={`w-10 h-6 rounded-full transition-all shrink-0 relative ${value ? "bg-primary" : "bg-white/15"}`}
     >
       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${value ? "left-5" : "left-1"}`} />
@@ -671,63 +672,101 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 
 function BotStartTab() {
   const [buttons, setButtons] = useState<any[]>([]);
-  const [photoUrl, setPhotoUrl] = useState("");
   const [startMessage, setStartMessage] = useState("");
-  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [currentMediaType, setCurrentMediaType] = useState(""); // "photo" | "video" | ""
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState("");
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [msgLoading, setMsgLoading] = useState(false);
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState(BOT_URL);
   const [emoji, setEmoji] = useState("🛒");
   const [fullWidth, setFullWidth] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [addError, setAddError] = useState("");
   const [editId, setEditId] = useState<number | null>(null);
 
   const fetchAll = () => {
     fetch(`${API}/admin/client-buttons`).then(r => r.json()).then(setButtons).catch(() => {});
     fetch(`${API}/admin/bot-settings`).then(r => r.json()).then((s: any) => {
-      setPhotoUrl(s.start_photo_url || "");
       setStartMessage(s.start_message || "");
+      setCurrentMediaType(s.start_photo_url ? (s.start_media_type || "photo") : "");
     }).catch(() => {});
   };
 
   useEffect(() => { fetchAll(); }, []);
 
-  const saveSetting = async (key: string, value: string) => {
-    await fetch(`${API}/admin/bot-settings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, value }),
-    });
+  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setMediaFile(file);
+    setMediaPreview(URL.createObjectURL(file));
   };
 
-  const handleSaveSettings = async () => {
-    setSettingsLoading(true);
+  const handleUploadMedia = async () => {
+    if (!mediaFile) return;
+    setUploadLoading(true);
     try {
-      await saveSetting("start_photo_url", photoUrl.trim());
-      await saveSetting("start_message", startMessage.trim());
-      alert("Sauvegardé ✅");
-    } finally { setSettingsLoading(false); }
+      const formData = new FormData();
+      formData.append("file", mediaFile);
+      const res = await fetch(`${API}/admin/upload-start-media`, { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.ok) {
+        setMediaFile(null);
+        setMediaPreview("");
+        fetchAll();
+        alert(`✅ ${data.type === "video" ? "Vidéo" : "Photo"} configurée avec succès !`);
+      } else {
+        alert("❌ Erreur : " + (data.error || "Upload échoué"));
+      }
+    } catch {
+      alert("❌ Erreur réseau lors de l'upload");
+    } finally { setUploadLoading(false); }
+  };
+
+  const handleRemoveMedia = async () => {
+    if (!confirm("Supprimer la photo/vidéo du /start ?")) return;
+    await fetch(`${API}/admin/start-media`, { method: "DELETE" });
+    setCurrentMediaType("");
+    fetchAll();
+  };
+
+  const handleSaveMessage = async () => {
+    setMsgLoading(true);
+    try {
+      await fetch(`${API}/admin/bot-settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "start_message", value: startMessage.trim() }),
+      });
+      alert("Message sauvegardé ✅");
+    } finally { setMsgLoading(false); }
   };
 
   const handleAdd = async () => {
     if (!label.trim() || !url.trim()) return;
     setLoading(true);
+    setAddError("");
     try {
-      if (editId !== null) {
-        await fetch(`${API}/admin/client-buttons/${editId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ label: label.trim(), url: url.trim(), emoji: emoji.trim() || null, fullWidth }),
-        });
-        setEditId(null);
-      } else {
-        await fetch(`${API}/admin/client-buttons`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ label: label.trim(), url: url.trim(), emoji: emoji.trim() || null, fullWidth }),
-        });
+      const method = editId !== null ? "PATCH" : "POST";
+      const endpoint = editId !== null
+        ? `${API}/admin/client-buttons/${editId}`
+        : `${API}/admin/client-buttons`;
+      const res = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: label.trim(), url: url.trim(), emoji: emoji.trim() || null, fullWidth }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setAddError(err.error || `Erreur ${res.status}`);
+        return;
       }
+      setEditId(null);
       setLabel(""); setUrl(BOT_URL); setEmoji("🛒"); setFullWidth(true);
       fetchAll();
+    } catch {
+      setAddError("Erreur réseau");
     } finally { setLoading(false); }
   };
 
@@ -735,14 +774,6 @@ function BotStartTab() {
     await fetch(`${API}/admin/client-buttons/${btn.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: !btn.active }),
-    });
-    fetchAll();
-  };
-
-  const handleToggleWidth = async (btn: any) => {
-    await fetch(`${API}/admin/client-buttons/${btn.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullWidth: !btn.fullWidth }),
     });
     fetchAll();
   };
@@ -756,49 +787,95 @@ function BotStartTab() {
   const startEdit = (btn: any) => {
     setEditId(btn.id); setLabel(btn.label); setUrl(btn.url);
     setEmoji(btn.emoji || ""); setFullWidth(btn.fullWidth !== false);
+    setAddError("");
   };
 
   const cancelEdit = () => {
-    setEditId(null); setLabel(""); setUrl(BOT_URL); setEmoji("🛒"); setFullWidth(true);
+    setEditId(null); setLabel(""); setUrl(BOT_URL); setEmoji("🛒"); setFullWidth(true); setAddError("");
   };
 
   return (
     <div className="space-y-4 pb-8">
 
-      {/* ── Personnalisation /start ── */}
+      {/* ── Média /start ── */}
       <div className="glass-panel p-5 rounded-[1.5rem]">
         <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
-          <span>🎨</span> Personnalisation du message /start
+          <span>🖼️</span> Photo / Vidéo d'accueil
+        </h2>
+
+        {/* Statut actuel */}
+        {currentMediaType && !mediaFile && (
+          <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3 mb-3">
+            <div className="flex items-center gap-2">
+              <span>{currentMediaType === "video" ? "🎥" : "📸"}</span>
+              <p className="text-sm font-bold text-green-400">
+                {currentMediaType === "video" ? "Vidéo configurée" : "Photo configurée"}
+              </p>
+            </div>
+            <button type="button" onClick={handleRemoveMedia} className="text-xs text-red-400 hover:text-red-300 active:scale-90 transition-all">
+              Supprimer
+            </button>
+          </div>
+        )}
+
+        {/* Sélecteur de fichier */}
+        <label className="block cursor-pointer">
+          <div className={`border-2 border-dashed rounded-xl p-5 text-center transition-all ${mediaFile ? "border-primary/50 bg-primary/5" : "border-white/10 hover:border-white/30"}`}>
+            {mediaPreview ? (
+              mediaFile?.type.startsWith("video/")
+                ? <video src={mediaPreview} className="max-h-40 mx-auto rounded-lg" controls />
+                : <img src={mediaPreview} className="max-h-40 mx-auto rounded-lg object-contain" alt="preview" />
+            ) : (
+              <>
+                <p className="text-2xl mb-1">📁</p>
+                <p className="text-sm font-bold">{currentMediaType ? "Changer le média" : "Ajouter une photo ou vidéo"}</p>
+                <p className="text-xs text-muted-foreground mt-1">JPG, PNG, MP4 — max 50 Mo</p>
+              </>
+            )}
+          </div>
+          <input type="file" accept="image/*,video/*" onChange={handleMediaSelect} className="hidden" />
+        </label>
+
+        {mediaFile && (
+          <div className="flex gap-2 mt-3">
+            <button type="button" onClick={() => { setMediaFile(null); setMediaPreview(""); }}
+              className="flex-1 py-3 rounded-xl bg-white/5 font-bold text-sm active:scale-95 transition-all">
+              Annuler
+            </button>
+            <button type="button" onClick={handleUploadMedia} disabled={uploadLoading}
+              className="flex-1 py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50 active:scale-95 transition-all"
+              style={{ background: "linear-gradient(135deg, hsl(270,90%,55%), hsl(200,90%,55%))" }}>
+              {uploadLoading ? "Upload…" : "⬆️ Envoyer"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Message /start ── */}
+      <div className="glass-panel p-5 rounded-[1.5rem]">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+          <span>💬</span> Message d'accueil
         </h2>
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">URL de la photo (optionnel)</label>
-            <input
-              value={photoUrl}
-              onChange={e => setPhotoUrl(e.target.value)}
-              placeholder="https://exemple.com/photo.jpg"
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all font-mono"
-            />
-          </div>
-          <div>
             <label className="text-xs text-muted-foreground mb-1 block">
-              Message d'accueil <span className="text-primary/70">({"{username}"} = prénom, {"{id}"} = ID)</span>
+              Texte affiché sous la photo <span className="text-primary/70">({"{username}"} = prénom, {"{id}"} = ID Telegram)</span>
             </label>
             <textarea
               value={startMessage}
               onChange={e => setStartMessage(e.target.value)}
               rows={5}
               placeholder={`🎉 Salut {username} !\n\nBienvenue sur 🔌 SOS LE PLUG\n\n🌐 Passez commande en quelques clics !`}
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all resize-none font-mono"
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all resize-none"
             />
           </div>
-          <button
-            onClick={handleSaveSettings}
-            disabled={settingsLoading}
+          <button type="button"
+            onClick={handleSaveMessage}
+            disabled={msgLoading}
             className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50 active:scale-95 transition-all"
             style={{ background: "linear-gradient(135deg, hsl(270,90%,55%), hsl(200,90%,55%))" }}
           >
-            {settingsLoading ? "Sauvegarde…" : "💾 Enregistrer le message"}
+            {msgLoading ? "Sauvegarde…" : "💾 Enregistrer le message"}
           </button>
         </div>
       </div>
@@ -819,17 +896,17 @@ function BotStartTab() {
             className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all font-mono" />
 
           {/* Largeur */}
-          <div className="flex items-center justify-between px-1">
+          <div className="flex items-center justify-between bg-black/20 rounded-xl px-4 py-3">
             <div>
               <p className="text-sm font-bold">Pleine largeur</p>
-              <p className="text-xs text-muted-foreground">Désactivé = 2 boutons côte à côte</p>
+              <p className="text-xs text-muted-foreground">Désactivé → 2 boutons côte à côte</p>
             </div>
             <Toggle value={fullWidth} onChange={setFullWidth} />
           </div>
 
-          {/* Prévisualisation disposition */}
+          {/* Aperçu */}
           <div className="bg-black/30 rounded-xl p-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Aperçu</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Aperçu disposition</p>
             {fullWidth
               ? <div className="bg-[#54a0d5]/20 border border-[#54a0d5]/30 rounded-lg py-2 text-center text-xs font-bold text-[#54a0d5]">{emoji} {label || "Mon bouton"}</div>
               : <div className="grid grid-cols-2 gap-1.5">
@@ -839,9 +916,21 @@ function BotStartTab() {
             }
           </div>
 
+          {addError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2 text-xs text-red-400">
+              ❌ {addError}
+            </div>
+          )}
+
           <div className="flex gap-2">
-            {editId && <button onClick={cancelEdit} className="flex-1 py-3 rounded-xl bg-white/5 font-bold text-sm active:scale-95 transition-all">Annuler</button>}
+            {editId && (
+              <button type="button" onClick={cancelEdit}
+                className="flex-1 py-3 rounded-xl bg-white/5 font-bold text-sm active:scale-95 transition-all">
+                Annuler
+              </button>
+            )}
             <button
+              type="button"
               onClick={handleAdd}
               disabled={!label.trim() || !url.trim() || loading}
               className="flex-1 py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50 active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -872,18 +961,18 @@ function BotStartTab() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="font-bold text-sm">{btn.label}</p>
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${btn.fullWidth ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}`}>
-                    {btn.fullWidth ? "↔ Large" : "½ Demi"}
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${btn.fullWidth !== false ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}`}>
+                    {btn.fullWidth !== false ? "↔ Large" : "½ Demi"}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground font-mono truncate">{btn.url}</p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <Toggle value={btn.active} onChange={() => handleToggleActive(btn)} />
-                <button onClick={() => startEdit(btn)} className="p-2 text-muted-foreground hover:text-white active:scale-90">
+                <button type="button" onClick={() => startEdit(btn)} className="p-2 text-muted-foreground hover:text-white active:scale-90">
                   <Edit3 className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => handleDelete(btn.id)} className="p-2 text-destructive/70 hover:text-destructive active:scale-90">
+                <button type="button" onClick={() => handleDelete(btn.id)} className="p-2 text-destructive/70 hover:text-destructive active:scale-90">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>

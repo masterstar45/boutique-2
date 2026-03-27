@@ -51,6 +51,67 @@ router.post("/upload", upload.single("file"), (req, res) => {
   res.json({ url });
 });
 
+// ─── Upload média /start vers Telegram ───────────────────────────────────────
+
+router.post("/admin/upload-start-media", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "Aucun fichier reçu" });
+    const mimeType = req.file.mimetype;
+    const isVideo = mimeType.startsWith("video/");
+    const tgMethod = isVideo ? "sendVideo" : "sendPhoto";
+    const tgField = isVideo ? "video" : "photo";
+    const ADMIN_CHAT_ID = "5818221358";
+
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const formData = new FormData();
+    formData.append("chat_id", ADMIN_CHAT_ID);
+    formData.append(tgField, new Blob([fileBuffer], { type: mimeType }), req.file.originalname);
+
+    const tgRes = await fetch(
+      `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/${tgMethod}`,
+      { method: "POST", body: formData }
+    );
+    const tgData = await tgRes.json();
+
+    try { fs.unlinkSync(req.file.path); } catch {}
+
+    if (!tgData.ok) {
+      return res.status(500).json({ error: tgData.description || "Erreur Telegram" });
+    }
+
+    let fileId: string;
+    if (isVideo) {
+      fileId = tgData.result.video.file_id;
+    } else {
+      const photos: any[] = tgData.result.photo;
+      fileId = photos[photos.length - 1].file_id;
+    }
+
+    await db.insert(botSettings).values({ key: "start_photo_url", value: fileId })
+      .onConflictDoUpdate({ target: botSettings.key, set: { value: fileId } });
+    await db.insert(botSettings).values({ key: "start_media_type", value: isVideo ? "video" : "photo" })
+      .onConflictDoUpdate({ target: botSettings.key, set: { value: isVideo ? "video" : "photo" } });
+
+    res.json({ ok: true, fileId, type: isVideo ? "video" : "photo" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Upload échoué" });
+  }
+});
+
+// ─── Supprimer le média /start ────────────────────────────────────────────────
+
+router.delete("/admin/start-media", async (_req, res) => {
+  try {
+    await db.insert(botSettings).values({ key: "start_photo_url", value: "" })
+      .onConflictDoUpdate({ target: botSettings.key, set: { value: "" } });
+    await db.insert(botSettings).values({ key: "start_media_type", value: "" })
+      .onConflictDoUpdate({ target: botSettings.key, set: { value: "" } });
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/uploads/:filename", (req, res) => {
   const filePath = path.resolve(uploadsDir, req.params.filename);
   if (!fs.existsSync(filePath)) {
