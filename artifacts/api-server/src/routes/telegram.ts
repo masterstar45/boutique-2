@@ -122,11 +122,11 @@ router.post("/telegram/webhook", async (req, res) => {
     const firstName = from.first_name ?? username;
 
     // Fetch bot settings (safe — table may not exist yet on fresh deploy)
+    const settings: Record<string, string> = {};
     let photoUrl = "";
     let customMessage = "";
     try {
       const settingsRows = await db.select().from(botSettings);
-      const settings: Record<string, string> = {};
       settingsRows.forEach(r => { settings[r.key] = r.value; });
       photoUrl = settings["start_photo_url"] || "";
       customMessage = settings["start_message"] || "";
