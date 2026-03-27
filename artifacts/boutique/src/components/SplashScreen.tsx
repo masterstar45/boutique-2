@@ -10,20 +10,16 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
   const { saveChatId, saveUsername } = useSession();
   const [username, setUsername] = useState<string | null>(null);
   const [phase, setPhase] = useState<"logo" | "user" | "out">("logo");
-  // Ref stable pour éviter que le changement de référence onDone ne reset les timers
   const onDoneRef = useRef(onDone);
   useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
   useEffect(() => {
-    // 1. Priorité : Telegram Mini App WebApp SDK
     const tgWebApp = (window as any).Telegram?.WebApp;
     if (tgWebApp) {
       tgWebApp.ready();
       tgWebApp.expand();
-      // Thème couleur cohérent avec la boutique
-      tgWebApp.setHeaderColor("#0d0a1a");
-      tgWebApp.setBackgroundColor("#0d0a1a");
-
+      tgWebApp.setHeaderColor("#080603");
+      tgWebApp.setBackgroundColor("#080603");
       const user = tgWebApp.initDataUnsafe?.user;
       if (user) {
         const id = String(user.id);
@@ -34,8 +30,6 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
         return;
       }
     }
-
-    // 2. Fallback : paramètres URL (bouton classique)
     const params = new URLSearchParams(window.location.search);
     const tgUser = params.get("tg_user");
     const tgId = params.get("tg_id");
@@ -46,23 +40,16 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
       window.history.replaceState({}, "", window.location.pathname);
       return;
     }
-
-    // 3. Fallback : localStorage (déjà connecté)
     const savedUsername = localStorage.getItem("telegram_username");
     if (savedUsername) setUsername(savedUsername);
   }, []);
 
   useEffect(() => {
-    // Timers déclenchés une seule fois au montage (ref stable = pas de reset)
-    const t1 = setTimeout(() => setPhase("user"), 1200);
-    const t2 = setTimeout(() => setPhase("out"), 2800);
-    const t3 = setTimeout(() => onDoneRef.current(), 3300);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const t1 = setTimeout(() => setPhase("user"), 1400);
+    const t2 = setTimeout(() => setPhase("out"), 3000);
+    const t3 = setTimeout(() => onDoneRef.current(), 3500);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, []);
 
   return (
     <AnimatePresence>
@@ -70,91 +57,139 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
         <motion.div
           key="splash"
           initial={{ opacity: 1 }}
-          exit={{ opacity: 0, scale: 1.05 }}
+          exit={{ opacity: 0 }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
+          style={{ background: "#080603" }}
         >
-          {/* Fond : même image que le reste de la boutique */}
+          {/* Background image — very dark */}
           <img
             src={`${import.meta.env.BASE_URL}bg.png`}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover object-center"
+            className="absolute inset-0 w-full h-full object-cover opacity-8 mix-blend-luminosity"
           />
-          <div className="absolute inset-0 bg-black/70" />
-          <div className="absolute inset-0 bg-gradient-to-b from-purple-950/20 via-transparent to-black/50" />
+          <div className="absolute inset-0" style={{ background: "rgba(8,6,3,0.88)" }} />
 
-          <div className="relative z-10 flex flex-col items-center gap-6">
-            {/* Nom de la boutique */}
+          {/* Gold ambient glow */}
+          <div className="absolute rounded-full" style={{
+            width: "70vw", height: "70vw",
+            top: "50%", left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "radial-gradient(circle, rgba(201,160,76,0.1) 0%, transparent 65%)",
+            animation: "pulse-gold 3s ease-in-out infinite",
+          }} />
+
+          <div className="relative z-10 flex flex-col items-center gap-8">
+
+            {/* Logo monogram */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.15, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              className="relative"
+            >
+              <div className="w-24 h-24 rounded-2xl overflow-hidden relative"
+                style={{
+                  border: "1px solid rgba(201,160,76,0.25)",
+                  boxShadow: "0 0 40px -8px rgba(201,160,76,0.3), inset 0 1px 0 rgba(255,240,180,0.08)",
+                }}>
+                <img
+                  src={`${import.meta.env.BASE_URL}bg.png`}
+                  alt=""
+                  className="w-full h-full object-cover object-top scale-150"
+                />
+                <div className="absolute inset-0" style={{ background: "rgba(8,6,3,0.2)" }} />
+              </div>
+              {/* Corner ornaments */}
+              <div className="absolute -top-1.5 -left-1.5 w-4 h-4 border-t border-l" style={{ borderColor: "rgba(201,160,76,0.5)" }} />
+              <div className="absolute -top-1.5 -right-1.5 w-4 h-4 border-t border-r" style={{ borderColor: "rgba(201,160,76,0.5)" }} />
+              <div className="absolute -bottom-1.5 -left-1.5 w-4 h-4 border-b border-l" style={{ borderColor: "rgba(201,160,76,0.5)" }} />
+              <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 border-b border-r" style={{ borderColor: "rgba(201,160,76,0.5)" }} />
+            </motion.div>
+
+            {/* Name */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
+              transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               className="text-center"
             >
-              <h1 className="text-3xl font-black font-display tracking-tight gradient-plug glow-text">
-                🔌 SOS LE PLUG 🔌
+              <div className="luxury-badge mb-4">Maison de Confiance</div>
+              <h1 className="font-display font-semibold tracking-[0.12em] uppercase glow-gold gradient-gold"
+                style={{ fontSize: "clamp(1.6rem, 6vw, 2.2rem)" }}>
+                SOS LE PLUG
               </h1>
-              <p className="text-xs text-purple-400/80 tracking-[0.3em] uppercase mt-1">
+              <div className="gold-line mt-4 mx-8" />
+              <p className="text-[9px] tracking-[0.35em] uppercase mt-3"
+                style={{ color: "rgba(201,160,76,0.55)" }}>
                 Premium Selection
               </p>
             </motion.div>
 
-            {/* Infos utilisateur Telegram */}
+            {/* User greeting */}
             <AnimatePresence>
               {phase === "user" && username && (
                 <motion.div
-                  initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
-                  className="glass-panel border border-primary/20 rounded-2xl px-8 py-5 flex flex-col items-center gap-2 shadow-[0_0_30px_-10px_rgba(34,197,94,0.3)]"
+                  className="flex flex-col items-center gap-3 px-8 py-5 rounded-2xl"
+                  style={{
+                    background: "rgba(201,160,76,0.04)",
+                    border: "1px solid rgba(201,160,76,0.15)",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                  }}
                 >
-                  <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-2xl mb-1">
-                    👤
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center font-display text-xl font-semibold"
+                    style={{
+                      background: "rgba(201,160,76,0.1)",
+                      border: "1px solid rgba(201,160,76,0.25)",
+                      color: "rgba(201,160,76,0.9)",
+                    }}>
+                    {username[0]?.toUpperCase() || "?"}
                   </div>
-                  <p className="text-muted-foreground text-xs uppercase tracking-widest">Connecté en tant que</p>
-                  <p className="text-primary font-black text-xl">@{username}</p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    <span className="text-xs text-muted-foreground">Compte synchronisé</span>
+                  <div className="text-center">
+                    <p className="text-[9px] tracking-[0.25em] uppercase" style={{ color: "rgba(201,160,76,0.5)" }}>Bienvenue</p>
+                    <p className="font-display font-medium text-lg mt-0.5 gradient-gold">@{username}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "rgba(201,160,76,0.8)" }} />
+                    <span className="text-[10px]" style={{ color: "rgba(201,160,76,0.5)" }}>Compte synchronisé</span>
                   </div>
                 </motion.div>
               )}
-
               {phase === "user" && !username && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="flex flex-col items-center gap-3"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex gap-1.5"
                 >
-                  <div className="flex gap-1.5">
-                    {[0, 1, 2].map((i) => (
-                      <motion.div
-                        key={i}
-                        className="w-2 h-2 rounded-full bg-primary"
-                        animate={{ opacity: [0.3, 1, 0.3] }}
-                        transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Chargement...</p>
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: "rgba(201,160,76,0.5)" }}
+                      animate={{ opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.25 }}
+                    />
+                  ))}
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
-          {/* Barre de progression */}
-          <motion.div
-            className="absolute bottom-10 left-1/2 -translate-x-1/2 w-32 h-1 bg-white/10 rounded-full overflow-hidden"
-          >
+          {/* Progress line */}
+          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-24 h-px overflow-hidden"
+            style={{ background: "rgba(201,160,76,0.1)" }}>
             <motion.div
-              className="h-full bg-primary rounded-full"
-              initial={{ width: "0%" }}
-              animate={{ width: "100%" }}
-              transition={{ duration: 2.8, ease: "linear" }}
+              className="h-full"
+              style={{ background: "linear-gradient(90deg, transparent, rgba(201,160,76,0.8), transparent)" }}
+              initial={{ x: "-100%" }}
+              animate={{ x: "100%" }}
+              transition={{ duration: 3, ease: "easeInOut" }}
             />
-          </motion.div>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>

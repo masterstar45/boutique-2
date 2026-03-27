@@ -42,45 +42,74 @@ function isTelegramConnected(): boolean {
 
 function TelegramGate() {
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-6 overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-6 overflow-hidden"
+      style={{ background: "#080603" }}>
       <img
         src={`${import.meta.env.BASE_URL}bg.png`}
         alt=""
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-cover opacity-10 mix-blend-luminosity"
       />
-      <div className="absolute inset-0 bg-black/80" />
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-950/30 via-transparent to-black/60" />
+      <div className="absolute inset-0" style={{ background: "rgba(8,6,3,0.85)" }} />
+      {/* Gold ambient */}
+      <div className="absolute rounded-full blur-3xl" style={{
+        width: "70vw", height: "70vw",
+        top: "50%", left: "50%",
+        transform: "translate(-50%,-60%)",
+        background: "radial-gradient(circle, rgba(201,160,76,0.1) 0%, transparent 65%)",
+      }} />
 
       <motion.div
-        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        initial={{ opacity: 0, y: 24, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
-        className="relative z-10 w-full max-w-xs flex flex-col items-center gap-6 text-center"
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className="relative z-10 w-full max-w-xs flex flex-col items-center gap-7 text-center"
       >
-        <div className="flex flex-col items-center gap-3">
-          <div className="text-5xl">🔌</div>
-          <h1 className="text-3xl font-black font-display gradient-plug glow-text tracking-tight">
-            SOS LE PLUG
-          </h1>
-          <p className="text-xs text-purple-400/80 tracking-[0.3em] uppercase">
-            Premium Selection
-          </p>
+        {/* Logo + name */}
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-20 h-20 rounded-[1.25rem] overflow-hidden" style={{
+            border: "1px solid rgba(201,160,76,0.25)",
+            boxShadow: "0 0 40px -8px rgba(201,160,76,0.3)",
+          }}>
+            <img src={`${import.meta.env.BASE_URL}bg.png`} alt=""
+              className="w-full h-full object-cover object-top scale-150" />
+          </div>
+          <div>
+            <div className="luxury-badge mb-2.5 mx-auto">Accès Exclusif</div>
+            <h1 className="font-display font-semibold tracking-[0.1em] uppercase gradient-gold glow-gold text-2xl">
+              SOS LE PLUG
+            </h1>
+            <div className="gold-line mt-2.5 mx-8" />
+          </div>
         </div>
 
-        <div className="glass-panel p-6 rounded-[2rem] border border-white/10 w-full flex flex-col items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-[#229ED9]/15 border border-[#229ED9]/30 flex items-center justify-center text-2xl">
+        {/* Card */}
+        <div className="w-full flex flex-col items-center gap-5 p-6 rounded-[1.75rem]"
+          style={{
+            background: "rgba(201,160,76,0.04)",
+            border: "1px solid rgba(201,160,76,0.14)",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+          }}>
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+            style={{
+              background: "rgba(35,158,217,0.1)",
+              border: "1px solid rgba(35,158,217,0.2)",
+            }}>
             ✈️
           </div>
           <div>
-            <p className="font-bold text-base">Accès exclusif</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Ce service est réservé aux membres.<br />Ouvre l'app depuis Telegram.
+            <p className="font-display text-lg font-medium mb-1">Membres uniquement</p>
+            <p className="text-sm leading-relaxed" style={{ color: "rgba(201,160,76,0.55)" }}>
+              Ce service est réservé à nos membres.<br />Ouvre l'app depuis Telegram.
             </p>
           </div>
           <a
             href="https://t.me/sosleplugbot"
-            className="w-full py-4 rounded-2xl font-black text-white flex items-center justify-center gap-2 active:scale-95 transition-transform text-base"
-            style={{ background: "linear-gradient(135deg, #229ED9, hsl(270,90%,55%))" }}
+            className="w-full py-4 rounded-2xl text-sm font-semibold tracking-[0.08em] uppercase flex items-center justify-center gap-2 active:scale-[0.98] transition-all shimmer-btn"
+            style={{
+              background: "linear-gradient(135deg, #229ED9 0%, rgba(201,160,76,0.9) 100%)",
+              color: "#080603",
+              boxShadow: "0 4px 20px rgba(35,158,217,0.25)",
+            }}
           >
             <span>Ouvrir dans Telegram</span>
           </a>

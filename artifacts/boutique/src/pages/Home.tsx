@@ -1,108 +1,152 @@
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { ArrowRight, ShieldCheck, Zap, Lock, Package } from "lucide-react";
+import { ArrowRight, ShieldCheck, Zap, Lock } from "lucide-react";
 import { useListProducts } from "@workspace/api-client-react";
+
+const GOLD = "rgba(201,160,76,";
+const GOLD_GRAD = "linear-gradient(135deg, #c9a04c 0%, #f0d070 45%, #d4a843 100%)";
 
 export default function Home() {
   const { data: products } = useListProducts();
   const productCount = products?.length || 0;
 
+  const features = [
+    { icon: ShieldCheck, label: "Qualité\nPremium", color: `${GOLD}0.9)` },
+    { icon: Zap,         label: "Livraison\nÉclair", color: `${GOLD}0.9)` },
+    { icon: Lock,        label: "Discret &\nSécurisé", color: `${GOLD}0.9)` },
+  ];
+
   return (
-    <div className="relative min-h-screen flex flex-col text-white overflow-hidden pb-24">
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent z-0" />
+    <div className="relative min-h-screen flex flex-col text-white overflow-hidden pb-28">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center z-10 pt-12 gap-10">
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center z-10 pt-16">
-
-        {/* Logo */}
+        {/* ── Monogram logo ── */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-6 relative"
+          initial={{ opacity: 0, scale: 0.88, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          className="relative flex flex-col items-center gap-5"
         >
-          <div className="w-32 h-32 rounded-[2.5rem] overflow-hidden border border-purple-500/40 shadow-[0_0_60px_-10px_rgba(168,85,247,0.7)] relative glass-panel">
-            <img
-              src={`${import.meta.env.BASE_URL}bg.png`}
-              alt="SOS LE PLUG"
-              className="w-full h-full object-cover object-top scale-150"
-            />
+          {/* Ambient glow behind logo */}
+          <div className="absolute rounded-full blur-3xl -z-10"
+            style={{
+              width: "200px", height: "200px",
+              background: "radial-gradient(circle, rgba(201,160,76,0.15) 0%, transparent 70%)",
+              animation: "pulse-gold 4s ease-in-out infinite",
+            }} />
+
+          {/* Logo frame */}
+          <div className="relative">
+            <div className="w-28 h-28 rounded-[1.75rem] overflow-hidden"
+              style={{
+                border: "1px solid rgba(201,160,76,0.25)",
+                boxShadow: "0 0 50px -10px rgba(201,160,76,0.35), inset 0 1px 0 rgba(255,240,180,0.06)",
+              }}>
+              <img
+                src={`${import.meta.env.BASE_URL}bg.png`}
+                alt="SOS LE PLUG"
+                className="w-full h-full object-cover object-top scale-150"
+              />
+              <div className="absolute inset-0" style={{ background: "rgba(8,6,3,0.15)" }} />
+            </div>
+            {/* Corner ornaments */}
+            {[
+              "-top-2 -left-2 border-t border-l",
+              "-top-2 -right-2 border-t border-r",
+              "-bottom-2 -left-2 border-b border-l",
+              "-bottom-2 -right-2 border-b border-r",
+            ].map((pos, i) => (
+              <div key={i} className={`absolute w-4 h-4 ${pos}`}
+                style={{ borderColor: "rgba(201,160,76,0.5)", borderWidth: "1.5px" }} />
+            ))}
           </div>
-          <motion.div
-            animate={{ opacity: [0.3, 0.8, 0.3], scale: [0.9, 1.1, 0.9] }}
-            transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-            className="absolute -inset-4 rounded-[3rem] bg-purple-500/25 blur-2xl -z-10"
-          />
+
+          {/* Title */}
+          <div>
+            <div className="luxury-badge mb-3 mx-auto">Maison de Confiance</div>
+            <h1 className="font-display font-semibold tracking-[0.1em] uppercase gradient-gold glow-gold"
+              style={{ fontSize: "clamp(1.75rem, 7vw, 2.4rem)" }}>
+              SOS LE PLUG
+            </h1>
+            <div className="gold-line mt-3 mx-12" />
+            <p className="text-[9px] tracking-[0.35em] uppercase mt-3"
+              style={{ color: "rgba(201,160,76,0.55)" }}>
+              Premium Selection
+            </p>
+          </div>
         </motion.div>
 
-        {/* Titre principal */}
+        {/* ── Feature grid ── */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
+          initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="mb-10"
+          transition={{ delay: 0.25, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="grid grid-cols-3 gap-3 w-full max-w-sm"
         >
-          <h1 className="text-4xl font-black tracking-tight gradient-plug glow-text font-display">
-            🔌 SOS LE PLUG 🔌
-          </h1>
-          <p className="text-xs font-bold uppercase tracking-[0.4em] mt-2 text-purple-400/90">
-            Premium Selection
-          </p>
+          {features.map(({ icon: Icon, label, color }) => (
+            <div key={label} className="flex flex-col items-center gap-2.5 py-4 px-2 rounded-2xl"
+              style={{
+                background: "rgba(201,160,76,0.04)",
+                border: "1px solid rgba(201,160,76,0.1)",
+              }}>
+              <Icon className="w-5 h-5" style={{ color }} />
+              <span className="text-[9.5px] font-medium leading-tight text-center uppercase tracking-wider whitespace-pre-line"
+                style={{ color: "rgba(201,160,76,0.65)" }}>
+                {label}
+              </span>
+            </div>
+          ))}
         </motion.div>
 
-        {/* Badges */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35, duration: 0.5 }}
-          className="grid grid-cols-3 gap-3 mb-8 w-full max-w-sm"
-        >
-          <div className="glass-panel rounded-2xl p-4 flex flex-col items-center gap-2 hover:border-purple-500/50 transition-colors">
-            <ShieldCheck className="w-6 h-6 text-purple-400" />
-            <span className="text-[10px] font-bold text-muted-foreground leading-tight text-center uppercase tracking-wider">Qualité<br/>Premium</span>
-          </div>
-          <div className="glass-panel rounded-2xl p-4 flex flex-col items-center gap-2 hover:border-cyan-500/50 transition-colors">
-            <Zap className="w-6 h-6 text-cyan-400" />
-            <span className="text-[10px] font-bold text-muted-foreground leading-tight text-center uppercase tracking-wider">Livraison<br/>Éclair</span>
-          </div>
-          <div className="glass-panel rounded-2xl p-4 flex flex-col items-center gap-2 hover:border-pink-500/50 transition-colors">
-            <Lock className="w-6 h-6 text-pink-400" />
-            <span className="text-[10px] font-bold text-muted-foreground leading-tight text-center uppercase tracking-wider">Discret &<br/>Sécurisé</span>
-          </div>
-        </motion.div>
-
-        {/* Compteur produits */}
+        {/* ── Product count pill ── */}
         {productCount > 0 && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="flex items-center gap-2 mb-10 glass-panel border-purple-500/20 rounded-full px-6 py-3 shadow-[0_0_20px_-5px_rgba(168,85,247,0.3)]"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="flex items-center gap-3 px-6 py-3 rounded-full"
+            style={{
+              background: "rgba(201,160,76,0.06)",
+              border: "1px solid rgba(201,160,76,0.18)",
+            }}
           >
-            <Package className="w-4 h-4 text-purple-400" />
-            <span className="text-xl font-black text-purple-400 glow-text">{productCount}</span>
-            <span className="text-xs text-muted-foreground font-medium uppercase tracking-widest">Produits disponibles</span>
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "rgba(201,160,76,0.8)" }} />
+            <span className="font-display text-xl font-medium gradient-gold">{productCount}</span>
+            <span className="text-[10px] tracking-[0.2em] uppercase" style={{ color: "rgba(201,160,76,0.6)" }}>
+              Produits disponibles
+            </span>
           </motion.div>
         )}
 
-        {/* Boutons */}
+        {/* ── CTA Buttons ── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.55, duration: 0.5 }}
-          className="flex flex-col gap-4 w-full max-w-sm"
+          transition={{ delay: 0.5, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col gap-3 w-full max-w-sm"
         >
           <Link
             href="/menu"
-            className="w-full relative px-8 py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shimmer-btn group hover:scale-[1.02] active:scale-[0.98] transition-all text-white shadow-[0_0_30px_-5px_rgba(168,85,247,0.5)]"
-            style={{ background: "linear-gradient(135deg, #a855f7, #06b6d4, #ec4899)" }}
+            className="w-full relative px-8 py-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 shimmer-btn group active:scale-[0.98] transition-all"
+            style={{
+              background: GOLD_GRAD,
+              color: "#080603",
+              boxShadow: "0 4px 24px rgba(201,160,76,0.3), 0 1px 0 rgba(255,240,180,0.3) inset",
+              letterSpacing: "0.06em",
+            }}
           >
-            <span className="relative z-10 font-black">Voir le Menu</span>
-            <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
+            <span className="font-semibold uppercase tracking-[0.08em] text-[13px]">Découvrir la collection</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
 
           <Link
             href="/info"
-            className="w-full px-6 py-4 glass-panel text-white rounded-2xl font-semibold text-sm hover:border-purple-500/30 transition-colors flex items-center justify-center hover:bg-white/5 active:scale-[0.98]"
+            className="w-full px-6 py-4 rounded-2xl text-[12px] font-medium uppercase tracking-[0.1em] flex items-center justify-center transition-all active:scale-[0.98] hover:border-[rgba(201,160,76,0.2)]"
+            style={{
+              background: "rgba(201,160,76,0.04)",
+              border: "1px solid rgba(201,160,76,0.12)",
+              color: "rgba(201,160,76,0.7)",
+            }}
           >
             Informations & Horaires
           </Link>
