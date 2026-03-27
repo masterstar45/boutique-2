@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useSession } from "@/hooks/use-session";
-import { useGetMyOrders, useGetLoyaltyBalance } from "@workspace/api-client-react";
-import { User, Package, Star, KeyRound, Save, LogOut, Shield, Settings } from "lucide-react";
+import { useGetMyOrders } from "@workspace/api-client-react";
+import { User, Package, KeyRound, Save, LogOut, Shield, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { TopBar } from "@/components/TopBar";
 
@@ -15,7 +15,6 @@ export default function Account() {
   const isAdmin = chatId === ADMIN_CHAT_ID;
 
   const { data: orders } = useGetMyOrders(chatId, { query: { enabled: !!chatId } });
-  const { data: loyalty } = useGetLoyaltyBalance(chatId, { query: { enabled: !!chatId } });
 
   const handleSave = () => {
     if (inputChatId.trim()) saveChatId(inputChatId.trim());
@@ -99,23 +98,6 @@ export default function Account() {
             </div>
           </Link>
         )}
-
-        {/* Loyalty Points */}
-        <div className="glass-panel p-6 rounded-[2rem] relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
-          <div className="relative z-10 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-amber-500/80 uppercase tracking-widest mb-1">Points Fidélité</p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black font-display text-amber-500">{loyalty?.points || 0}</span>
-                <span className="text-sm font-bold text-muted-foreground">pts</span>
-              </div>
-            </div>
-            <div className="w-14 h-14 rounded-full bg-amber-500/20 flex items-center justify-center shadow-[0_0_20px_-5px_rgba(245,158,11,0.4)]">
-              <Star className="w-7 h-7 text-amber-500 fill-amber-500/20" />
-            </div>
-          </div>
-        </div>
 
         {/* Orders History */}
         <div>
