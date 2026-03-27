@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useSession } from "@/hooks/use-session";
 import { useGetMyOrders } from "@workspace/api-client-react";
@@ -6,13 +6,20 @@ import { User, Package, KeyRound, Save, LogOut, Shield, Settings } from "lucide-
 import { format } from "date-fns";
 import { TopBar } from "@/components/TopBar";
 
-const ADMIN_CHAT_ID = "5818221358";
+const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 export default function Account() {
   const { chatId, username, saveChatId, clearChatId } = useSession();
   const [inputChatId, setInputChatId] = useState(chatId);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  const isAdmin = chatId === ADMIN_CHAT_ID;
+  useEffect(() => {
+    if (!chatId) { setIsAdmin(false); return; }
+    fetch(`${API}/is-admin/${chatId}`)
+      .then(r => r.json())
+      .then(d => setIsAdmin(d.isAdmin === true))
+      .catch(() => setIsAdmin(false));
+  }, [chatId]);
 
   const { data: orders } = useGetMyOrders(chatId, { query: { enabled: !!chatId } });
 

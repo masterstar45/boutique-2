@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import {
   products, cartItems, orders, reviews, promoCodes, dailyStats,
   loyaltyBalances, loyaltyTransactions, loyaltySettings,
-  favorites, savedAddresses, botUsers,
+  favorites, savedAddresses, botUsers, admins,
   type InsertProduct, type InsertCartItem, type InsertOrder,
   type InsertReview, type InsertPromoCode, type InsertFavorite,
 } from "@workspace/db";
@@ -433,4 +433,35 @@ router.get("/admin/stats", async (req, res) => {
   });
 });
 
+// ─── Admin List Management ────────────────────────────────────────────────────
+
+const SUPER_ADMIN = "5818221358";
+
+router.get("/is-admin/:chatId", async (req, res) => {
+  const { chatId } = req.params;
+  if (chatId === SUPER_ADMIN) return res.json({ isAdmin: true });
+  const [row] = await db.select().from(admins).where(eq(admins.telegramId, chatId));
+  res.json({ isAdmin: !!row });
+});
+
+router.get("/admin/admins", async (_req, res) => {
+  const rows = await db.select().from(admins).orderBy(desc(admins.id));
+  res.json(rows);
+});
+
+router.post("/admin/admins", async (req, res) => {
+  const { telegramId, name, addedBy } = req.body;
+  if (!telegramId) return res.status(400).json({ error: "telegramId required" });
+  const [existing] = await db.select().from(admins).where(eq(admins.telegramId, telegramId));
+  if (existing) return res.status(409).json({ error: "Admin already exists" });
+  const [row] = await db.insert(admins).values({ telegramId, name: name || null, addedBy: addedBy || null }).returning();
+  res.json(row);
+});
+
+router.delete("/admin/admins/:id", async (req, res) => {
+  await db.delete(admins).where(eq(admins.id, Number(req.params.id)));
+  res.json({ ok: true });
+});
+
 export default router;
+

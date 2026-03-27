@@ -9,10 +9,10 @@ import {
   getGetAdminStatsQueryKey, getListPromoCodesQueryKey,
 } from "@workspace/api-client-react";
 import {
-  Package, Users, DollarSign, ShoppingBag, Shield, LogOut,
+  Package, Users, DollarSign, ShoppingBag, Shield,
   Check, X, Plus, Trash2, Edit3, Tag, Star, ChevronRight,
   Clock, Truck, CheckCircle, AlertCircle, Eye, RefreshCw, BarChart3,
-  Upload, Video, Image as ImageIcon
+  Upload, Video, Image as ImageIcon, UserCog
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -22,7 +22,10 @@ const TABS = [
   { id: "products", label: "Produits", icon: Package },
   { id: "reviews", label: "Avis", icon: Star },
   { id: "promos", label: "Promos", icon: Tag },
+  { id: "admins", label: "Admins", icon: UserCog },
 ];
+
+const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   pending:   { label: "En attente",  color: "text-amber-400 bg-amber-400/10 border-amber-400/20",   icon: Clock },
@@ -49,19 +52,17 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function Admin() {
-  const [auth, setAuth] = useState(() => localStorage.getItem("admin_auth") === "admin123");
-  const [pass, setPass] = useState("");
   const [tab, setTab] = useState("dashboard");
   const [orderDetail, setOrderDetail] = useState<any>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [editProduct, setEditProduct] = useState<any>(null);
   const qc = useQueryClient();
 
-  const { data: stats, refetch: refetchStats } = useGetAdminStats({ query: { enabled: auth } as any });
-  const { data: ordersData, refetch: refetchOrders } = useListOrders({}, { query: { enabled: auth && tab === "orders" } as any });
-  const { data: products, refetch: refetchProducts } = useListProducts({}, { query: { enabled: auth && tab === "products" } as any });
-  const { data: reviews, refetch: refetchReviews } = useGetPendingReviews({ query: { enabled: auth && tab === "reviews" } as any });
-  const { data: promos, refetch: refetchPromos } = useListPromoCodes({ query: { enabled: auth && tab === "promos" } as any });
+  const { data: stats, refetch: refetchStats } = useGetAdminStats({} as any);
+  const { data: ordersData, refetch: refetchOrders } = useListOrders({}, { query: { enabled: tab === "orders" } as any });
+  const { data: products, refetch: refetchProducts } = useListProducts({}, { query: { enabled: tab === "products" } as any });
+  const { data: reviews, refetch: refetchReviews } = useGetPendingReviews({ query: { enabled: tab === "reviews" } as any });
+  const { data: promos, refetch: refetchPromos } = useListPromoCodes({ query: { enabled: tab === "promos" } as any });
 
   const { mutate: updateStatus } = useUpdateOrderStatus({ mutation: { onSuccess: () => { refetchOrders(); refetchStats(); } } });
   const { mutate: deleteOrder } = useDeleteOrder({ mutation: { onSuccess: () => { refetchOrders(); refetchStats(); } } });
@@ -73,55 +74,14 @@ export default function Admin() {
   const { mutate: createPromo } = useCreatePromoCode({ mutation: { onSuccess: () => refetchPromos() } });
   const { mutate: deletePromo } = useDeletePromoCode({ mutation: { onSuccess: () => refetchPromos() } });
 
-  // Auth screen
-  if (!auth) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6">
-        <div className="absolute inset-0">
-          <img src={`${import.meta.env.BASE_URL}bg.png`} className="w-full h-full object-cover" alt="" />
-          <div className="absolute inset-0 bg-black/80" />
-        </div>
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-xs glass-panel p-8 rounded-[2rem] flex flex-col items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center">
-            <Shield className="w-8 h-8 text-primary" />
-          </div>
-          <div className="text-center">
-            <h1 className="text-2xl font-black font-display">Admin Panel</h1>
-            <p className="text-xs text-muted-foreground mt-1">🔌 SOS LE PLUG 🔌</p>
-          </div>
-          <input
-            type="password" value={pass} onChange={e => setPass(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && pass === "admin123" && (localStorage.setItem("admin_auth", "admin123"), setAuth(true))}
-            placeholder="Mot de passe admin"
-            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-center focus:border-primary focus:outline-none"
-          />
-          <button
-            onClick={() => { if (pass === "admin123") { localStorage.setItem("admin_auth", "admin123"); setAuth(true); } else alert("Mot de passe incorrect"); }}
-            className="w-full font-bold py-3 rounded-xl text-white"
-            style={{ background: "linear-gradient(135deg, hsl(270,90%,55%), hsl(200,90%,55%))" }}
-          >
-            Connexion
-          </button>
-        </motion.div>
-      </div>
-    );
-  }
-
-  const logout = () => { localStorage.removeItem("admin_auth"); setAuth(false); };
-
   return (
     <div className="min-h-screen bg-[#0d0a1a]">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#0d0a1a]/95 backdrop-blur border-b border-white/5 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-primary" />
-          </div>
-          <span className="font-black text-base gradient-plug">Admin Panel</span>
+      <header className="sticky top-0 z-50 bg-[#0d0a1a]/95 backdrop-blur border-b border-white/5 px-4 py-3 flex items-center gap-2">
+        <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+          <Shield className="w-4 h-4 text-primary" />
         </div>
-        <button onClick={logout} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all">
-          <LogOut className="w-4 h-4" />
-        </button>
+        <span className="font-black text-base gradient-plug">Admin Panel</span>
       </header>
 
       {/* Tabs */}
@@ -350,6 +310,9 @@ export default function Admin() {
 
             {/* ── PROMOS ── */}
             {tab === "promos" && <PromoTab promos={promos ?? []} onDelete={id => deletePromo({ id })} onCreate={data => createPromo({ data })} />}
+
+            {/* ── ADMINS ── */}
+            {tab === "admins" && <AdminsTab />}
 
           </motion.div>
         </AnimatePresence>
@@ -660,5 +623,110 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
         </button>
       </motion.div>
     </motion.div>
+  );
+}
+
+// ─── Admins Tab ───────────────────────────────────────────────────────────────
+
+function AdminsTab() {
+  const [adminsList, setAdminsList] = useState<any[]>([]);
+  const [newId, setNewId] = useState("");
+  const [newName, setNewName] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const fetchAdmins = () => {
+    fetch(`${API}/admin/admins`)
+      .then(r => r.json())
+      .then(setAdminsList)
+      .catch(() => {});
+  };
+
+  useEffect(() => { fetchAdmins(); }, []);
+
+  const handleAdd = async () => {
+    if (!newId.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/admin/admins`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telegramId: newId.trim(), name: newName.trim() || null }),
+      });
+      if (res.status === 409) { alert("Cet admin existe déjà."); return; }
+      if (!res.ok) { alert("Erreur lors de l'ajout."); return; }
+      setNewId(""); setNewName(""); fetchAdmins();
+    } finally { setLoading(false); }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Supprimer cet admin ?")) return;
+    await fetch(`${API}/admin/admins/${id}`, { method: "DELETE" });
+    fetchAdmins();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="glass-panel p-5 rounded-[1.5rem]">
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+          <UserCog className="w-4 h-4 text-primary" /> Ajouter un admin
+        </h2>
+        <div className="space-y-3">
+          <input
+            value={newId}
+            onChange={e => setNewId(e.target.value)}
+            placeholder="Chat ID Telegram (ex: 123456789)"
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all"
+            type="number"
+          />
+          <input
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            placeholder="Nom (optionnel)"
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all"
+          />
+          <button
+            onClick={handleAdd}
+            disabled={!newId.trim() || loading}
+            className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-50 active:scale-95 transition-all flex items-center justify-center gap-2"
+            style={{ background: "linear-gradient(135deg, hsl(270,90%,55%), hsl(200,90%,55%))" }}
+          >
+            <Plus className="w-4 h-4" /> {loading ? "Ajout…" : "Ajouter comme admin"}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3 pl-1 flex items-center gap-2">
+          <Shield className="w-4 h-4" /> Admins actifs
+        </h2>
+
+        {/* Super admin toujours visible */}
+        <div className="glass-panel px-5 py-4 rounded-[1.5rem] mb-2 flex items-center justify-between border border-primary/20">
+          <div>
+            <p className="font-bold text-sm">Super Admin</p>
+            <p className="text-xs text-muted-foreground font-mono">5818221358</p>
+          </div>
+          <span className="text-xs font-bold px-3 py-1 rounded-full bg-primary/20 text-primary border border-primary/30">Principal</span>
+        </div>
+
+        {adminsList.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            <UserCog className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">Aucun admin supplémentaire</p>
+          </div>
+        )}
+        {adminsList.map(admin => (
+          <div key={admin.id} className="glass-panel px-5 py-4 rounded-[1.5rem] mb-2 flex items-center justify-between">
+            <div>
+              <p className="font-bold text-sm">{admin.name || "Admin"}</p>
+              <p className="text-xs text-muted-foreground font-mono">{admin.telegramId}</p>
+            </div>
+            <button onClick={() => handleDelete(admin.id)} className="p-2 text-destructive/70 hover:text-destructive active:scale-90 transition-all">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
