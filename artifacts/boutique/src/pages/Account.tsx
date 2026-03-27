@@ -3,6 +3,7 @@ import { useSession } from "@/hooks/use-session";
 import { useGetMyOrders, useGetLoyaltyBalance } from "@workspace/api-client-react";
 import { User, Package, Star, KeyRound, Save, LogOut } from "lucide-react";
 import { format } from "date-fns";
+import { TopBar } from "@/components/TopBar";
 
 export default function Account() {
   const { chatId, username, saveChatId, clearChatId } = useSession();
@@ -47,13 +48,13 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-screen pb-32">
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-2xl border-b border-white/5 pt-safe px-4 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-black font-display">Mon Compte</h1>
-        <button onClick={clearChatId} className="w-10 h-10 glass-panel rounded-full flex items-center justify-center text-destructive hover:bg-destructive/10 transition-colors">
-          <LogOut className="w-4 h-4" />
+    <div className="min-h-screen">
+      <TopBar title="Mon Compte" backHref="/menu" />
+      <div className="px-4 pt-3 flex justify-end">
+        <button onClick={clearChatId} className="flex items-center gap-1.5 text-xs text-destructive/70 hover:text-destructive transition-colors glass-panel px-3 py-1.5 rounded-full border-destructive/20">
+          <LogOut className="w-3 h-3" /> Déconnecter
         </button>
-      </header>
+      </div>
 
       <main className="p-4 space-y-6">
         {/* Profile Card */}

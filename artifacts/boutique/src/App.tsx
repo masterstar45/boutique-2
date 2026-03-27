@@ -44,13 +44,19 @@ function Router() {
 }
 
 function App() {
-  const [splashDone, setSplashDone] = useState(false);
+  const [splashDone, setSplashDone] = useState(() => {
+    // Splash uniquement sur la page d'accueil, ou si déjà vu cette session
+    const isHome = window.location.pathname === import.meta.env.BASE_URL.replace(/\/$/, "") || 
+                   window.location.pathname === import.meta.env.BASE_URL ||
+                   window.location.pathname === "/";
+    return !isHome || sessionStorage.getItem("splash_shown") === "1";
+  });
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
+          {!splashDone && <SplashScreen onDone={() => { sessionStorage.setItem("splash_shown", "1"); setSplashDone(true); }} />}
           <div className="relative z-10 bg-transparent min-h-screen text-foreground font-body antialiased selection:bg-primary/30">
             <AnimatedBackground />
             <div className="relative z-20">

@@ -1,12 +1,11 @@
 import { Clock, ShieldCheck, HelpCircle, FileText } from "lucide-react";
 import { motion } from "framer-motion";
+import { TopBar } from "@/components/TopBar";
 
 export default function Info() {
   return (
-    <div className="min-h-screen pb-32">
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-2xl border-b border-white/5 pt-safe px-4 py-4">
-        <h1 className="text-2xl font-black font-display">Informations</h1>
-      </header>
+    <div className="min-h-screen">
+      <TopBar title="Informations" backHref="/" />
 
       <main className="p-4 space-y-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-panel p-6 rounded-[2rem]">

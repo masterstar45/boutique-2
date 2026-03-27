@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useListReviews, useCreateReview, getListReviewsQueryKey } from "@workspace/api-client-react";
+import { TopBar } from "@/components/TopBar";
 import { MessageSquare, Star, Send } from "lucide-react";
 import { motion } from "framer-motion";
 import { useSession } from "@/hooks/use-session";
@@ -34,11 +35,8 @@ export default function Reviews() {
   };
 
   return (
-    <div className="min-h-screen pb-32 relative">
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-2xl border-b border-white/5 pt-safe px-4 py-4">
-        <h1 className="text-2xl font-black font-display">Avis Clients</h1>
-        <p className="text-xs text-primary font-bold uppercase tracking-wider mt-0.5">Ce qu'ils disent de nous</p>
-      </header>
+    <div className="min-h-screen relative">
+      <TopBar title="Avis Clients" subtitle="Ce qu'ils disent de nous" backHref="/menu" />
 
       <main className="p-4 space-y-6">
         {chatId ? (

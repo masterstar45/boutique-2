@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, CreditCard, ChevronLeft } from "lucide-react";
+import { TopBar } from "@/components/TopBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "@/hooks/use-session";
 import { useGetCart, useUpdateCartItem, useRemoveFromCart, useCheckout, getGetCartQueryKey } from "@workspace/api-client-react";
@@ -47,7 +48,7 @@ export default function Cart() {
 
   if (!cartItems?.length) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center pb-28">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
         <div className="w-24 h-24 glass-panel rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_-5px_rgba(255,255,255,0.1)]">
           <ShoppingBag className="w-10 h-10 text-muted-foreground" />
         </div>
@@ -72,15 +73,21 @@ export default function Cart() {
   };
 
   return (
-    <div className="min-h-screen pb-32">
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-2xl border-b border-white/5 pt-safe px-4 py-4 flex items-center gap-4">
-        {step !== 'cart' && (
-          <button onClick={() => setStep(step === 'address' ? 'delivery' : 'cart')} className="w-10 h-10 glass-panel rounded-full flex items-center justify-center active:scale-90 transition-transform">
-            <ChevronLeft className="w-5 h-5" />
+    <div className="min-h-screen">
+      <TopBar
+        title={step === 'cart' ? "Mon Panier" : step === 'delivery' ? "Livraison" : "Adresse"}
+        backHref={step !== 'cart' ? undefined : "/menu"}
+      />
+      {step !== 'cart' && (
+        <div className="px-4 pt-2">
+          <button
+            onClick={() => setStep(step === 'address' ? 'delivery' : 'cart')}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-white transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" /> Retour
           </button>
-        )}
-        <h1 className="text-2xl font-black font-display">Mon Panier</h1>
-      </header>
+        </div>
+      )}
 
       <main className="p-4">
         <AnimatePresence mode="wait">
