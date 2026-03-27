@@ -14,6 +14,7 @@ import {
   Clock, Truck, CheckCircle, AlertCircle, Eye, RefreshCw, BarChart3,
   Upload, Video, Image as ImageIcon, UserCog, UserCheck,
   MessageSquare, Send, Search, Lock, Unlock, FileText,
+  Bell, BellRing, Megaphone, Calendar, Radio,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -24,6 +25,7 @@ const TABS = [
   { id: "reviews",   label: "Avis",     icon: Star },
   { id: "users",     label: "Clients",  icon: UserCheck },
   { id: "promos",    label: "Promos",   icon: Tag },
+  { id: "notifs",    label: "Notifs",   icon: Bell },
   { id: "bot",       label: "Bot",      icon: Users },
   { id: "admins",    label: "Admins",   icon: UserCog },
 ];
@@ -450,6 +452,9 @@ export default function Admin() {
 
             {/* ── CLIENTS ── */}
             {tab === "users" && <UsersTab />}
+
+            {/* ── NOTIFS ── */}
+            {tab === "notifs" && <NotifsTab />}
 
             {/* ── BOT /start ── */}
             {tab === "bot" && <BotStartTab />}
@@ -1094,6 +1099,157 @@ function BotStartTab() {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Notifs Tab ───────────────────────────────────────────────────────────────
+
+function NotifsTab() {
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsOk, setStatsOk] = useState(false);
+  const [statsDate, setStatsDate] = useState("");
+
+  const [broadcastText, setBroadcastText] = useState("");
+  const [onlyUnlocked, setOnlyUnlocked] = useState(true);
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
+
+  const BROADCAST_TEMPLATES = [
+    "🔥 Nouveaux produits dispo ! Venez jeter un œil 👀",
+    "🎁 Offre spéciale ce week-end, profitez-en !",
+    "⚡ Stock limité sur certains articles, dépêchez-vous !",
+    "📢 La boutique est ouverte ! Bonne commande à tous 🛒",
+    "🌿 Nouvelle gamme arrivée, découvrez-la maintenant !",
+  ];
+
+  const sendStatsReport = async () => {
+    setStatsLoading(true); setStatsOk(false);
+    try {
+      const body = statsDate ? JSON.stringify({ date: statsDate }) : "{}";
+      await fetch(`${API}/admin/notify-stats`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body,
+      });
+      setStatsOk(true);
+      setTimeout(() => setStatsOk(false), 4000);
+    } finally { setStatsLoading(false); }
+  };
+
+  const sendBroadcast = async () => {
+    if (!broadcastText.trim()) return;
+    setBroadcasting(true); setBroadcastResult(null);
+    try {
+      const r = await fetch(`${API}/admin/broadcast`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: broadcastText, onlyUnlocked }),
+      });
+      const data = await r.json();
+      setBroadcastResult(data);
+      setBroadcastText("");
+    } finally { setBroadcasting(false); }
+  };
+
+  return (
+    <div className="space-y-5">
+
+      {/* ── Automatique ── */}
+      <div className="glass-panel rounded-[1.5rem] p-4 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Radio className="w-4 h-4 text-primary" />
+          <p className="font-black text-sm">Notifications automatiques</p>
+        </div>
+        <div className="space-y-2 text-xs">
+          <div className="flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2.5">
+            <BellRing className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-bold text-emerald-400">🛒 Nouvelle commande</p>
+              <p className="text-muted-foreground mt-0.5">Envoyé immédiatement à chaque nouvelle commande avec le détail complet.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-2.5">
+            <BellRing className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-bold text-blue-400">📋 Changement de statut</p>
+              <p className="text-muted-foreground mt-0.5">Notification à chaque mise à jour de statut d'une commande.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 bg-purple-500/10 border border-purple-500/20 rounded-xl px-3 py-2.5">
+            <Calendar className="w-3.5 h-3.5 text-purple-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-bold text-purple-400">📊 Rapport quotidien</p>
+              <p className="text-muted-foreground mt-0.5">Envoyé chaque jour à <b>20h00</b> avec commandes, CA et nouveaux clients.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Rapport manuel ── */}
+      <div className="glass-panel rounded-[1.5rem] p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-primary" />
+          <p className="font-black text-sm">Rapport stats manuel</p>
+        </div>
+        <p className="text-xs text-muted-foreground">Envoie immédiatement le rapport stats à votre Telegram admin.</p>
+        <div className="flex gap-2 items-center">
+          <input type="date" value={statsDate} onChange={e => setStatsDate(e.target.value)}
+            className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all"
+            placeholder="Date (facultatif)" />
+          <button onClick={() => setStatsDate("")} className="text-xs text-muted-foreground hover:text-foreground px-2">Auj.</button>
+        </div>
+        <button onClick={sendStatsReport} disabled={statsLoading}
+          className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50 active:scale-95 transition-all flex items-center justify-center gap-2"
+          style={{ background: "linear-gradient(135deg, hsl(270,80%,55%), hsl(300,80%,55%))" }}>
+          {statsLoading
+            ? <><RefreshCw className="w-4 h-4 animate-spin" /> Envoi…</>
+            : statsOk
+              ? <><Check className="w-4 h-4 text-emerald-300" /> Rapport envoyé !</>
+              : <><Send className="w-4 h-4" /> Envoyer le rapport</>}
+        </button>
+      </div>
+
+      {/* ── Broadcast ── */}
+      <div className="glass-panel rounded-[1.5rem] p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Megaphone className="w-4 h-4 text-primary" />
+          <p className="font-black text-sm">Message broadcast</p>
+        </div>
+
+        {broadcastResult && (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2.5 text-xs">
+            <p className="font-bold text-emerald-400 mb-0.5">✅ Broadcast terminé</p>
+            <p className="text-muted-foreground">✉️ Envoyé : <b className="text-foreground">{broadcastResult.sent}</b> · ❌ Échec : <b className="text-foreground">{broadcastResult.failed}</b> / {broadcastResult.total} clients</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-1.5">
+          {BROADCAST_TEMPLATES.map((tpl, i) => (
+            <button key={i} onClick={() => setBroadcastText(tpl)}
+              className="text-xs px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 active:scale-[.99] transition-all border border-white/10 text-left">
+              {tpl}
+            </button>
+          ))}
+        </div>
+
+        <textarea value={broadcastText} onChange={e => setBroadcastText(e.target.value)} rows={3}
+          placeholder="Message personnalisé (HTML autorisé : <b>, <i>, <a>)…"
+          className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all resize-none" />
+
+        <label className="flex items-center gap-2 cursor-pointer">
+          <div onClick={() => setOnlyUnlocked(v => !v)}
+            className={`w-10 h-5 rounded-full transition-all relative ${onlyUnlocked ? "bg-primary" : "bg-white/10"}`}>
+            <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${onlyUnlocked ? "left-5" : "left-0.5"}`} />
+          </div>
+          <span className="text-xs">{onlyUnlocked ? "🔓 Clients débloqués uniquement" : "👥 Tous les clients"}</span>
+        </label>
+
+        <button onClick={sendBroadcast} disabled={!broadcastText.trim() || broadcasting}
+          className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50 active:scale-95 transition-all flex items-center justify-center gap-2"
+          style={{ background: "linear-gradient(135deg, hsl(210,90%,55%), hsl(240,90%,55%))" }}>
+          {broadcasting
+            ? <><RefreshCw className="w-4 h-4 animate-spin" /> Envoi en cours…</>
+            : <><Megaphone className="w-4 h-4" /> Envoyer à tous</>}
+        </button>
       </div>
     </div>
   );

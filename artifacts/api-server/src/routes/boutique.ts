@@ -7,12 +7,71 @@ import {
   type InsertProduct, type InsertCartItem, type InsertOrder,
   type InsertReview, type InsertPromoCode, type InsertFavorite,
 } from "@workspace/db";
-import { eq, and, desc, ilike, or, sql, count, sum } from "drizzle-orm";
+import { eq, and, desc, ilike, or, sql, count, sum, gte, lte } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
 
 const router: IRouter = Router();
+
+// ─── Admin Telegram Notification ──────────────────────────────────────────────
+
+const ADMIN_CHAT_ID = "5818221358";
+
+async function notifyAdmin(text: string, extra: object = {}) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text, parse_mode: "HTML", ...extra }),
+    });
+  } catch {}
+}
+
+// ─── Daily Stats Builder ───────────────────────────────────────────────────────
+
+export async function buildDailyStatsMessage(date?: string): Promise<string> {
+  const today = date || new Date().toISOString().split("T")[0];
+  const [stat] = await db.select().from(dailyStats).where(eq(dailyStats.date, today));
+  const orderCount = stat?.orderCount ?? 0;
+  const revenue = stat?.revenue ?? 0;
+
+  const allOrders = await db.select().from(orders)
+    .where(sql`DATE(created_at) = ${today}`)
+    .orderBy(desc(orders.id));
+
+  const pending = allOrders.filter(o => o.status === "pending").length;
+  const confirmed = allOrders.filter(o => o.status === "confirmed").length;
+  const delivered = allOrders.filter(o => o.status === "delivered").length;
+  const cancelled = allOrders.filter(o => o.status === "cancelled").length;
+
+  const [newUsers] = await db.select({ count: count() }).from(botUsers)
+    .where(sql`DATE(created_at) = ${today}`).catch(() => [{ count: 0 }]);
+
+  const lines = [
+    `📊 <b>Rapport du ${new Date(today).toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}</b>`,
+    ``,
+    `🛒 <b>Commandes :</b> ${orderCount}`,
+    `💶 <b>Chiffre d'affaires :</b> ${(revenue / 100).toFixed(2)} €`,
+    ``,
+    `📋 <b>Statuts :</b>`,
+    pending > 0 ? `  ⏳ En attente : ${pending}` : null,
+    confirmed > 0 ? `  ✅ Confirmées : ${confirmed}` : null,
+    delivered > 0 ? `  📦 Livrées : ${delivered}` : null,
+    cancelled > 0 ? `  ❌ Annulées : ${cancelled}` : null,
+    newUsers?.count > 0 ? `` : null,
+    newUsers?.count > 0 ? `👤 <b>Nouveaux clients :</b> ${newUsers.count}` : null,
+  ].filter(l => l !== null).join("\n");
+
+  return lines || `📊 Aucune activité le ${today}`;
+}
+
+export async function sendDailyStatsToAdmin(date?: string) {
+  const msg = await buildDailyStatsMessage(date);
+  await notifyAdmin(msg);
+}
 
 // ─── File Upload ─────────────────────────────────────────────────────────────
 
@@ -331,6 +390,23 @@ router.post("/checkout", async (req, res) => {
     await db.update(dailyStats).set({ orderCount: existing[0].orderCount + 1, revenue: existing[0].revenue + totalRevenue }).where(eq(dailyStats.date, today));
   }
 
+  // Notify admin of new order
+  const articleList = itemsWithProducts.map(item => {
+    const name = item.product?.name || "Produit";
+    const price = (((item as any).selectedPrice || item.product?.price || 0) / 100).toFixed(2);
+    return `  • ${item.quantity}× ${name} — ${price}€`;
+  }).join("\n");
+  const delivLabel = deliveryType === "delivery" ? "🚚 Livraison" : "🏪 Click & Collect";
+  const userLabel = chatId ? `Client #${chatId}` : "Client anonyme";
+  notifyAdmin(
+    `🛒 <b>Nouvelle commande !</b>\n\n` +
+    `📦 <b>${orderCode}</b>\n` +
+    `👤 ${userLabel}\n` +
+    `${delivLabel}${deliveryAddress ? ` — ${deliveryAddress}` : ""}\n\n` +
+    `<b>Articles :</b>\n${articleList}\n\n` +
+    `💶 Total : <b>${(totalRevenue / 100).toFixed(2)} €</b>`
+  ).catch(() => {});
+
   res.json(order);
 });
 
@@ -354,7 +430,22 @@ router.get("/orders", async (req, res) => {
 
 router.patch("/orders/:orderCode/status", async (req, res) => {
   const { status } = req.body;
-  await db.update(orders).set({ status }).where(eq(orders.orderCode, req.params.orderCode));
+  const { orderCode } = req.params;
+  await db.update(orders).set({ status }).where(eq(orders.orderCode, orderCode));
+
+  // Notify admin of status change
+  const STATUS_LABELS: Record<string, string> = {
+    pending: "⏳ En attente",
+    confirmed: "✅ Confirmée",
+    preparing: "👨‍🍳 En préparation",
+    ready: "🏁 Prête",
+    delivering: "🚚 En livraison",
+    delivered: "📦 Livrée",
+    cancelled: "❌ Annulée",
+  };
+  const label = STATUS_LABELS[status] || status;
+  notifyAdmin(`📋 Commande <b>${orderCode}</b>\nStatut mis à jour → <b>${label}</b>`).catch(() => {});
+
   res.json({ success: true });
 });
 
@@ -470,6 +561,52 @@ router.post("/admin/send-telegram", async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ─── Admin: Stats report & broadcast ─────────────────────────────────────────
+
+router.post("/admin/notify-stats", async (req, res) => {
+  try {
+    const date = req.body.date as string | undefined;
+    await sendDailyStatsToAdmin(date);
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/admin/broadcast", async (req, res) => {
+  const { text, onlyUnlocked } = req.body;
+  if (!text) return res.status(400).json({ error: "text required" });
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return res.status(500).json({ error: "Bot token not configured" });
+
+  let users: { chatId: string }[] = [];
+  try {
+    const q = db.select({ chatId: botUsers.chatId }).from(botUsers);
+    if (onlyUnlocked) {
+      users = await (q as any).where(eq((botUsers as any).isUnlocked, true));
+    } else {
+      users = await q;
+    }
+  } catch {
+    users = await db.select({ chatId: botUsers.chatId }).from(botUsers);
+  }
+
+  let sent = 0, failed = 0;
+  for (const u of users) {
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: u.chatId, text, parse_mode: "HTML" }),
+      });
+      const data = await r.json() as any;
+      if (data.ok) sent++; else failed++;
+    } catch { failed++; }
+    await new Promise(resolve => setTimeout(resolve, 50)); // rate limit
+  }
+  res.json({ ok: true, sent, failed, total: users.length });
 });
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────

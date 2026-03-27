@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { setupWebhook } from "./routes/telegram";
+import { sendDailyStatsToAdmin } from "./routes/boutique";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -61,6 +62,36 @@ async function runMigrations() {
   `);
 }
 
+// ─── Daily Stats Scheduler ────────────────────────────────────────────────────
+// Sends a daily report to the admin every day at 20:00 Paris time (UTC+1/+2)
+
+let lastStatsSentDate = "";
+
+function scheduleDailyStats() {
+  setInterval(async () => {
+    try {
+      // Paris time = UTC + offset (1h winter, 2h summer)
+      const now = new Date();
+      const parisOffset = 60 * (now.getTimezoneOffset() < 0 ? 1 : 1); // always use UTC+1 as safe default
+      const parisNow = new Date(now.getTime() + (parisOffset - now.getTimezoneOffset()) * 60000);
+      // Use a simple UTC check: 19:00 UTC ≈ 20:00 Paris (winter), 18:00 UTC ≈ 20:00 Paris (summer)
+      const utcHour = now.getUTCHours();
+      const utcMinute = now.getUTCMinutes();
+      const todayStr = now.toISOString().split("T")[0];
+
+      // Fire between 19:00-19:01 UTC (≈ 20:00-21:00 Paris depending on DST)
+      if ((utcHour === 19) && utcMinute === 0 && lastStatsSentDate !== todayStr) {
+        lastStatsSentDate = todayStr;
+        logger.info("Sending daily stats to admin...");
+        await sendDailyStatsToAdmin(todayStr);
+        logger.info("Daily stats sent");
+      }
+    } catch (err) {
+      logger.error({ err }, "Daily stats scheduler error");
+    }
+  }, 60 * 1000); // check every minute
+}
+
 runMigrations().then(() => {
   app.listen(port, (err) => {
     if (err) {
@@ -72,6 +103,7 @@ runMigrations().then(() => {
 
     if (process.env.NODE_ENV === "production") {
       setupWebhook().catch((e) => logger.error({ e }, "Webhook setup failed"));
+      scheduleDailyStats();
     }
   });
 });
