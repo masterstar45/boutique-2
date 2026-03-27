@@ -12,32 +12,53 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
   const [phase, setPhase] = useState<"logo" | "user" | "out">("logo");
 
   useEffect(() => {
+    // 1. Priorité : Telegram Mini App WebApp SDK
+    const tgWebApp = (window as any).Telegram?.WebApp;
+    if (tgWebApp) {
+      tgWebApp.ready();
+      tgWebApp.expand();
+      // Thème couleur cohérent avec la boutique
+      tgWebApp.setHeaderColor("#0d0a1a");
+      tgWebApp.setBackgroundColor("#0d0a1a");
+
+      const user = tgWebApp.initDataUnsafe?.user;
+      if (user) {
+        const id = String(user.id);
+        const uname = user.username || user.first_name || "";
+        saveChatId(id);
+        saveUsername(uname);
+        setUsername(uname);
+        return;
+      }
+    }
+
+    // 2. Fallback : paramètres URL (bouton classique)
     const params = new URLSearchParams(window.location.search);
     const tgUser = params.get("tg_user");
     const tgId = params.get("tg_id");
-
     if (tgUser && tgId) {
       saveChatId(tgId);
       saveUsername(tgUser);
       setUsername(tgUser);
-      // Nettoyer l'URL sans recharger
       window.history.replaceState({}, "", window.location.pathname);
-    } else {
-      // Récupérer depuis localStorage si déjà connecté
-      const savedUsername = localStorage.getItem("telegram_username");
-      if (savedUsername) setUsername(savedUsername);
+      return;
     }
 
+    // 3. Fallback : localStorage (déjà connecté)
+    const savedUsername = localStorage.getItem("telegram_username");
+    if (savedUsername) setUsername(savedUsername);
+  }, []);
+
+  useEffect(() => {
     const t1 = setTimeout(() => setPhase("user"), 1200);
     const t2 = setTimeout(() => setPhase("out"), 2800);
     const t3 = setTimeout(onDone, 3300);
-
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
     };
-  }, []);
+  }, [onDone]);
 
   return (
     <AnimatePresence>

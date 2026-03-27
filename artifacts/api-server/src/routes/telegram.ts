@@ -91,14 +91,12 @@ router.post("/telegram/webhook", async (req, res) => {
       `━━━━━━━━━━━━━━━━━\n\n` +
       `💡 Cliquez sur le bouton ci-dessous pour accéder à votre espace`;
 
-    const boutiquUrl = `${BASE_URL}?tg_user=${encodeURIComponent(from.username ?? from.first_name ?? "")}&tg_id=${encodeURIComponent(userId)}`;
-
     await sendMessage(chatId, welcomeText, {
       reply_markup: {
         inline_keyboard: [[
           {
             text: "🛒 Accéder à la Boutique",
-            url: boutiquUrl,
+            web_app: { url: BASE_URL },
           },
         ]],
       },
@@ -115,7 +113,7 @@ router.post("/telegram/webhook", async (req, res) => {
       `Copiez votre User ID dans la page <b>Compte</b> de la boutique pour accéder à votre historique.`,
       {
         reply_markup: {
-          inline_keyboard: [[{ text: "🛒 Ouvrir la Boutique", url: BASE_URL }]],
+          inline_keyboard: [[{ text: "🛒 Ouvrir la Boutique", web_app: { url: BASE_URL } }]],
         },
       }
     );
@@ -134,7 +132,7 @@ router.post("/telegram/webhook", async (req, res) => {
       if (userOrders.length === 0) {
         await sendMessage(chatId,
           "📦 Vous n'avez pas encore de commandes.\n\n🛒 Passez votre première commande !",
-          { reply_markup: { inline_keyboard: [[{ text: "🛒 Visiter la Boutique", url: BASE_URL }]] } }
+          { reply_markup: { inline_keyboard: [[{ text: "🛒 Visiter la Boutique", web_app: { url: BASE_URL } }]] } }
         );
         return;
       }
@@ -153,7 +151,7 @@ router.post("/telegram/webhook", async (req, res) => {
       }
 
       await sendMessage(chatId, msg, {
-        reply_markup: { inline_keyboard: [[{ text: "🛒 Retourner à la Boutique", url: BASE_URL }]] },
+        reply_markup: { inline_keyboard: [[{ text: "🛒 Retourner à la Boutique", web_app: { url: BASE_URL } }]] },
       });
     } catch {
       await sendMessage(chatId, "❌ Erreur lors de la récupération de vos commandes.");
@@ -171,7 +169,7 @@ router.post("/telegram/webhook", async (req, res) => {
       if (!loyalty) {
         await sendMessage(chatId,
           "💎 Vous n'avez pas encore de points de fidélité.\n\nPassez votre première commande pour en gagner !",
-          { reply_markup: { inline_keyboard: [[{ text: "🛒 Commander", url: BASE_URL }]] } }
+          { reply_markup: { inline_keyboard: [[{ text: "🛒 Commander", web_app: { url: BASE_URL } }]] } }
         );
         return;
       }
@@ -179,7 +177,7 @@ router.post("/telegram/webhook", async (req, res) => {
       await sendMessage(
         chatId,
         `💎 <b>Vos points de fidélité :</b>\n\n⭐ Solde actuel : <b>${loyalty.points} points</b>\n🎁 Utilisez vos points lors du prochain achat !`,
-        { reply_markup: { inline_keyboard: [[{ text: "🛒 Utiliser mes points", url: BASE_URL }]] } }
+        { reply_markup: { inline_keyboard: [[{ text: "🛒 Utiliser mes points", web_app: { url: BASE_URL } }]] } }
       );
     } catch {
       await sendMessage(chatId, "❌ Erreur lors de la récupération de vos points.");
@@ -195,7 +193,7 @@ router.post("/telegram/webhook", async (req, res) => {
     `/monid - Mon User ID\n` +
     `/commandes - Mes commandes\n` +
     `/solde - Mes points de fidélité`,
-    { reply_markup: { inline_keyboard: [[{ text: "🛒 Ouvrir la Boutique", url: BASE_URL }]] } }
+    { reply_markup: { inline_keyboard: [[{ text: "🛒 Ouvrir la Boutique", web_app: { url: BASE_URL } }]] } }
   );
 });
 
