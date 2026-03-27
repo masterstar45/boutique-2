@@ -496,12 +496,42 @@ router.get("/admin/stats", async (req, res) => {
 
 // ─── Client Buttons (/start) ─────────────────────────────────────────────────
 
+// Eager migration: ensure the client_buttons table and full_width column exist.
+// This runs once when the module is loaded and is awaited by every route handler.
+const clientButtonsReady: Promise<void> = (async () => {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS client_buttons (
+        id SERIAL PRIMARY KEY,
+        label TEXT NOT NULL,
+        url TEXT NOT NULL,
+        emoji TEXT,
+        active BOOLEAN NOT NULL DEFAULT TRUE,
+        position INTEGER NOT NULL DEFAULT 0,
+        full_width BOOLEAN NOT NULL DEFAULT TRUE
+      );
+    `);
+    await db.execute(sql`
+      ALTER TABLE client_buttons ADD COLUMN IF NOT EXISTS full_width BOOLEAN NOT NULL DEFAULT TRUE;
+    `);
+  } catch (e: any) {
+    console.error("client_buttons migration error:", e?.message);
+  }
+})();
+
 router.get("/admin/client-buttons", async (_req, res) => {
-  const rows = await db.select().from(clientButtons).orderBy(clientButtons.position);
-  res.json(rows);
+  await clientButtonsReady;
+  try {
+    const rows = await db.select().from(clientButtons).orderBy(clientButtons.position);
+    res.json(rows);
+  } catch (err: any) {
+    console.error("GET client-buttons error:", err?.message);
+    res.json([]);
+  }
 });
 
 router.post("/admin/client-buttons", async (req, res) => {
+  await clientButtonsReady;
   try {
     const { label, url, emoji, position, fullWidth } = req.body;
     if (!label || !url) return res.status(400).json({ error: "label and url required" });
@@ -520,6 +550,7 @@ router.post("/admin/client-buttons", async (req, res) => {
 });
 
 router.patch("/admin/client-buttons/:id", async (req, res) => {
+  await clientButtonsReady;
   try {
     const { label, url, emoji, active, position, fullWidth } = req.body;
     const update: Record<string, any> = {};
