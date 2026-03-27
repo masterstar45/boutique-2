@@ -62,6 +62,13 @@ router.get("/uploads/:filename", (req, res) => {
 
 // ─── Products ─────────────────────────────────────────────────────────────────
 
+// Retire les data: URL vidéo de la liste (trop lourdes) et expose un flag hasVideo
+function stripVideoDataUrl(product: typeof products.$inferSelect) {
+  const hasVideo = !!product.videoUrl;
+  const videoUrlForList = product.videoUrl?.startsWith("data:") ? null : product.videoUrl;
+  return { ...product, videoUrl: videoUrlForList, hasVideo };
+}
+
 router.get("/products", async (req, res) => {
   const category = typeof req.query.category === "string" && req.query.category ? req.query.category : undefined;
   const search = typeof req.query.search === "string" && req.query.search ? req.query.search : undefined;
@@ -73,7 +80,7 @@ router.get("/products", async (req, res) => {
   if (conditions.length > 0) query = query.where(and(...conditions));
 
   const result = await query;
-  res.json(result);
+  res.json(result.map(stripVideoDataUrl));
 });
 
 router.get("/products/:id", async (req, res) => {
@@ -83,6 +90,16 @@ router.get("/products/:id", async (req, res) => {
     return;
   }
   res.json(product);
+});
+
+// Endpoint dédié pour récupérer la vidéo d'un produit (évite de charger les data: URL en masse)
+router.get("/products/:id/video", async (req, res) => {
+  const [product] = await db.select({ videoUrl: products.videoUrl }).from(products).where(eq(products.id, Number(req.params.id)));
+  if (!product) {
+    res.status(404).json({ message: "Product not found" });
+    return;
+  }
+  res.json({ videoUrl: product.videoUrl });
 });
 
 router.post("/products", async (req, res) => {

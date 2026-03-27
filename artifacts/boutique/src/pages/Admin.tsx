@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListOrders, useGetAdminStats, useListProducts, useGetPendingReviews,
@@ -11,7 +11,8 @@ import {
 import {
   Package, Users, DollarSign, ShoppingBag, Shield, LogOut,
   Check, X, Plus, Trash2, Edit3, Tag, Star, ChevronRight,
-  Clock, Truck, CheckCircle, AlertCircle, Eye, RefreshCw, BarChart3
+  Clock, Truck, CheckCircle, AlertCircle, Eye, RefreshCw, BarChart3,
+  Upload, Video, Image as ImageIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -434,12 +435,46 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
     description: product?.description ?? "",
     price: product ? String(product.price) : "",
     imageUrl: product?.imageUrl ?? "",
+    videoUrl: "",
     category: product?.category ?? CATEGORIES[0],
     stock: product?.stock ?? "disponible",
     sticker: product?.sticker ?? "",
   });
+  const [imageLoading, setImageLoading] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const imageRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
+
+  // Si édition et hasVideo, charger la vraie data: URL de la vidéo
+  useEffect(() => {
+    if (!product?.id) return;
+    if (!product.hasVideo) return;
+    fetch(`/api/products/${product.id}/video`)
+      .then(r => r.json())
+      .then(d => { if (d.videoUrl) setForm(f => ({ ...f, videoUrl: d.videoUrl })); })
+      .catch(() => {});
+  }, [product?.id, product?.hasVideo]);
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageLoading(true);
+    const reader = new FileReader();
+    reader.onload = ev => { set("imageUrl", ev.target?.result as string); setImageLoading(false); };
+    reader.readAsDataURL(file);
+  };
+
+  const handleVideoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) { alert("Vidéo trop lourde (max 50 Mo)"); return; }
+    setVideoLoading(true);
+    const reader = new FileReader();
+    reader.onload = ev => { set("videoUrl", ev.target?.result as string); setVideoLoading(false); };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = () => {
     if (!form.name || !form.imageUrl) return alert("Nom et image requis");
@@ -457,10 +492,10 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
         </div>
 
         <div className="space-y-3">
+          {/* Nom & Marque */}
           {[
             { key: "name", label: "Nom *", placeholder: "ex: OG Kush" },
             { key: "brand", label: "Marque", placeholder: "ex: CannaFarm" },
-            { key: "imageUrl", label: "URL Image *", placeholder: "https://..." },
           ].map(f => (
             <div key={f.key}>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">{f.label}</label>
@@ -472,6 +507,60 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
             </div>
           ))}
 
+          {/* Image */}
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Image *</label>
+            <input ref={imageRef} type="file" accept="image/*" className="hidden" onChange={handleImageFile} />
+            {form.imageUrl ? (
+              <div className="relative rounded-xl overflow-hidden">
+                <img src={form.imageUrl} alt="" className="w-full h-36 object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute bottom-2 right-2 flex gap-1.5">
+                  <button onClick={() => imageRef.current?.click()} className="bg-primary/90 backdrop-blur-sm rounded-lg px-2.5 py-1 text-xs font-bold flex items-center gap-1">
+                    <Upload className="w-3 h-3" /> Changer
+                  </button>
+                  <button onClick={() => { set("imageUrl", ""); if (imageRef.current) imageRef.current.value = ""; }} className="bg-red-500/80 backdrop-blur-sm rounded-lg p-1">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => imageRef.current?.click()} disabled={imageLoading}
+                className="w-full h-28 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-95">
+                {imageLoading ? <span className="text-xs animate-pulse">Chargement…</span> : (
+                  <><ImageIcon className="w-6 h-6 opacity-60" /><span className="text-xs">Importer une image</span></>
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Vidéo */}
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Vidéo (optionnel)</label>
+            <input ref={videoRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/mov" className="hidden" onChange={handleVideoFile} />
+            {form.videoUrl ? (
+              <div className="relative rounded-xl overflow-hidden bg-black">
+                <video src={form.videoUrl} className="w-full h-32 object-cover" muted playsInline />
+                <div className="absolute bottom-2 right-2 flex gap-1.5">
+                  <button onClick={() => videoRef.current?.click()} className="bg-primary/90 backdrop-blur-sm rounded-lg px-2.5 py-1 text-xs font-bold flex items-center gap-1">
+                    <Upload className="w-3 h-3" /> Changer
+                  </button>
+                  <button onClick={() => { set("videoUrl", ""); if (videoRef.current) videoRef.current.value = ""; }} className="bg-red-500/80 backdrop-blur-sm rounded-lg p-1">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => videoRef.current?.click()} disabled={videoLoading}
+                className="w-full h-20 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-95">
+                {videoLoading ? <span className="text-xs animate-pulse">Traitement en cours…</span> : (
+                  <><Video className="w-5 h-5 opacity-60" /><span className="text-xs">Importer une vidéo (max 50 Mo)</span></>
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Description */}
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Description</label>
             <textarea
@@ -524,10 +613,11 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
 
         <button
           onClick={handleSubmit}
-          className="w-full mt-5 py-3.5 rounded-[1.5rem] font-bold text-white active:scale-95 transition-all"
+          disabled={imageLoading || videoLoading}
+          className="w-full mt-5 py-3.5 rounded-[1.5rem] font-bold text-white active:scale-95 transition-all disabled:opacity-50"
           style={{ background: "linear-gradient(135deg, hsl(270,90%,55%), hsl(200,90%,55%))" }}
         >
-          {product ? "Enregistrer les modifications" : "Ajouter le produit"}
+          {imageLoading || videoLoading ? "Traitement…" : product ? "Enregistrer les modifications" : "Ajouter le produit"}
         </button>
       </motion.div>
     </motion.div>
