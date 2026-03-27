@@ -85,14 +85,13 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
-              className="w-28 h-28 rounded-[2rem] bg-black border border-primary/30 shadow-[0_0_60px_-10px_rgba(34,197,94,0.5)] flex items-center justify-center overflow-hidden"
+              className="w-28 h-28 rounded-[2rem] overflow-hidden shadow-[0_0_60px_-10px_rgba(147,51,234,0.6)]"
             >
-              <svg viewBox="0 0 80 80" className="w-16 h-16" fill="none">
-                <circle cx="40" cy="40" r="38" fill="#111" stroke="#22c55e" strokeWidth="1.5" />
-                <path d="M40 15 C40 15 25 28 25 40 C25 52 32 60 40 65 C48 60 55 52 55 40 C55 28 40 15 40 15Z" fill="#22c55e" opacity="0.8"/>
-                <path d="M40 20 C40 20 50 30 50 40 C50 50 45 57 40 62 C35 57 30 50 30 40 C30 30 40 20 40 20Z" fill="#16a34a"/>
-                <circle cx="40" cy="40" r="6" fill="#4ade80"/>
-              </svg>
+              <img
+                src={`${import.meta.env.BASE_URL}images/logo.png`}
+                alt="SOS Le Plug"
+                className="w-full h-full object-cover"
+              />
             </motion.div>
 
             {/* Nom de la boutique */}
