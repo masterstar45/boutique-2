@@ -1,0 +1,20 @@
+Preparing pnpm@10.26.1 for immediate activation...
+Internal Error: Cannot find matching keyid: {"signatures":[{"sig":"MEYCIQCIKlwuTTGH07aCd9HHSc+D0dHvDgU3RscrUo7h/JfhuQIhAJWFT+FLR6qmlKslGkgQyEt3wvsdauq8AXG9XZ5WG6ID","keyid":"SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"}],"keys":[{"expires":null,"keyid":"SHA256:jl3bwswu80PjjokCgh0o2w5c2U4LhQAE57gj9cz1kzA","keytype":"ecdsa-sha2-nistp256","scheme":"ecdsa-sha2-nistp256","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1Olb3zMAFFxXKHiIkQO5cJ3Yhl5i6UPp+IhuteBJbuHcA5UogKo0EWtlWwW6KSaKoTNEYL7JlCQiVnkhBktUgg=="}]}
+    at verifySignature (/nix/store/j7dx1n6m5axf9r2bvly580x2ixx546wq-nodejs-20.18.1/lib/node_modules/corepack/dist/lib/corepack.cjs:21535:47)
+    at installVersion (/nix/store/j7dx1n6m5axf9r2bvly580x2ixx546wq-nodejs-20.18.1/lib/node_modules/corepack/dist/lib/corepack.cjs:21882:7)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Engine.ensurePackageManager (/nix/store/j7dx1n6m5axf9r2bvly580x2ixx546wq-nodejs-20.18.1/lib/node_modules/corepack/dist/lib/corepack.cjs:22310:32)
+    at async PrepareCommand.execute (/nix/store/j7dx1n6m5axf9r2bvly580x2ixx546wq-nodejs-20.18.1/lib/node_modules/corepack/dist/lib/corepack.cjs:23019:27)
+    at async PrepareCommand.validateAndExecute (/nix/store/j7dx1n6m5axf9r2bvly580x2ixx546wq-nodejs-20.18.1/lib/node_modules/corepack/dist/lib/corepack.cjs:19835:22)
+    at async _Cli.run (/nix/store/j7dx1n6m5axf9r2bvly580x2ixx546wq-nodejs-20.18.1/lib/node_modules/corepack/dist/lib/corepack.cjs:20772:18)
+    at async Object.runMain (/nix/store/j7dx1n6m5axf9r2bvly580x2ixx546wq-nodejs-20.18.1/lib/node_modules/corepack/dist/lib/corepack.cjs:23091:19)
+Dockerfile:21
+-------------------
+19 |     COPY . /app/.
+20 |     RUN --mount=type=cache,id=s/b98a9022-dc79-4977-8b2d-dd46d4edebb9-/root/local/share/pnpm/store/v3,target=/root/.local/share/pnpm/store/v3 corepack enable
+21 | >>> RUN --mount=type=cache,id=s/b98a9022-dc79-4977-8b2d-dd46d4edebb9-/root/local/share/pnpm/store/v3,target=/root/.local/share/pnpm/store/v3 corepack prepare pnpm@10.26.1 --activate
+22 |     RUN --mount=type=cache,id=s/b98a9022-dc79-4977-8b2d-dd46d4edebb9-/root/local/share/pnpm/store/v3,target=/root/.local/share/pnpm/store/v3 pnpm install --frozen-lockfile=false
+23 |
+-------------------
+ERROR: failed to build: failed to solve: process "/bin/bash -ol pipefail -c corepack prepare pnpm@10.26.1 --activate" did not complete successfully: exit code: 1
+Error: Docker build failed
