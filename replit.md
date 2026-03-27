@@ -1,91 +1,96 @@
-# PharmacyHash - Telegram Mini App
+# Workspace
 
 ## Overview
-PharmacyHash is a Telegram Mini App for a pharmacy/dispensary bot. It provides product browsing, cart, checkout with multiple delivery options, loyalty points, reviews, and a full admin dashboard.
 
-## Architecture
-- **Frontend**: React + Vite, TailwindCSS v4, wouter routing, TanStack Query
-- **Backend**: Express.js with TypeScript
-- **Database**: PostgreSQL via Drizzle ORM (Neon in production on Railway)
-- **Bot**: node-telegram-bot-api (runs only in production mode)
+pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
-## Design System
-- **Theme**: Dark Glassmorphism
-- **Primary color**: `hsl(150 80% 45%)` (green)
-- **Background**: `hsl(150 10% 4%)`
-- **Glass utility**: `glass-panel` class = `bg-card/60 backdrop-blur-xl border border-white/10 shadow`
-- **Fonts**: Outfit (display) + Plus Jakarta Sans (body)
-- **Tailwind v4**: Uses `@import "tailwindcss"` and `@theme inline {}` blocks
+## Stack
 
-## Key Files
-- `shared/schema.ts` - All Drizzle table definitions and types
-- `shared/routes.ts` - API contract with Zod schemas
-- `server/db.ts` - Database connection (Neon serverless)
-- `server/storage.ts` - Full IStorage interface and DatabaseStorage implementation
-- `server/routes.ts` - All API routes (products, cart, checkout, reviews, loyalty, favorites, addresses, admin)
-- `server/bot.ts` - Telegram bot with admin menu (products, orders, reviews, promos, loyalty, users, passwords)
-- `server/index.ts` - Express server entry point
-- `client/src/App.tsx` - Main app with routing
-- `client/src/pages/Admin.tsx` - Admin dashboard with real API data
+- **Monorepo tool**: pnpm workspaces
+- **Node.js version**: 24
+- **Package manager**: pnpm
+- **TypeScript version**: 5.9
+- **API framework**: Express 5
+- **Database**: PostgreSQL + Drizzle ORM
+- **Validation**: Zod (`zod/v4`), `drizzle-zod`
+- **API codegen**: Orval (from OpenAPI spec)
+- **Build**: esbuild (CJS bundle)
 
-## API Routes
+## Structure
 
-### Public
-- `GET /api/products` - List products (with optional category/search filters)
-- `GET /api/products/:id` - Get single product
-- `GET /api/cart/:sessionId` - Get cart items
-- `POST /api/upload` - Upload image/video file (multer, max 50MB, returns URL)
-- `POST /api/cart` - Add to cart
-- `PATCH /api/cart/:id` - Update cart item quantity (requires sessionId for ownership check)
-- `DELETE /api/cart/:id` - Remove from cart
-- `DELETE /api/cart/session/:sessionId` - Clear cart
-- `POST /api/checkout` - Create order
-- `GET /api/reviews` - Get approved reviews
-- `POST /api/reviews` - Submit review
-- `POST /api/promo/validate` - Validate promo code
-- `GET /api/loyalty/:chatId` - Get loyalty balance
-- `GET /api/loyalty/:chatId/history` - Get loyalty transactions
-- `GET /api/loyalty-settings` - Get loyalty program settings
-- `GET /api/admin/orders/new-count` - Count orders in last 5 minutes (admin notification)
-- `GET /api/orders/:chatId` - Get user orders
-- `GET /api/favorites/:chatId` - Get favorites
-- `POST /api/favorites` - Add favorite
-- `DELETE /api/favorites/:chatId/:productId` - Remove favorite
-- `GET /api/favorites/:chatId/check/:productId` - Check if favorited
-- `GET /api/addresses/:chatId` - Get saved addresses
-- `POST /api/addresses` - Add address
-- `DELETE /api/addresses/:id` - Delete address
-- `PUT /api/addresses/:id/default` - Set default address
+```text
+artifacts-monorepo/
+├── artifacts/              # Deployable applications
+│   └── api-server/         # Express API server
+├── lib/                    # Shared libraries
+│   ├── api-spec/           # OpenAPI spec + Orval codegen config
+│   ├── api-client-react/   # Generated React Query hooks
+│   ├── api-zod/            # Generated Zod schemas from OpenAPI
+│   └── db/                 # Drizzle ORM schema + DB connection
+├── scripts/                # Utility scripts (single workspace package)
+│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
+├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
+├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
+├── tsconfig.json           # Root TS project references
+└── package.json            # Root package with hoisted devDeps
+```
 
-### Admin
-- `GET /api/admin/stats` - Dashboard statistics
-- `GET /api/admin/orders` - List orders (filterable by status)
-- `PATCH /api/admin/orders/:orderCode/status` - Update order status
-- `DELETE /api/admin/orders/:orderCode` - Delete order
-- `POST /api/admin/products` - Create product
-- `PATCH /api/admin/products/:id` - Update product
-- `DELETE /api/admin/products/:id` - Delete product
-- `GET /api/admin/reviews/pending` - Get pending reviews
-- `POST /api/admin/reviews/:id/approve` - Approve review
-- `DELETE /api/admin/reviews/:id` - Delete review
-- `GET /api/admin/promo-codes` - List promo codes
-- `POST /api/admin/promo-codes` - Create promo code
-- `PATCH /api/admin/promo-codes/:id/toggle` - Toggle promo code active/inactive
-- `DELETE /api/admin/promo-codes/:id` - Delete promo code
-- `GET /api/admin/users` - List all bot users
+## TypeScript & Composite Projects
 
-## Deployment
-- Target: Railway with Neon PostgreSQL
-- Environment variables needed: DATABASE_URL, TELEGRAM_BOT_TOKEN, ADMIN_TELEGRAM_ID, SESSION_SECRET, NODE_ENV=production
-- Bot only starts when NODE_ENV=production
+Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
 
-## Path Aliases
-- `@assets` -> `attached_assets/`
-- `@shared` -> `shared/`
-- `@` -> `client/src/`
+- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
+- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
+- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
 
-## Notes
-- Home page: clean background image only (no text, no logo)
-- BottomNav: floating pill-style, hidden on home, cart, product detail, and admin pages
-- Admin dashboard accessible at `/admin`
-- Telegram user identification via `window.Telegram?.WebApp?.initDataUnsafe?.user?.id`
+## Root Scripts
+
+- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
+- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+
+## Packages
+
+### `artifacts/api-server` (`@workspace/api-server`)
+
+Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+
+- Entry: `src/index.ts` — reads `PORT`, starts Express
+- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
+- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- Depends on: `@workspace/db`, `@workspace/api-zod`
+- `pnpm --filter @workspace/api-server run dev` — run the dev server
+- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
+- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+
+### `lib/db` (`@workspace/db`)
+
+Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
+
+- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
+- `src/schema/index.ts` — barrel re-export of all models
+- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
+- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
+- Exports: `.` (pool, db, schema), `./schema` (schema only)
+
+Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+
+### `lib/api-spec` (`@workspace/api-spec`)
+
+Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
+
+1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
+2. `lib/api-zod/src/generated/` — Zod schemas
+
+Run codegen: `pnpm --filter @workspace/api-spec run codegen`
+
+### `lib/api-zod` (`@workspace/api-zod`)
+
+Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
+
+### `lib/api-client-react` (`@workspace/api-client-react`)
+
+Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+
+### `scripts` (`@workspace/scripts`)
+
+Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
