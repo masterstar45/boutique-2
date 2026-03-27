@@ -116,10 +116,9 @@ async function main() {
 
   console.log(`✓ ${processed} blobs créés`);
 
-  // Créer le nouveau tree
-  console.log("🌲 Création du nouveau tree...");
+  // Créer le nouveau tree SANS base_tree pour écraser complètement l'ancien contenu
+  console.log("🌲 Création du nouveau tree (remplacement complet)...");
   const treeRes = await apiRequest("POST", `/repos/${REPO}/git/trees`, {
-    base_tree: baseTreeSha,
     tree: treeItems,
   });
   if (treeRes.status !== 201) {
