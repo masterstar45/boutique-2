@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { orders, loyaltyBalances, clientButtons } from "@workspace/db/schema";
+import { orders, loyaltyBalances, clientButtons, botSettings } from "@workspace/db/schema";
 import { eq, desc, asc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -16,16 +16,46 @@ async function sendMessage(chatId: string | number, text: string, extra: object 
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: "HTML",
-        ...extra,
-      }),
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...extra }),
     });
   } catch (err) {
     console.error("Telegram send error:", err);
   }
+}
+
+async function sendPhoto(chatId: string | number, photoUrl: string, caption: string, extra: object = {}) {
+  if (!BOT_TOKEN) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption, parse_mode: "HTML", ...extra }),
+    });
+  } catch (err) {
+    console.error("Telegram sendPhoto error:", err);
+  }
+}
+
+function buildKeyboard(buttons: typeof clientButtons.$inferSelect[]): any[][] {
+  if (buttons.length === 0) {
+    return [[{ text: "🛒 Accéder à la Boutique", web_app: { url: BASE_URL } }]];
+  }
+  const keyboard: any[][] = [];
+  let currentRow: any[] = [];
+  for (const btn of buttons) {
+    const btnText = btn.emoji ? `${btn.emoji} ${btn.label}` : btn.label;
+    const isWebApp = btn.url.startsWith(BASE_URL) || btn.url.includes("railway.app") || btn.url.includes("replit.dev");
+    const tgBtn = isWebApp ? { text: btnText, web_app: { url: btn.url } } : { text: btnText, url: btn.url };
+    if (btn.fullWidth) {
+      if (currentRow.length > 0) { keyboard.push(currentRow); currentRow = []; }
+      keyboard.push([tgBtn]);
+    } else {
+      currentRow.push(tgBtn);
+      if (currentRow.length >= 2) { keyboard.push(currentRow); currentRow = []; }
+    }
+  }
+  if (currentRow.length > 0) keyboard.push(currentRow);
+  return keyboard;
 }
 
 export async function sendTelegramMessage(chatId: string | number, text: string) {
@@ -76,20 +106,24 @@ router.post("/telegram/webhook", async (req, res) => {
   const messageDate = message.date ? formatDate(message.date) : "";
 
   if (text.startsWith("/start")) {
-    const welcomeText =
-      `╔══════════════════════════════╗\n` +
-      `║      🔌   SOS LE PLUG   🔌      ║\n` +
-      `╚══════════════════════════════╝\n\n` +
-      `🎯 Bienvenue ${username} !\n\n` +
-      `━━━━━━━━━━━━━━━━━\n` +
-      `📊 INFORMATIONS UTILISATEUR\n` +
-      `━━━━━━━━━━━━━━━━━\n\n` +
-      `👤 Username : ${username}\n` +
-      `🆔 User ID : <code>${userId}</code>\n` +
-      `📅 Date : ${messageDate}\n` +
-      `🌍 Fuseau : Europe/Paris\n\n` +
-      `━━━━━━━━━━━━━━━━━\n\n` +
-      `💡 Cliquez sur un bouton ci-dessous pour accéder à votre espace`;
+    // Fetch bot settings
+    const settingsRows = await db.select().from(botSettings);
+    const settings: Record<string, string> = {};
+    settingsRows.forEach(r => { settings[r.key] = r.value; });
+
+    const photoUrl = settings["start_photo_url"] || "";
+    const customMessage = settings["start_message"] || "";
+
+    const firstName = from.first_name ?? username;
+    const defaultMsg =
+      `🎉 Salut <b>${firstName}</b> !\n\n` +
+      `Bienvenue sur <b>🔌 SOS LE PLUG</b>\n\n` +
+      `🌐 Explorez notre menu et passez commande en quelques clics !\n\n` +
+      `✨ <i>Simple, rapide et sécurisé</i>`;
+
+    const welcomeText = customMessage
+      ? customMessage.replace("{username}", firstName).replace("{id}", String(userId))
+      : defaultMsg;
 
     const dbButtons = await db
       .select()
@@ -97,20 +131,13 @@ router.post("/telegram/webhook", async (req, res) => {
       .where(eq(clientButtons.active, true))
       .orderBy(asc(clientButtons.position));
 
-    let keyboard: any[][];
-    if (dbButtons.length > 0) {
-      keyboard = dbButtons.map(btn => {
-        const btnText = btn.emoji ? `${btn.emoji} ${btn.label}` : btn.label;
-        const isWebApp = btn.url.startsWith(BASE_URL) || btn.url.includes("railway.app") || btn.url.includes("replit.dev");
-        return [isWebApp ? { text: btnText, web_app: { url: btn.url } } : { text: btnText, url: btn.url }];
-      });
-    } else {
-      keyboard = [[{ text: "🛒 Accéder à la Boutique", web_app: { url: BASE_URL } }]];
-    }
+    const keyboard = buildKeyboard(dbButtons);
 
-    await sendMessage(chatId, welcomeText, {
-      reply_markup: { inline_keyboard: keyboard },
-    });
+    if (photoUrl) {
+      await sendPhoto(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+    } else {
+      await sendMessage(chatId, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+    }
     return;
   }
 

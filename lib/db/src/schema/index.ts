@@ -137,6 +137,7 @@ export const clientButtons = pgTable("client_buttons", {
   emoji: text("emoji"),
   active: boolean("active").notNull().default(true),
   position: integer("position").notNull().default(0),
+  fullWidth: boolean("full_width").notNull().default(true),
 });
 
 export const botSettings = pgTable("bot_settings", {

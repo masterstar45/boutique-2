@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import {
   products, cartItems, orders, reviews, promoCodes, dailyStats,
   loyaltyBalances, loyaltyTransactions, loyaltySettings,
-  favorites, savedAddresses, botUsers, admins, clientButtons,
+  favorites, savedAddresses, botUsers, admins, clientButtons, botSettings,
   type InsertProduct, type InsertCartItem, type InsertOrder,
   type InsertReview, type InsertPromoCode, type InsertFavorite,
 } from "@workspace/db";
@@ -441,26 +441,46 @@ router.get("/admin/client-buttons", async (_req, res) => {
 });
 
 router.post("/admin/client-buttons", async (req, res) => {
-  const { label, url, emoji, position } = req.body;
+  const { label, url, emoji, position, fullWidth } = req.body;
   if (!label || !url) return res.status(400).json({ error: "label and url required" });
   const maxPos = await db.select({ max: sql<number>`max(position)` }).from(clientButtons);
   const nextPos = (maxPos[0]?.max ?? -1) + 1;
   const [row] = await db.insert(clientButtons).values({
-    label, url, emoji: emoji || null, active: true, position: position ?? nextPos
+    label, url, emoji: emoji || null, active: true,
+    position: position ?? nextPos,
+    fullWidth: fullWidth !== false,
   }).returning();
   res.json(row);
 });
 
 router.patch("/admin/client-buttons/:id", async (req, res) => {
-  const { label, url, emoji, active, position } = req.body;
+  const { label, url, emoji, active, position, fullWidth } = req.body;
   const update: Record<string, any> = {};
   if (label !== undefined) update.label = label;
   if (url !== undefined) update.url = url;
   if (emoji !== undefined) update.emoji = emoji;
   if (active !== undefined) update.active = active;
   if (position !== undefined) update.position = position;
+  if (fullWidth !== undefined) update.fullWidth = fullWidth;
   const [row] = await db.update(clientButtons).set(update).where(eq(clientButtons.id, Number(req.params.id))).returning();
   res.json(row);
+});
+
+// ─── Bot Settings ─────────────────────────────────────────────────────────────
+
+router.get("/admin/bot-settings", async (_req, res) => {
+  const rows = await db.select().from(botSettings);
+  const settings: Record<string, string> = {};
+  rows.forEach(r => { settings[r.key] = r.value; });
+  res.json(settings);
+});
+
+router.post("/admin/bot-settings", async (req, res) => {
+  const { key, value } = req.body;
+  if (!key) return res.status(400).json({ error: "key required" });
+  await db.insert(botSettings).values({ key, value: value ?? "" })
+    .onConflictDoUpdate({ target: botSettings.key, set: { value: value ?? "" } });
+  res.json({ ok: true });
 });
 
 router.delete("/admin/client-buttons/:id", async (req, res) => {

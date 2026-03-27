@@ -658,22 +658,55 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
 
 const BOT_URL = `https://boutique-2-production.up.railway.app`;
 
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!value)}
+      className={`w-10 h-6 rounded-full transition-all shrink-0 relative ${value ? "bg-primary" : "bg-white/15"}`}
+    >
+      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${value ? "left-5" : "left-1"}`} />
+    </button>
+  );
+}
+
 function BotStartTab() {
   const [buttons, setButtons] = useState<any[]>([]);
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [startMessage, setStartMessage] = useState("");
+  const [settingsLoading, setSettingsLoading] = useState(false);
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState(BOT_URL);
   const [emoji, setEmoji] = useState("🛒");
+  const [fullWidth, setFullWidth] = useState(true);
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
 
-  const fetchButtons = () => {
-    fetch(`${API}/admin/client-buttons`)
-      .then(r => r.json())
-      .then(setButtons)
-      .catch(() => {});
+  const fetchAll = () => {
+    fetch(`${API}/admin/client-buttons`).then(r => r.json()).then(setButtons).catch(() => {});
+    fetch(`${API}/admin/bot-settings`).then(r => r.json()).then((s: any) => {
+      setPhotoUrl(s.start_photo_url || "");
+      setStartMessage(s.start_message || "");
+    }).catch(() => {});
   };
 
-  useEffect(() => { fetchButtons(); }, []);
+  useEffect(() => { fetchAll(); }, []);
+
+  const saveSetting = async (key: string, value: string) => {
+    await fetch(`${API}/admin/bot-settings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value }),
+    });
+  };
+
+  const handleSaveSettings = async () => {
+    setSettingsLoading(true);
+    try {
+      await saveSetting("start_photo_url", photoUrl.trim());
+      await saveSetting("start_message", startMessage.trim());
+      alert("Sauvegardé ✅");
+    } finally { setSettingsLoading(false); }
+  };
 
   const handleAdd = async () => {
     if (!label.trim() || !url.trim()) return;
@@ -683,90 +716,131 @@ function BotStartTab() {
         await fetch(`${API}/admin/client-buttons/${editId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ label: label.trim(), url: url.trim(), emoji: emoji.trim() || null }),
+          body: JSON.stringify({ label: label.trim(), url: url.trim(), emoji: emoji.trim() || null, fullWidth }),
         });
         setEditId(null);
       } else {
         await fetch(`${API}/admin/client-buttons`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ label: label.trim(), url: url.trim(), emoji: emoji.trim() || null }),
+          body: JSON.stringify({ label: label.trim(), url: url.trim(), emoji: emoji.trim() || null, fullWidth }),
         });
       }
-      setLabel(""); setUrl(BOT_URL); setEmoji("🛒");
-      fetchButtons();
+      setLabel(""); setUrl(BOT_URL); setEmoji("🛒"); setFullWidth(true);
+      fetchAll();
     } finally { setLoading(false); }
   };
 
-  const handleToggle = async (btn: any) => {
+  const handleToggleActive = async (btn: any) => {
     await fetch(`${API}/admin/client-buttons/${btn.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: !btn.active }),
     });
-    fetchButtons();
+    fetchAll();
+  };
+
+  const handleToggleWidth = async (btn: any) => {
+    await fetch(`${API}/admin/client-buttons/${btn.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fullWidth: !btn.fullWidth }),
+    });
+    fetchAll();
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm("Supprimer ce bouton ?")) return;
     await fetch(`${API}/admin/client-buttons/${id}`, { method: "DELETE" });
-    fetchButtons();
+    fetchAll();
   };
 
   const startEdit = (btn: any) => {
-    setEditId(btn.id);
-    setLabel(btn.label);
-    setUrl(btn.url);
-    setEmoji(btn.emoji || "");
+    setEditId(btn.id); setLabel(btn.label); setUrl(btn.url);
+    setEmoji(btn.emoji || ""); setFullWidth(btn.fullWidth !== false);
   };
 
   const cancelEdit = () => {
-    setEditId(null);
-    setLabel(""); setUrl(BOT_URL); setEmoji("🛒");
+    setEditId(null); setLabel(""); setUrl(BOT_URL); setEmoji("🛒"); setFullWidth(true);
   };
 
   return (
-    <div className="space-y-4">
-      {/* Info */}
-      <div className="glass-panel p-4 rounded-[1.5rem] border border-primary/20 flex items-start gap-3">
-        <span className="text-xl mt-0.5">ℹ️</span>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Ces boutons apparaissent sous le message de bienvenue quand un utilisateur envoie <b className="text-white">/start</b> au bot. Sans bouton actif, le bouton par défaut "Accéder à la Boutique" s'affiche.
-        </p>
+    <div className="space-y-4 pb-8">
+
+      {/* ── Personnalisation /start ── */}
+      <div className="glass-panel p-5 rounded-[1.5rem]">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+          <span>🎨</span> Personnalisation du message /start
+        </h2>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">URL de la photo (optionnel)</label>
+            <input
+              value={photoUrl}
+              onChange={e => setPhotoUrl(e.target.value)}
+              placeholder="https://exemple.com/photo.jpg"
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all font-mono"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">
+              Message d'accueil <span className="text-primary/70">({"{username}"} = prénom, {"{id}"} = ID)</span>
+            </label>
+            <textarea
+              value={startMessage}
+              onChange={e => setStartMessage(e.target.value)}
+              rows={5}
+              placeholder={`🎉 Salut {username} !\n\nBienvenue sur 🔌 SOS LE PLUG\n\n🌐 Passez commande en quelques clics !`}
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all resize-none font-mono"
+            />
+          </div>
+          <button
+            onClick={handleSaveSettings}
+            disabled={settingsLoading}
+            className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50 active:scale-95 transition-all"
+            style={{ background: "linear-gradient(135deg, hsl(270,90%,55%), hsl(200,90%,55%))" }}
+          >
+            {settingsLoading ? "Sauvegarde…" : "💾 Enregistrer le message"}
+          </button>
+        </div>
       </div>
 
-      {/* Formulaire ajout/édition */}
+      {/* ── Formulaire bouton ── */}
       <div className="glass-panel p-5 rounded-[1.5rem]">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">
           {editId ? "✏️ Modifier le bouton" : "➕ Ajouter un bouton"}
         </h2>
         <div className="space-y-3">
           <div className="flex gap-2">
-            <input
-              value={emoji}
-              onChange={e => setEmoji(e.target.value)}
-              placeholder="🛒"
-              className="w-16 bg-black/40 border border-white/10 rounded-xl px-3 py-3 text-center text-lg focus:outline-none focus:border-primary transition-all"
-            />
-            <input
-              value={label}
-              onChange={e => setLabel(e.target.value)}
-              placeholder="Texte du bouton"
-              className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all"
-            />
+            <input value={emoji} onChange={e => setEmoji(e.target.value)} placeholder="🛒"
+              className="w-14 bg-black/40 border border-white/10 rounded-xl px-2 py-3 text-center text-lg focus:outline-none focus:border-primary transition-all" />
+            <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Texte du bouton"
+              className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
           </div>
-          <input
-            value={url}
-            onChange={e => setUrl(e.target.value)}
-            placeholder="URL (boutique ou lien externe)"
-            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all font-mono"
-          />
+          <input value={url} onChange={e => setUrl(e.target.value)} placeholder="URL"
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all font-mono" />
+
+          {/* Largeur */}
+          <div className="flex items-center justify-between px-1">
+            <div>
+              <p className="text-sm font-bold">Pleine largeur</p>
+              <p className="text-xs text-muted-foreground">Désactivé = 2 boutons côte à côte</p>
+            </div>
+            <Toggle value={fullWidth} onChange={setFullWidth} />
+          </div>
+
+          {/* Prévisualisation disposition */}
+          <div className="bg-black/30 rounded-xl p-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Aperçu</p>
+            {fullWidth
+              ? <div className="bg-[#54a0d5]/20 border border-[#54a0d5]/30 rounded-lg py-2 text-center text-xs font-bold text-[#54a0d5]">{emoji} {label || "Mon bouton"}</div>
+              : <div className="grid grid-cols-2 gap-1.5">
+                  <div className="bg-[#54a0d5]/20 border border-[#54a0d5]/30 rounded-lg py-2 text-center text-xs font-bold text-[#54a0d5]">{emoji} {label || "Bouton"}</div>
+                  <div className="bg-white/5 border border-white/10 rounded-lg py-2 text-center text-xs text-muted-foreground">autre bouton</div>
+                </div>
+            }
+          </div>
+
           <div className="flex gap-2">
-            {editId && (
-              <button onClick={cancelEdit} className="flex-1 py-3 rounded-xl bg-white/5 font-bold text-sm active:scale-95 transition-all">
-                Annuler
-              </button>
-            )}
+            {editId && <button onClick={cancelEdit} className="flex-1 py-3 rounded-xl bg-white/5 font-bold text-sm active:scale-95 transition-all">Annuler</button>}
             <button
               onClick={handleAdd}
               disabled={!label.trim() || !url.trim() || loading}
@@ -779,41 +853,40 @@ function BotStartTab() {
         </div>
       </div>
 
-      {/* Liste des boutons */}
+      {/* ── Liste boutons ── */}
       <div>
-        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3 pl-1">
-          Boutons actifs ({buttons.filter(b => b.active).length}/{buttons.length})
+        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 pl-1">
+          Boutons ({buttons.filter(b => b.active).length} actifs / {buttons.length} total)
         </h2>
-
         {buttons.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">Aucun bouton — le bouton par défaut sera utilisé</p>
+            <p className="text-sm">Aucun bouton configuré</p>
+            <p className="text-xs mt-1">Bouton par défaut : "Accéder à la Boutique"</p>
           </div>
         )}
-
-        {buttons.map((btn, i) => (
-          <div key={btn.id} className={`glass-panel px-4 py-3 rounded-[1.5rem] mb-2 flex items-center gap-3 ${!btn.active ? "opacity-50" : ""}`}>
-            <span className="text-xl w-8 text-center">{btn.emoji || "🔘"}</span>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm">{btn.label}</p>
-              <p className="text-xs text-muted-foreground font-mono truncate">{btn.url}</p>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {/* Toggle actif */}
-              <button
-                onClick={() => handleToggle(btn)}
-                className={`w-10 h-6 rounded-full transition-all ${btn.active ? "bg-primary" : "bg-white/10"}`}
-                title={btn.active ? "Désactiver" : "Activer"}
-              >
-                <div className={`w-4 h-4 rounded-full bg-white mx-auto transition-transform ${btn.active ? "translate-x-2" : "-translate-x-2"}`} />
-              </button>
-              <button onClick={() => startEdit(btn)} className="p-2 text-muted-foreground hover:text-white active:scale-90 transition-all">
-                <Edit3 className="w-4 h-4" />
-              </button>
-              <button onClick={() => handleDelete(btn.id)} className="p-2 text-destructive/70 hover:text-destructive active:scale-90 transition-all">
-                <Trash2 className="w-4 h-4" />
-              </button>
+        {buttons.map(btn => (
+          <div key={btn.id} className={`glass-panel px-4 py-3 rounded-[1.5rem] mb-2 ${!btn.active ? "opacity-40" : ""}`}>
+            <div className="flex items-center gap-3">
+              <span className="text-xl w-8 text-center shrink-0">{btn.emoji || "🔘"}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-sm">{btn.label}</p>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${btn.fullWidth ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}`}>
+                    {btn.fullWidth ? "↔ Large" : "½ Demi"}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground font-mono truncate">{btn.url}</p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Toggle value={btn.active} onChange={() => handleToggleActive(btn)} />
+                <button onClick={() => startEdit(btn)} className="p-2 text-muted-foreground hover:text-white active:scale-90">
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => handleDelete(btn.id)} className="p-2 text-destructive/70 hover:text-destructive active:scale-90">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         ))}
