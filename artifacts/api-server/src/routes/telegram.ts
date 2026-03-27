@@ -106,15 +106,19 @@ router.post("/telegram/webhook", async (req, res) => {
   const messageDate = message.date ? formatDate(message.date) : "";
 
   if (text.startsWith("/start")) {
-    // Fetch bot settings
-    const settingsRows = await db.select().from(botSettings);
-    const settings: Record<string, string> = {};
-    settingsRows.forEach(r => { settings[r.key] = r.value; });
-
-    const photoUrl = settings["start_photo_url"] || "";
-    const customMessage = settings["start_message"] || "";
-
     const firstName = from.first_name ?? username;
+
+    // Fetch bot settings (safe — table may not exist yet on fresh deploy)
+    let photoUrl = "";
+    let customMessage = "";
+    try {
+      const settingsRows = await db.select().from(botSettings);
+      const settings: Record<string, string> = {};
+      settingsRows.forEach(r => { settings[r.key] = r.value; });
+      photoUrl = settings["start_photo_url"] || "";
+      customMessage = settings["start_message"] || "";
+    } catch { /* table not ready yet, use defaults */ }
+
     const defaultMsg =
       `🎉 Salut <b>${firstName}</b> !\n\n` +
       `Bienvenue sur <b>🔌 SOS LE PLUG</b>\n\n` +
@@ -125,18 +129,27 @@ router.post("/telegram/webhook", async (req, res) => {
       ? customMessage.replace("{username}", firstName).replace("{id}", String(userId))
       : defaultMsg;
 
-    const dbButtons = await db
-      .select()
-      .from(clientButtons)
-      .where(eq(clientButtons.active, true))
-      .orderBy(asc(clientButtons.position));
+    // Fetch buttons (safe — full_width column may not exist on fresh deploy)
+    let dbButtons: any[] = [];
+    try {
+      dbButtons = await db
+        .select()
+        .from(clientButtons)
+        .where(eq(clientButtons.active, true))
+        .orderBy(asc(clientButtons.position));
+    } catch { /* fall through, buildKeyboard handles empty array */ }
 
     const keyboard = buildKeyboard(dbButtons);
 
-    if (photoUrl) {
-      await sendPhoto(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
-    } else {
-      await sendMessage(chatId, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+    try {
+      if (photoUrl) {
+        await sendPhoto(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+      } else {
+        await sendMessage(chatId, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+      }
+    } catch (err) {
+      console.error("Erreur envoi /start:", err);
+      await sendMessage(chatId, defaultMsg, { reply_markup: { inline_keyboard: [[{ text: "🛒 Accéder à la Boutique", web_app: { url: BASE_URL } }]] } });
     }
     return;
   }
