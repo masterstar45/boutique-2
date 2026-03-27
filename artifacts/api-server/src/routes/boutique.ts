@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import {
   products, cartItems, orders, reviews, promoCodes, dailyStats,
   loyaltyBalances, loyaltyTransactions, loyaltySettings,
-  favorites, savedAddresses, botUsers, admins,
+  favorites, savedAddresses, botUsers, admins, clientButtons,
   type InsertProduct, type InsertCartItem, type InsertOrder,
   type InsertReview, type InsertPromoCode, type InsertFavorite,
 } from "@workspace/db";
@@ -431,6 +431,41 @@ router.get("/admin/stats", async (req, res) => {
     totalUsers: totalUsersResult?.count || 0,
     totalProducts: totalProductsResult?.count || 0,
   });
+});
+
+// ─── Client Buttons (/start) ─────────────────────────────────────────────────
+
+router.get("/admin/client-buttons", async (_req, res) => {
+  const rows = await db.select().from(clientButtons).orderBy(clientButtons.position);
+  res.json(rows);
+});
+
+router.post("/admin/client-buttons", async (req, res) => {
+  const { label, url, emoji, position } = req.body;
+  if (!label || !url) return res.status(400).json({ error: "label and url required" });
+  const maxPos = await db.select({ max: sql<number>`max(position)` }).from(clientButtons);
+  const nextPos = (maxPos[0]?.max ?? -1) + 1;
+  const [row] = await db.insert(clientButtons).values({
+    label, url, emoji: emoji || null, active: true, position: position ?? nextPos
+  }).returning();
+  res.json(row);
+});
+
+router.patch("/admin/client-buttons/:id", async (req, res) => {
+  const { label, url, emoji, active, position } = req.body;
+  const update: Record<string, any> = {};
+  if (label !== undefined) update.label = label;
+  if (url !== undefined) update.url = url;
+  if (emoji !== undefined) update.emoji = emoji;
+  if (active !== undefined) update.active = active;
+  if (position !== undefined) update.position = position;
+  const [row] = await db.update(clientButtons).set(update).where(eq(clientButtons.id, Number(req.params.id))).returning();
+  res.json(row);
+});
+
+router.delete("/admin/client-buttons/:id", async (req, res) => {
+  await db.delete(clientButtons).where(eq(clientButtons.id, Number(req.params.id)));
+  res.json({ ok: true });
 });
 
 // ─── Admin List Management ────────────────────────────────────────────────────

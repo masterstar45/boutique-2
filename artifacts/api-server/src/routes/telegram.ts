@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { orders, loyaltyBalances } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { orders, loyaltyBalances, clientButtons } from "@workspace/db/schema";
+import { eq, desc, asc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -89,17 +89,27 @@ router.post("/telegram/webhook", async (req, res) => {
       `📅 Date : ${messageDate}\n` +
       `🌍 Fuseau : Europe/Paris\n\n` +
       `━━━━━━━━━━━━━━━━━\n\n` +
-      `💡 Cliquez sur le bouton ci-dessous pour accéder à votre espace`;
+      `💡 Cliquez sur un bouton ci-dessous pour accéder à votre espace`;
+
+    const dbButtons = await db
+      .select()
+      .from(clientButtons)
+      .where(eq(clientButtons.active, true))
+      .orderBy(asc(clientButtons.position));
+
+    let keyboard: any[][];
+    if (dbButtons.length > 0) {
+      keyboard = dbButtons.map(btn => {
+        const btnText = btn.emoji ? `${btn.emoji} ${btn.label}` : btn.label;
+        const isWebApp = btn.url.startsWith(BASE_URL) || btn.url.includes("railway.app") || btn.url.includes("replit.dev");
+        return [isWebApp ? { text: btnText, web_app: { url: btn.url } } : { text: btnText, url: btn.url }];
+      });
+    } else {
+      keyboard = [[{ text: "🛒 Accéder à la Boutique", web_app: { url: BASE_URL } }]];
+    }
 
     await sendMessage(chatId, welcomeText, {
-      reply_markup: {
-        inline_keyboard: [[
-          {
-            text: "🛒 Accéder à la Boutique",
-            web_app: { url: BASE_URL },
-          },
-        ]],
-      },
+      reply_markup: { inline_keyboard: keyboard },
     });
     return;
   }

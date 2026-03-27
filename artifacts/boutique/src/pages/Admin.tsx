@@ -22,6 +22,7 @@ const TABS = [
   { id: "products", label: "Produits", icon: Package },
   { id: "reviews", label: "Avis", icon: Star },
   { id: "promos", label: "Promos", icon: Tag },
+  { id: "bot", label: "Bot /start", icon: Users },
   { id: "admins", label: "Admins", icon: UserCog },
 ];
 
@@ -315,6 +316,9 @@ export default function Admin() {
 
             {/* ── PROMOS ── */}
             {tab === "promos" && <PromoTab promos={promos ?? []} onDelete={id => deletePromo({ id })} onCreate={data => createPromo({ data })} />}
+
+            {/* ── BOT /start ── */}
+            {tab === "bot" && <BotStartTab />}
 
             {/* ── ADMINS ── */}
             {tab === "admins" && <AdminsTab />}
@@ -628,6 +632,174 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
         </button>
       </motion.div>
     </motion.div>
+  );
+}
+
+// ─── Bot Start Tab ────────────────────────────────────────────────────────────
+
+const BOT_URL = `https://boutique-2-production.up.railway.app`;
+
+function BotStartTab() {
+  const [buttons, setButtons] = useState<any[]>([]);
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState(BOT_URL);
+  const [emoji, setEmoji] = useState("🛒");
+  const [loading, setLoading] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+
+  const fetchButtons = () => {
+    fetch(`${API}/admin/client-buttons`)
+      .then(r => r.json())
+      .then(setButtons)
+      .catch(() => {});
+  };
+
+  useEffect(() => { fetchButtons(); }, []);
+
+  const handleAdd = async () => {
+    if (!label.trim() || !url.trim()) return;
+    setLoading(true);
+    try {
+      if (editId !== null) {
+        await fetch(`${API}/admin/client-buttons/${editId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label: label.trim(), url: url.trim(), emoji: emoji.trim() || null }),
+        });
+        setEditId(null);
+      } else {
+        await fetch(`${API}/admin/client-buttons`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label: label.trim(), url: url.trim(), emoji: emoji.trim() || null }),
+        });
+      }
+      setLabel(""); setUrl(BOT_URL); setEmoji("🛒");
+      fetchButtons();
+    } finally { setLoading(false); }
+  };
+
+  const handleToggle = async (btn: any) => {
+    await fetch(`${API}/admin/client-buttons/${btn.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !btn.active }),
+    });
+    fetchButtons();
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Supprimer ce bouton ?")) return;
+    await fetch(`${API}/admin/client-buttons/${id}`, { method: "DELETE" });
+    fetchButtons();
+  };
+
+  const startEdit = (btn: any) => {
+    setEditId(btn.id);
+    setLabel(btn.label);
+    setUrl(btn.url);
+    setEmoji(btn.emoji || "");
+  };
+
+  const cancelEdit = () => {
+    setEditId(null);
+    setLabel(""); setUrl(BOT_URL); setEmoji("🛒");
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Info */}
+      <div className="glass-panel p-4 rounded-[1.5rem] border border-primary/20 flex items-start gap-3">
+        <span className="text-xl mt-0.5">ℹ️</span>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Ces boutons apparaissent sous le message de bienvenue quand un utilisateur envoie <b className="text-white">/start</b> au bot. Sans bouton actif, le bouton par défaut "Accéder à la Boutique" s'affiche.
+        </p>
+      </div>
+
+      {/* Formulaire ajout/édition */}
+      <div className="glass-panel p-5 rounded-[1.5rem]">
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">
+          {editId ? "✏️ Modifier le bouton" : "➕ Ajouter un bouton"}
+        </h2>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <input
+              value={emoji}
+              onChange={e => setEmoji(e.target.value)}
+              placeholder="🛒"
+              className="w-16 bg-black/40 border border-white/10 rounded-xl px-3 py-3 text-center text-lg focus:outline-none focus:border-primary transition-all"
+            />
+            <input
+              value={label}
+              onChange={e => setLabel(e.target.value)}
+              placeholder="Texte du bouton"
+              className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all"
+            />
+          </div>
+          <input
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            placeholder="URL (boutique ou lien externe)"
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all font-mono"
+          />
+          <div className="flex gap-2">
+            {editId && (
+              <button onClick={cancelEdit} className="flex-1 py-3 rounded-xl bg-white/5 font-bold text-sm active:scale-95 transition-all">
+                Annuler
+              </button>
+            )}
+            <button
+              onClick={handleAdd}
+              disabled={!label.trim() || !url.trim() || loading}
+              className="flex-1 py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50 active:scale-95 transition-all flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg, hsl(270,90%,55%), hsl(200,90%,55%))" }}
+            >
+              {loading ? "Sauvegarde…" : editId ? "Enregistrer" : <><Plus className="w-4 h-4" /> Ajouter</>}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Liste des boutons */}
+      <div>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3 pl-1">
+          Boutons actifs ({buttons.filter(b => b.active).length}/{buttons.length})
+        </h2>
+
+        {buttons.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">Aucun bouton — le bouton par défaut sera utilisé</p>
+          </div>
+        )}
+
+        {buttons.map((btn, i) => (
+          <div key={btn.id} className={`glass-panel px-4 py-3 rounded-[1.5rem] mb-2 flex items-center gap-3 ${!btn.active ? "opacity-50" : ""}`}>
+            <span className="text-xl w-8 text-center">{btn.emoji || "🔘"}</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm">{btn.label}</p>
+              <p className="text-xs text-muted-foreground font-mono truncate">{btn.url}</p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Toggle actif */}
+              <button
+                onClick={() => handleToggle(btn)}
+                className={`w-10 h-6 rounded-full transition-all ${btn.active ? "bg-primary" : "bg-white/10"}`}
+                title={btn.active ? "Désactiver" : "Activer"}
+              >
+                <div className={`w-4 h-4 rounded-full bg-white mx-auto transition-transform ${btn.active ? "translate-x-2" : "-translate-x-2"}`} />
+              </button>
+              <button onClick={() => startEdit(btn)} className="p-2 text-muted-foreground hover:text-white active:scale-90 transition-all">
+                <Edit3 className="w-4 h-4" />
+              </button>
+              <button onClick={() => handleDelete(btn.id)} className="p-2 text-destructive/70 hover:text-destructive active:scale-90 transition-all">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
