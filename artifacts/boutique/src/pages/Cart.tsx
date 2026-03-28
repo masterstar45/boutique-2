@@ -26,7 +26,7 @@ export default function Cart() {
   const { sessionId, chatId } = useSession();
   const queryClient = useQueryClient();
 
-  const [step, setStep] = useState<"cart" | "delivery" | "details">("cart");
+  const [step, setStep] = useState<"cart" | "delivery" | "details" | "confirmed">("cart");
   const [deliveryMode, setDeliveryMode] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
@@ -80,7 +80,7 @@ export default function Cart() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetCartQueryKey(sessionId) });
-        navigate("/account");
+        setStep("confirmed");
       }
     }
   });
@@ -117,14 +117,6 @@ export default function Cart() {
   };
 
   const handleSendOrder = () => {
-    const message = buildTelegramMessage();
-    const url = `https://t.me/SOSLePlug75?text=${encodeURIComponent(message)}`;
-    const tg = (window as any).Telegram?.WebApp;
-    if (tg?.openLink) {
-      tg.openLink(url);
-    } else {
-      window.open(url, "_blank");
-    }
     checkoutMut.mutate({
       data: {
         sessionId,
@@ -136,6 +128,15 @@ export default function Cart() {
     });
   };
 
+  const closeMiniApp = () => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg?.close) {
+      tg.close();
+    } else {
+      navigate("/menu");
+    }
+  };
+
   const detailsValid =
     (deliveryMode === "livraison" ? address.trim() !== "" : true) &&
     phone.trim() !== "" &&
@@ -145,6 +146,7 @@ export default function Cart() {
     cart: "Mon Panier",
     delivery: "Livraison",
     details: "Vos infos",
+    confirmed: "Commande envoyée",
   };
 
   if (isLoading) {
@@ -169,7 +171,7 @@ export default function Cart() {
   return (
     <div className="min-h-screen">
       <TopBar title={stepTitle[step]} backHref={step === "cart" ? "/menu" : undefined} />
-      {step !== "cart" && (
+      {step !== "cart" && step !== "confirmed" && (
         <div className="px-4 pt-2">
           <button
             onClick={() => setStep(step === "details" ? "delivery" : "cart")}
@@ -510,9 +512,71 @@ export default function Cart() {
                   <><Send className="w-5 h-5" /> Envoyer la commande</>
                 )}
               </button>
-              <p className="text-center text-xs text-muted-foreground pb-4">
-                Vous serez redirigé vers Telegram pour finaliser avec l'équipe 🔌
-              </p>
+            </motion.div>
+          )}
+
+          {/* ── STEP CONFIRMED ── */}
+          {step === "confirmed" && (
+            <motion.div
+              key="confirmed"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center gap-6"
+            >
+              {/* Cercle animé avec checkmark */}
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 15 }}
+                className="relative flex items-center justify-center"
+              >
+                <div className="w-28 h-28 rounded-full flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg, #c9a04c 0%, #f0d070 45%, #d4a843 100%)", boxShadow: "0 0 60px rgba(201,160,76,0.4)" }}
+                >
+                  <motion.svg
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ delay: 0.4, duration: 0.5, ease: "easeOut" }}
+                    viewBox="0 0 24 24" fill="none" className="w-14 h-14"
+                  >
+                    <motion.path
+                      d="M5 13l4 4L19 7"
+                      stroke="#080603" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ delay: 0.4, duration: 0.5, ease: "easeOut" }}
+                    />
+                  </motion.svg>
+                </div>
+              </motion.div>
+
+              {/* Textes */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="space-y-3"
+              >
+                <h2 className="text-3xl font-black font-display" style={{ background: "linear-gradient(135deg, #c9a04c, #f0d070)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                  Commande envoyée !
+                </h2>
+                <p className="text-white/80 text-base leading-relaxed max-w-xs mx-auto">
+                  Un membre de notre équipe prend en charge votre commande, merci 🔌
+                </p>
+              </motion.div>
+
+              {/* Bouton fermer */}
+              <motion.button
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                onClick={closeMiniApp}
+                className="mt-4 w-full max-w-xs h-14 rounded-2xl font-black text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-transform text-black"
+                style={{ background: "linear-gradient(135deg, #c9a04c 0%, #f0d070 45%, #d4a843 100%)" }}
+              >
+                Fermer
+              </motion.button>
             </motion.div>
           )}
 
