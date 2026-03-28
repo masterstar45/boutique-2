@@ -1,206 +1,151 @@
 import { useEffect, useRef } from "react";
 
-interface Segment { x1: number; y1: number; x2: number; y2: number; w: number }
+const GOLD = "rgba(201,160,76,";
 
-function buildBolt(
-  x1: number, y1: number, x2: number, y2: number,
-  disp: number, out: Segment[], depth = 0
-) {
-  if (disp < 2.5 || depth > 7) {
-    out.push({ x1, y1, x2, y2, w: Math.max(0.3, 2.8 - depth * 0.35) });
-    return;
+/* Génère un chemin SVG d'éclair en zigzag */
+function boltPath(
+  x: number, y1: number, y2: number, spread: number, steps: number
+): string {
+  const pts: [number, number][] = [[x, y1]];
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const jitter = (Math.random() - 0.5) * spread * (1 - t * 0.5);
+    pts.push([x + jitter, y1 + (y2 - y1) * t]);
   }
-  const mx = (x1 + x2) / 2 + (Math.random() - 0.5) * disp;
-  const my = (y1 + y2) / 2 + (Math.random() - 0.5) * disp * 0.25;
-  buildBolt(x1, y1, mx, my, disp / 2, out, depth + 1);
-  buildBolt(mx, my, x2, y2, disp / 2, out, depth + 1);
-  if (Math.random() < 0.28 && depth < 4) {
-    const bx = mx + (Math.random() - 0.5) * 90;
-    const by = my + Math.random() * 120 + 30;
-    buildBolt(mx, my, bx, by, disp / 3.5, out, depth + 3);
-  }
+  pts.push([x + (Math.random() - 0.5) * spread * 0.4, y2]);
+  return pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
 }
 
-interface Flash {
-  segments: Segment[];
-  alpha: number;
-  phase: "in" | "hold" | "out";
-  holdFrames: number;
-  glowX: number;
-  glowY: number;
+interface BoltSpec { id: number; path: string; branchPath?: string; cx: number; animDelay: number; animDur: number }
+
+function generateBolts(count: number, w: number, h: number): BoltSpec[] {
+  return Array.from({ length: count }, (_, i) => {
+    const x = 40 + Math.random() * (w - 80);
+    const endY = h * (0.25 + Math.random() * 0.55);
+    const spread = 35 + Math.random() * 45;
+    const path = boltPath(x, -8, endY, spread, 8 + Math.floor(Math.random() * 4));
+    const hasBranch = Math.random() > 0.45;
+    let branchPath: string | undefined;
+    if (hasBranch) {
+      const branchX = x + (Math.random() - 0.5) * 60;
+      const branchY = endY * (0.4 + Math.random() * 0.35);
+      const bx2 = branchX + (Math.random() - 0.5) * 70;
+      const by2 = branchY + 60 + Math.random() * 80;
+      branchPath = boltPath(branchX, branchY, by2, 20, 5);
+    }
+    return {
+      id: i,
+      path,
+      branchPath,
+      cx: x,
+      animDelay: Math.random() * 9,
+      animDur: 2.5 + Math.random() * 4,
+    };
+  });
 }
 
 export function AnimatedBackground() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const flashesRef = useRef<Flash[]>([]);
-  const rafRef = useRef<number>(0);
-  const nextRef = useRef<number>(0);
+  const svgRef = useRef<SVGSVGElement>(null);
 
+  /* Re-génère les chemins au resize */
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d")!;
+    const svg = svgRef.current;
+    if (!svg) return;
 
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
+    function render() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      if (!svg) return;
+      svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+      svg.setAttribute("width", String(w));
+      svg.setAttribute("height", String(h));
 
-    function spawnBolt() {
-      const w = canvas!.width;
-      const h = canvas!.height;
-      const startX = Math.random() * w;
-      const endX = startX + (Math.random() - 0.5) * w * 0.4;
-      const endY = h * (0.3 + Math.random() * 0.6);
-      const segs: Segment[] = [];
-      buildBolt(startX, -10, endX, endY, 60 + Math.random() * 60, segs);
-      flashesRef.current.push({
-        segments: segs,
-        alpha: 0,
-        phase: "in",
-        holdFrames: Math.floor(4 + Math.random() * 6),
-        glowX: (startX + endX) / 2,
-        glowY: endY / 2,
-      });
+      const bolts = generateBolts(4, w, h);
+      const boltGroup = svg.querySelector("#bolts");
+      if (!boltGroup) return;
+      boltGroup.innerHTML = bolts.map(b => `
+        <g class="bolt-group" style="animation-delay:${b.animDelay}s; animation-duration:${b.animDur}s">
+          <!-- glow outer -->
+          <path d="${b.path}" stroke="rgba(201,160,76,0.15)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- glow mid -->
+          <path d="${b.path}" stroke="rgba(230,210,150,0.3)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- core -->
+          <path d="${b.path}" stroke="rgba(255,252,235,0.85)" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          ${b.branchPath ? `
+          <path d="${b.branchPath}" stroke="rgba(201,160,76,0.1)" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="${b.branchPath}" stroke="rgba(255,252,235,0.5)" stroke-width="0.7" fill="none" stroke-linecap="round"/>
+          ` : ""}
+          <!-- flash halo -->
+          <ellipse cx="${b.cx}" cy="${window.innerHeight * 0.35}" rx="55" ry="80" fill="rgba(201,160,76,0.04)"/>
+        </g>
+      `).join("");
     }
 
-    function draw() {
-      const w = canvas!.width;
-      const h = canvas!.height;
-      ctx.clearRect(0, 0, w, h);
-
-      // Dark background
-      ctx.fillStyle = "hsl(28 10% 4%)";
-      ctx.fillRect(0, 0, w, h);
-
-      // Ambient top gold orb
-      const grad = ctx.createRadialGradient(w * 0.55, -h * 0.05, 0, w * 0.55, -h * 0.05, w * 0.55);
-      grad.addColorStop(0, "rgba(201,160,76,0.07)");
-      grad.addColorStop(1, "transparent");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
-
-      // Bottom gold orb
-      const grad2 = ctx.createRadialGradient(w * 0.2, h * 1.05, 0, w * 0.2, h * 1.05, w * 0.45);
-      grad2.addColorStop(0, "rgba(180,120,40,0.05)");
-      grad2.addColorStop(1, "transparent");
-      ctx.fillStyle = grad2;
-      ctx.fillRect(0, 0, w, h);
-
-      // Lightning flashes
-      const now = performance.now();
-      if (now > nextRef.current) {
-        spawnBolt();
-        nextRef.current = now + 1800 + Math.random() * 3000;
-        // Occasional double strike
-        if (Math.random() < 0.25) {
-          setTimeout(spawnBolt, 80 + Math.random() * 120);
-        }
-      }
-
-      for (let i = flashesRef.current.length - 1; i >= 0; i--) {
-        const f = flashesRef.current[i];
-
-        if (f.phase === "in") {
-          f.alpha = Math.min(1, f.alpha + 0.18);
-          if (f.alpha >= 1) { f.phase = "hold"; }
-        } else if (f.phase === "hold") {
-          f.holdFrames--;
-          if (f.holdFrames <= 0) { f.phase = "out"; }
-        } else {
-          f.alpha = Math.max(0, f.alpha - 0.055);
-          if (f.alpha <= 0) { flashesRef.current.splice(i, 1); continue; }
-        }
-
-        // Glow halo around bolt center
-        const glow = ctx.createRadialGradient(f.glowX, f.glowY, 0, f.glowX, f.glowY, 90);
-        glow.addColorStop(0, `rgba(220,200,140,${f.alpha * 0.12})`);
-        glow.addColorStop(1, "transparent");
-        ctx.fillStyle = glow;
-        ctx.beginPath();
-        ctx.arc(f.glowX, f.glowY, 90, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Screen flash pulse (very subtle)
-        if (f.phase === "in" || (f.phase === "hold" && f.holdFrames > 2)) {
-          ctx.fillStyle = `rgba(220,200,140,${f.alpha * 0.03})`;
-          ctx.fillRect(0, 0, w, h);
-        }
-
-        // Draw segments
-        for (const seg of f.segments) {
-          // Outer glow
-          ctx.beginPath();
-          ctx.moveTo(seg.x1, seg.y1);
-          ctx.lineTo(seg.x2, seg.y2);
-          ctx.strokeStyle = `rgba(201,160,76,${f.alpha * 0.25})`;
-          ctx.lineWidth = seg.w * 5;
-          ctx.lineCap = "round";
-          ctx.filter = "blur(6px)";
-          ctx.stroke();
-          ctx.filter = "none";
-
-          // Mid glow
-          ctx.beginPath();
-          ctx.moveTo(seg.x1, seg.y1);
-          ctx.lineTo(seg.x2, seg.y2);
-          ctx.strokeStyle = `rgba(230,210,160,${f.alpha * 0.5})`;
-          ctx.lineWidth = seg.w * 2.5;
-          ctx.filter = "blur(2px)";
-          ctx.stroke();
-          ctx.filter = "none";
-
-          // Core bright white
-          ctx.beginPath();
-          ctx.moveTo(seg.x1, seg.y1);
-          ctx.lineTo(seg.x2, seg.y2);
-          ctx.strokeStyle = `rgba(255,252,240,${f.alpha * 0.9})`;
-          ctx.lineWidth = seg.w;
-          ctx.filter = "none";
-          ctx.stroke();
-        }
-      }
-
-      // Top + bottom vignettes
-      const topV = ctx.createLinearGradient(0, 0, 0, h * 0.18);
-      topV.addColorStop(0, "rgba(8,6,4,0.65)");
-      topV.addColorStop(1, "transparent");
-      ctx.fillStyle = topV;
-      ctx.fillRect(0, 0, w, h * 0.18);
-
-      const botV = ctx.createLinearGradient(0, h * 0.65, 0, h);
-      botV.addColorStop(0, "transparent");
-      botV.addColorStop(1, "rgba(8,6,4,0.82)");
-      ctx.fillStyle = botV;
-      ctx.fillRect(0, h * 0.65, w, h * 0.35);
-
-      rafRef.current = requestAnimationFrame(draw);
-    }
-
-    nextRef.current = performance.now() + 600;
-    rafRef.current = requestAnimationFrame(draw);
-
-    return () => {
-      cancelAnimationFrame(rafRef.current);
-      window.removeEventListener("resize", resize);
-    };
+    render();
+    const obs = new ResizeObserver(render);
+    obs.observe(document.body);
+    return () => obs.disconnect();
   }, []);
 
   return (
     <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full"
-      />
-      {/* Subtle noise grain */}
-      <div
-        className="absolute inset-0 opacity-[0.025] mix-blend-overlay"
-        style={{
-          backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E\")",
-        }}
-      />
+      {/* Base background */}
+      <div className="absolute inset-0" style={{ background: "hsl(28 10% 4%)" }} />
+
+      {/* Ambient top gold orb */}
+      <div className="absolute rounded-full" style={{
+        width: "70vw", height: "70vw",
+        top: "-25vw", left: "15vw",
+        background: "radial-gradient(circle, rgba(201,160,76,0.07) 0%, transparent 70%)",
+      }} />
+
+      {/* Ambient bottom orb */}
+      <div className="absolute rounded-full" style={{
+        width: "55vw", height: "55vw",
+        bottom: "-15vw", left: "-10vw",
+        background: "radial-gradient(circle, rgba(180,120,40,0.05) 0%, transparent 70%)",
+      }} />
+
+      {/* SVG lightning bolts — CSS-animated, no JS loop */}
+      <svg
+        ref={svgRef}
+        className="absolute inset-0"
+        style={{ overflow: "visible" }}
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <style>{`
+            .bolt-group {
+              animation: bolt-flash linear infinite;
+              opacity: 0;
+            }
+            @keyframes bolt-flash {
+              0%   { opacity: 0; }
+              2%   { opacity: 1; }
+              5%   { opacity: 0.7; }
+              7%   { opacity: 1; }
+              10%  { opacity: 0; }
+              100% { opacity: 0; }
+            }
+          `}</style>
+        </defs>
+        <g id="bolts" />
+      </svg>
+
+      {/* Top vignette */}
+      <div className="absolute inset-x-0 top-0 h-20" style={{
+        background: "linear-gradient(to bottom, rgba(8,6,4,0.6) 0%, transparent 100%)",
+      }} />
+
+      {/* Bottom vignette */}
+      <div className="absolute inset-x-0 bottom-0 h-1/3" style={{
+        background: "linear-gradient(to top, rgba(8,6,4,0.8) 0%, transparent 100%)",
+      }} />
+
+      {/* Grain */}
+      <div className="absolute inset-0 opacity-[0.025] mix-blend-overlay" style={{
+        backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E\")",
+      }} />
     </div>
   );
 }
