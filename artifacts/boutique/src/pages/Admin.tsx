@@ -1685,6 +1685,8 @@ function LivreursTab({ livreursList: _ignored, onRefresh: _onRefresh }: { livreu
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [success, setSuccess] = useState("");
+  const [pinging, setPinging] = useState<number | null>(null);
+  const [pingResult, setPingResult] = useState<Record<number, "ok" | "err">>({});
 
   const fetchList = async () => {
     try {
@@ -1730,6 +1732,23 @@ function LivreursTab({ livreursList: _ignored, onRefresh: _onRefresh }: { livreu
     if (!confirm("Supprimer ce livreur ?")) return;
     await fetch(`${API}/admin/livreurs/${id}`, { method: "DELETE" });
     await fetchList();
+  };
+
+  const handlePing = async (id: number) => {
+    setPinging(id);
+    try {
+      const r = await fetch(`${API}/admin/livreurs/${id}/ping`, { method: "POST" });
+      const d = await r.json();
+      if (r.ok) {
+        setPingResult(p => ({ ...p, [id]: "ok" }));
+        setTimeout(() => setPingResult(p => { const n = { ...p }; delete n[id]; return n; }), 4000);
+      } else {
+        alert("Erreur ping : " + (d.error || "inconnu"));
+        setPingResult(p => ({ ...p, [id]: "err" }));
+        setTimeout(() => setPingResult(p => { const n = { ...p }; delete n[id]; return n; }), 4000);
+      }
+    } catch { alert("Erreur réseau"); }
+    finally { setPinging(null); }
   };
 
   const inputCls = "w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all placeholder:text-white/30";
@@ -1806,6 +1825,15 @@ function LivreursTab({ livreursList: _ignored, onRefresh: _onRefresh }: { livreu
               <p className="text-[10px] font-mono text-muted-foreground/50">ID : {l.chatId}</p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
+              <button onClick={() => handlePing(l.id)} disabled={pinging === l.id}
+                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold active:scale-95 transition-all disabled:opacity-50"
+                style={{
+                  background: pingResult[l.id] === "ok" ? "rgba(16,185,129,0.15)" : pingResult[l.id] === "err" ? "rgba(239,68,68,0.15)" : "rgba(201,160,76,0.12)",
+                  border: `1px solid ${pingResult[l.id] === "ok" ? "rgba(16,185,129,0.3)" : pingResult[l.id] === "err" ? "rgba(239,68,68,0.3)" : "rgba(201,160,76,0.25)"}`,
+                  color: pingResult[l.id] === "ok" ? "#10b981" : pingResult[l.id] === "err" ? "#ef4444" : "#f0d070",
+                }}>
+                {pinging === l.id ? "…" : pingResult[l.id] === "ok" ? "✅" : pingResult[l.id] === "err" ? "❌" : "Test"}
+              </button>
               <button onClick={() => handleToggle(l.id)}
                 className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold active:scale-95 transition-all"
                 style={{ background: l.isActive ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${l.isActive ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.08)"}`, color: l.isActive ? "#10b981" : "rgba(255,255,255,0.35)" }}>

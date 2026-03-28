@@ -1076,6 +1076,30 @@ router.delete("/admin/livreurs/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
+// Ping de test vers un livreur
+router.post("/admin/livreurs/:id/ping", async (req, res) => {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return res.status(500).json({ error: "Token manquant" });
+  const [livreur] = await db.select().from(livreurs).where(eq(livreurs.id, Number(req.params.id)));
+  if (!livreur) return res.status(404).json({ error: "Livreur introuvable" });
+  try {
+    const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: livreur.chatId,
+        text: `🛵 <b>Test de connexion SOS LE PLUG</b>\n\nBonjour <b>${livreur.name}</b> !\nTu es bien configuré comme livreur. ✅\nTu recevras les commandes via ce bot.`,
+        parse_mode: "HTML",
+      }),
+    });
+    const tgData: any = await tgRes.json();
+    if (!tgData.ok) return res.status(400).json({ error: tgData.description });
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Assigner un livreur à une commande
 router.patch("/admin/orders/:orderCode/livreur", async (req, res) => {
   const { livreurId } = req.body;  // null pour désassigner
