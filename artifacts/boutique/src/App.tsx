@@ -178,12 +178,19 @@ function App() {
 
     /* ── Safe areas Telegram → CSS variables ── */
     const applySafeAreas = () => {
-      const rawB = tg.safeAreaInset?.bottom ?? tg.contentSafeAreaInset?.bottom ?? 0;
-      const rawT = tg.safeAreaInset?.top    ?? tg.contentSafeAreaInset?.top    ?? 0;
-      // En plein écran, si l'API renvoie 0, utiliser les valeurs standard iOS (44px top, 20px bottom)
+      // safeAreaInset = barre statut téléphone (notch/status bar)
+      // contentSafeAreaInset = barre Telegram flottante (bouton X Fermer)
+      // Il faut ADDITIONNER les deux, pas prendre le max
+      const devT = tg.safeAreaInset?.top    ?? 0;
+      const devB = tg.safeAreaInset?.bottom ?? 0;
+      const tgT  = tg.contentSafeAreaInset?.top    ?? 0;
+      const tgB  = tg.contentSafeAreaInset?.bottom ?? 0;
+      const sumT = devT + tgT;
+      const sumB = devB + tgB;
+      // Fallback : si API renvoie 0 en fullscreen → ~80px haut (statut 24 + barre TG 56), 20px bas
       const isFullscreen = !!(tg.isFullscreen || tg.isExpanded);
-      const b = rawB || (isFullscreen ? 20 : 0);
-      const t = rawT || (isFullscreen ? 44 : 0);
+      const t = sumT || (isFullscreen ? 80 : 0);
+      const b = sumB || (isFullscreen ? 20 : 0);
       document.documentElement.style.setProperty("--tg-safe-bottom", `${b}px`);
       document.documentElement.style.setProperty("--tg-safe-top",    `${t}px`);
     };
