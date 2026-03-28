@@ -320,15 +320,51 @@ export default function Admin() {
                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t border-white/5 overflow-hidden">
                             <div className="p-4 space-y-3">
                               {u && (
-                                <div className="flex items-center gap-2 pb-2 border-b border-white/5">
-                                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-                                    {(u.firstName || u.username || "?")[0].toUpperCase()}
+                                <div className="pb-2 border-b border-white/5 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                                      {(u.firstName || u.username || "?")[0].toUpperCase()}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-bold truncate">
+                                        {u.firstName}
+                                        {u.username && (
+                                          <a
+                                            href={`https://t.me/${u.username}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="ml-1 text-blue-400 hover:text-blue-300 transition-colors"
+                                          >
+                                            @{u.username}
+                                          </a>
+                                        )}
+                                      </p>
+                                      <p className="text-[10px] text-muted-foreground font-mono">ID : {u.chatId}</p>
+                                    </div>
+                                    {u.isUnlocked ? <Unlock className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold truncate">{u.firstName} {u.username ? `@${u.username}` : ""}</p>
-                                    <p className="text-[10px] text-muted-foreground font-mono">{u.chatId}</p>
-                                  </div>
-                                  {u.isUnlocked ? <Unlock className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                                  {/* Bouton contact Telegram direct */}
+                                  {u.username && (
+                                    <a
+                                      href={`https://t.me/${u.username}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl text-[11px] font-bold transition-all active:scale-95"
+                                      style={{
+                                        background: "rgba(35,158,217,0.15)",
+                                        border: "1px solid rgba(35,158,217,0.3)",
+                                        color: "#4db8e8",
+                                      }}
+                                    >
+                                      ✈️ Ouvrir le chat @{u.username}
+                                    </a>
+                                  )}
+                                  {/* Fallback si pas d'username : affiche juste l'ID */}
+                                  {!u.username && order.chatId && (
+                                    <p className="text-[10px] text-amber-400/80 text-center">
+                                      Pas de @username — utilise le bouton Contact ↑
+                                    </p>
+                                  )}
                                 </div>
                               )}
                               {parsed.items?.map((item: any, i: number) => (
