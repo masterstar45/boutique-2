@@ -122,34 +122,66 @@ const memUpload = multer({
 });
 
 // ─── Telegram Video Proxy ─────────────────────────────────────────────────────
+// Cache en mémoire fileId → { filePath, cachedAt }
+// Le file_path Telegram est stable tant que le fichier existe
+const tgFilePathCache = new Map<string, { filePath: string; cachedAt: number }>();
+const TG_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 heures
+
+async function getTelegramFilePath(fileId: string, botToken: string): Promise<string> {
+  const cached = tgFilePathCache.get(fileId);
+  if (cached && Date.now() - cached.cachedAt < TG_CACHE_TTL) return cached.filePath;
+
+  const getFileRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(fileId)}`);
+  const getFileData = await getFileRes.json() as any;
+  if (!getFileData.ok) throw new Error("Fichier introuvable sur Telegram");
+
+  const filePath: string = getFileData.result.file_path;
+  tgFilePathCache.set(fileId, { filePath, cachedAt: Date.now() });
+  return filePath;
+}
+
 // Sert les vidéos stockées sur Telegram sans exposer le bot token dans l'URL
+// Supporte les Range requests pour le seek vidéo
 router.get("/telegram-video/:fileId", async (req, res) => {
   try {
     const { fileId } = req.params;
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
     if (!BOT_TOKEN) { res.status(500).json({ message: "Bot token manquant" }); return; }
 
-    // Récupère le chemin du fichier sur Telegram
-    const getFileRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`);
-    const getFileData = await getFileRes.json() as any;
-    if (!getFileData.ok) { res.status(404).json({ message: "Fichier introuvable sur Telegram" }); return; }
-
-    const filePath: string = getFileData.result.file_path;
+    const filePath = await getTelegramFilePath(fileId, BOT_TOKEN);
     const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
 
-    // Proxy le contenu vidéo (le bot token reste côté serveur)
-    const videoRes = await fetch(fileUrl);
-    if (!videoRes.ok) { res.status(404).json({ message: "Téléchargement Telegram échoué" }); return; }
+    // Transmet le header Range si le client veut un segment (seek vidéo)
+    const rangeHeader = req.headers["range"];
+    const fetchHeaders: Record<string, string> = {};
+    if (rangeHeader) fetchHeaders["Range"] = rangeHeader;
+
+    const videoRes = await fetch(fileUrl, { headers: fetchHeaders });
+    if (!videoRes.ok && videoRes.status !== 206) {
+      // Invalide le cache si le fichier n'est plus dispo
+      tgFilePathCache.delete(fileId);
+      res.status(videoRes.status === 404 ? 404 : 502).json({ message: "Téléchargement Telegram échoué" });
+      return;
+    }
 
     const contentType = videoRes.headers.get("content-type") || "video/mp4";
     const contentLength = videoRes.headers.get("content-length");
-    res.setHeader("Content-Type", contentType);
-    if (contentLength) res.setHeader("Content-Length", contentLength);
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    res.setHeader("Accept-Ranges", "bytes");
+    const contentRange = videoRes.headers.get("content-range");
 
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    if (contentLength) res.setHeader("Content-Length", contentLength);
+    if (contentRange) res.setHeader("Content-Range", contentRange);
+
+    // 206 Partial Content si c'est une réponse Range, sinon 200
+    res.status(videoRes.status === 206 ? 206 : 200);
+
+    // Stream le contenu, gère la déconnexion client proprement
     const { Readable } = await import("stream");
     const nodeStream = Readable.fromWeb(videoRes.body as any);
+    nodeStream.on("error", () => res.end());
+    req.on("close", () => nodeStream.destroy());
     nodeStream.pipe(res);
   } catch (err: any) {
     console.error("Telegram video proxy error:", err);
