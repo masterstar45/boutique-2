@@ -150,6 +150,12 @@ function Router() {
   );
 }
 
+function ConditionalBottomNav() {
+  const [location] = useLocation();
+  if (location === "/info") return null;
+  return <BottomNav />;
+}
+
 function App() {
   const [telegramOk] = useState(() => isTelegramConnected());
 
@@ -188,7 +194,7 @@ function App() {
             style={{ maxWidth: "430px", minHeight: "100dvh" }}
           >
             <Router />
-            <BottomNav />
+            <ConditionalBottomNav />
           </div>
 
           <Toaster />
