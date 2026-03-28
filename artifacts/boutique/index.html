@@ -15,7 +15,7 @@
         var tg = window.Telegram && window.Telegram.WebApp;
         if (tg) {
           tg.expand();
-          if (typeof tg.requestFullscreen === 'function') tg.requestFullscreen();
+          try { if (typeof tg.requestFullscreen === 'function') tg.requestFullscreen(); } catch(e) {}
           tg.setHeaderColor('#080603');
           tg.setBackgroundColor('#080603');
           tg.setBottomBarColor('#080603');

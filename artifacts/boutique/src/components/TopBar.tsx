@@ -39,7 +39,7 @@ export function TopBar({ title, subtitle, backHref, branded = false }: TopBarPro
 
       {branded ? (
         /* Branded mode: perfectly centered title, no back button */
-        <div className="px-4 py-3 flex flex-col items-center justify-center relative">
+        <div className="px-4 sm:px-8 py-3 sm:py-4 flex flex-col items-center justify-center relative">
           <h1
             className="font-display font-black leading-none select-none"
             style={{
@@ -65,7 +65,7 @@ export function TopBar({ title, subtitle, backHref, branded = false }: TopBarPro
         </div>
       ) : (
         /* Standard mode: back button + title */
-        <div className="px-4 py-3 flex items-center gap-3 relative">
+        <div className="px-4 sm:px-8 py-3 sm:py-4 flex items-center gap-3 relative">
           {backHref && (
             <Link
               href={backHref}

@@ -30,7 +30,7 @@ export default function Menu() {
       <TopBar branded subtitle="Collection" />
 
       {/* Header greeting */}
-      <div className="px-5 pt-5 pb-4">
+      <div className="px-5 sm:px-8 pt-5 sm:pt-6 pb-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -66,9 +66,9 @@ export default function Menu() {
       </div>
 
       {/* Grid */}
-      <main className="px-4 pb-12 relative z-10">
+      <main className="px-4 sm:px-8 pb-32 sm:pb-28 relative z-10">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="aspect-[4/5] rounded-[1.5rem] animate-pulse"
                 style={{ background: "rgba(201,160,76,0.04)", border: "1px solid rgba(201,160,76,0.06)" }} />
@@ -88,7 +88,7 @@ export default function Menu() {
             </div>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-2 gap-3.5 md:grid-cols-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
             {products.map((product, i) => (
               <motion.div
                 key={product.id}

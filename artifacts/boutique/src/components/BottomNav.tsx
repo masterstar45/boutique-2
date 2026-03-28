@@ -37,7 +37,7 @@ export function BottomNav() {
           WebkitBackdropFilter: "blur(28px) saturate(180%)",
           border: `1px solid ${GOLD}0.14)`,
           boxShadow: `0 -2px 0 0 ${GOLD}0.06), 0 8px 40px rgba(0,0,0,0.55), 0 2px 0 0 ${GOLD}0.04) inset`,
-          width: "min(340px, calc(100vw - 32px))",
+          width: "min(480px, calc(100vw - 32px))",
         }}
       >
         {LINKS.map(({ href, label, Icon, badge }) => {

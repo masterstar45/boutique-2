@@ -157,26 +157,8 @@ function ConditionalBottomNav() {
   return <BottomNav />;
 }
 
-function useTelegramFullscreen() {
-  useEffect(() => {
-    const tg = (window as any).Telegram?.WebApp;
-    if (!tg) return;
-    const requestFs = () => {
-      tg.expand();
-      if (typeof tg.requestFullscreen === "function") tg.requestFullscreen();
-    };
-    requestFs();
-    // Re-trigger when app regains focus (user returns from another Telegram screen)
-    const onVisible = () => { if (!document.hidden) requestFs(); };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, []);
-}
-
 function App() {
   const [telegramOk] = useState(() => isTelegramConnected());
-  useTelegramFullscreen();
-
   const [splashDone, setSplashDone] = useState(() => {
     const isHome = window.location.pathname === import.meta.env.BASE_URL.replace(/\/$/, "") ||
                    window.location.pathname === import.meta.env.BASE_URL ||
@@ -187,6 +169,20 @@ function App() {
   const handleSplashDone = useCallback(() => {
     sessionStorage.setItem("splash_shown", "1");
     setSplashDone(true);
+  }, []);
+
+  // Plein écran Telegram — inline pour éviter les règles des hooks
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (!tg) return;
+    const requestFs = () => {
+      tg.expand();
+      try { if (typeof tg.requestFullscreen === "function") tg.requestFullscreen(); } catch {}
+    };
+    requestFs();
+    const onVisible = () => { if (!document.hidden) requestFs(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
   if (!telegramOk) {
@@ -206,10 +202,10 @@ function App() {
           {/* Fond vidéo global — toujours présent, jamais remonté */}
           <AnimatedBackground />
 
-          {/* Conteneur centré : plein écran mobile, max 430px desktop */}
+          {/* Conteneur centré : plein écran mobile, max 860px desktop */}
           <div
-            className="relative z-10 mx-auto text-foreground font-body antialiased selection:bg-primary/30"
-            style={{ maxWidth: "430px", minHeight: "100dvh" }}
+            className="relative z-10 mx-auto text-foreground font-body antialiased selection:bg-primary/30 w-full"
+            style={{ maxWidth: "860px", minHeight: "100dvh" }}
           >
             <Router />
             <ConditionalBottomNav />

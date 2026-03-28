@@ -17,8 +17,8 @@ export default function Home() {
   ];
 
   return (
-    <div className="relative min-h-screen flex flex-col text-white overflow-hidden pb-28">
-      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center z-10 pt-12 gap-10">
+    <div className="relative min-h-screen flex flex-col text-white overflow-hidden pb-32 sm:pb-28">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 sm:px-10 text-center z-10 pt-12 sm:pt-16 gap-10">
 
         {/* ── Monogram logo ── */}
         <motion.div
@@ -54,7 +54,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.06, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="grid grid-cols-3 gap-3 w-full max-w-sm"
+          className="grid grid-cols-3 gap-3 sm:gap-5 w-full max-w-sm sm:max-w-lg"
         >
           {features.map(({ icon: Icon, label, color }) => (
             <div key={label} className="flex flex-col items-center gap-2.5 py-4 px-2 rounded-2xl"
@@ -96,7 +96,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.12, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="flex flex-col gap-3 w-full max-w-sm"
+          className="flex flex-col gap-3 w-full max-w-sm sm:max-w-md"
         >
           <Link
             href="/menu"

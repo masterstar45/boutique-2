@@ -21,7 +21,7 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
     if (tgWebApp) {
       tgWebApp.ready();
       tgWebApp.expand();
-      if (typeof tgWebApp.requestFullscreen === "function") tgWebApp.requestFullscreen();
+      try { if (typeof tgWebApp.requestFullscreen === "function") tgWebApp.requestFullscreen(); } catch {}
       tgWebApp.setHeaderColor("#080603");
       tgWebApp.setBackgroundColor("#080603");
       if (typeof tgWebApp.setBottomBarColor === "function") tgWebApp.setBottomBarColor("#080603");
