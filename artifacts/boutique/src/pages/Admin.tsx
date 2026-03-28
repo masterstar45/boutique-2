@@ -599,11 +599,17 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
   const setOption = (i: number, key: "weight" | "price", val: string) =>
     setPriceOptions(opts => opts.map((o, idx) => idx === i ? { ...o, [key]: val } : o));
 
-  // Si édition et hasVideo, charger la vraie data: URL de la vidéo
+  // Si édition et hasVideo, récupérer l'URL de la vidéo existante
   useEffect(() => {
     if (!product?.id) return;
     if (!product.hasVideo) return;
-    fetch(`/api/products/${product.id}/video`)
+    // Si videoUrl est déjà une URL serveur, l'utiliser directement
+    if (product.videoUrl && !product.videoUrl.startsWith("data:")) {
+      setForm(f => ({ ...f, videoUrl: product.videoUrl! }));
+      return;
+    }
+    // Sinon charger depuis l'endpoint vidéo
+    fetch(`${API}/products/${product.id}/video`)
       .then(r => r.json())
       .then(d => { if (d.videoUrl) setForm(f => ({ ...f, videoUrl: d.videoUrl })); })
       .catch(() => {});
@@ -620,14 +626,27 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
     reader.readAsDataURL(file);
   };
 
-  const handleVideoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) { alert("Vidéo trop lourde (max 50 Mo)"); return; }
     setVideoLoading(true);
-    const reader = new FileReader();
-    reader.onload = ev => { set("videoUrl", ev.target?.result as string); setVideoLoading(false); };
-    reader.readAsDataURL(file);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API}/upload`, { method: "POST", body: formData });
+      if (!res.ok) throw new Error("Upload échoué");
+      const { url } = await res.json();
+      // url est du type /api/uploads/filename.mp4 — on le préfixe avec BASE_URL
+      const fullUrl = url.startsWith("http") ? url : `${import.meta.env.BASE_URL.replace(/\/$/, "")}${url}`;
+      set("videoUrl", fullUrl);
+    } catch (err) {
+      alert("Erreur lors de l'import de la vidéo. Réessaie.");
+      console.error(err);
+    } finally {
+      setVideoLoading(false);
+      if (videoRef.current) videoRef.current.value = "";
+    }
   };
 
   const handleSubmit = () => {
@@ -710,8 +729,10 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
             ) : (
               <button onClick={() => videoRef.current?.click()} disabled={videoLoading}
                 className="w-full h-20 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-95">
-                {videoLoading ? <span className="text-xs animate-pulse">Traitement en cours…</span> : (
-                  <><Video className="w-5 h-5 opacity-60" /><span className="text-xs">Importer une vidéo (max 50 Mo)</span></>
+                {videoLoading ? (
+                  <><span className="text-xs animate-pulse">Upload en cours…</span><span className="text-[10px] text-muted-foreground">Ne ferme pas cette fenêtre</span></>
+                ) : (
+                  <><Video className="w-5 h-5 opacity-60" /><span className="text-xs">Importer une vidéo (max 50 Mo)</span><span className="text-[10px] text-muted-foreground">MP4, WebM, MOV</span></>
                 )}
               </button>
             )}
