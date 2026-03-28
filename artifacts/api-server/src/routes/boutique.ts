@@ -994,6 +994,22 @@ router.delete("/admin/client-buttons/:id", async (req, res) => {
 
 // ─── Livreurs ─────────────────────────────────────────────────────────────────
 
+// Migration runtime : création table livreurs si absente (Railway production)
+;(async () => {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS livreurs (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        username TEXT,
+        chat_id TEXT NOT NULL UNIQUE,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TEXT NOT NULL DEFAULT ''
+      )
+    `);
+  } catch (e) { console.warn("livreurs table migration:", e); }
+})();
+
 // Migration runtime : ajout colonne livreur_id sur orders
 ;(async () => {
   try {
