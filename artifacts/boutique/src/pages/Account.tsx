@@ -2,14 +2,14 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useSession } from "@/hooks/use-session";
 import { useGetMyOrders } from "@workspace/api-client-react";
-import { User, Package, KeyRound, Save, LogOut, Shield, Settings } from "lucide-react";
+import { User, Package, KeyRound, Save, Shield, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { TopBar } from "@/components/TopBar";
 
 const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 export default function Account() {
-  const { chatId, username, saveChatId, clearChatId } = useSession();
+  const { chatId, username, saveChatId } = useSession();
   const [inputChatId, setInputChatId] = useState(chatId);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -61,12 +61,6 @@ export default function Account() {
   return (
     <div className="min-h-screen">
       <TopBar title="Mon Compte" backHref="/menu" />
-      <div className="px-4 pt-3 flex justify-end">
-        <button onClick={clearChatId} className="flex items-center gap-1.5 text-xs text-destructive/70 hover:text-destructive transition-colors glass-panel px-3 py-1.5 rounded-full border-destructive/20">
-          <LogOut className="w-3 h-3" /> Déconnecter
-        </button>
-      </div>
-
       <main className="p-4 space-y-6">
         {/* Profile Card */}
         <div className="glass-panel p-6 rounded-[2rem] flex items-center gap-5 relative overflow-hidden">
