@@ -176,6 +176,20 @@ function App() {
     const tg = (window as any).Telegram?.WebApp;
     if (!tg) return;
 
+    /* ── Extraction chatId / username dès l'ouverture (avant splash) ──
+       Critique quand l'app s'ouvre directement sur /admin via un bouton notif.
+       La SplashScreen est skippée dans ce cas, donc on doit sauvegarder ici. */
+    const user = tg.initDataUnsafe?.user;
+    if (user?.id) {
+      const existingId = localStorage.getItem("telegram_chat_id");
+      if (!existingId) {
+        localStorage.setItem("telegram_chat_id", String(user.id));
+        if (user.username || user.first_name) {
+          localStorage.setItem("telegram_username", user.username || user.first_name || "");
+        }
+      }
+    }
+
     /* ── Safe areas Telegram → CSS variables ── */
     const applySafeAreas = () => {
       // En mode NON-fullscreen, Telegram positionne lui-même le WebView sous la barre statut

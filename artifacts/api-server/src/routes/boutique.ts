@@ -26,7 +26,7 @@ const ADMIN_PANEL_URL = (process.env.MINI_APP_URL || "https://boutique-2-product
 const ADMIN_PANEL_BUTTON = {
   reply_markup: {
     inline_keyboard: [[
-      { text: "⚙️ Panel Admin", web_app: { url: ADMIN_PANEL_URL } }
+      { text: "⚙️ Panel Admin", url: ADMIN_PANEL_URL }
     ]]
   }
 };
