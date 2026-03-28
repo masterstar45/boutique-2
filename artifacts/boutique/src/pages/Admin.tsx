@@ -842,7 +842,7 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
           {/* Image */}
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Image *</label>
-            <input ref={imageRef} type="file" accept="image/*" className="hidden" onChange={handleImageFile} />
+            <input ref={imageRef} type="file" accept="image/*" className="sr-only" onChange={handleImageFile} />
             {form.imageUrl ? (
               <div className="relative rounded-xl overflow-hidden">
                 <img src={form.imageUrl} alt="" className="w-full h-36 object-cover" />
@@ -869,7 +869,7 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
           {/* Vidéo */}
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Vidéo (optionnel)</label>
-            <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={handleVideoFile} />
+            <input ref={videoRef} type="file" accept="video/mp4,video/quicktime,video/mov,video/*" className="sr-only" onChange={handleVideoFile} />
             {form.videoUrl ? (
               <div className="relative rounded-xl overflow-hidden bg-black">
                 <video src={form.videoUrl} className="w-full h-32 object-cover" muted playsInline />
