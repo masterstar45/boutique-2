@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, ChevronLeft, Send, MapPin, Phone, Clock, ExternalLink } from "lucide-react";
+import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, ChevronLeft, Send, MapPin, Phone, Clock, ExternalLink, Tag, Check, X, Loader2 } from "lucide-react";
 import { TopBar } from "@/components/TopBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "@/hooks/use-session";
 import { useGetCart, useUpdateCartItem, useRemoveFromCart, useCheckout, getGetCartQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+
+const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 const DELIVERY_MODES = [
   { id: "livraison", label: "Livraison à domicile", emoji: "🛵" },
@@ -31,6 +33,41 @@ export default function Cart() {
   const [timeSlot, setTimeSlot] = useState("");
   const [meetupSlot, setMeetupSlot] = useState("");
 
+  // ── Code promo ──
+  const [promoInput, setPromoInput] = useState("");
+  const [promoData, setPromoData] = useState<{ code: string; discountPercent: number } | null>(null);
+  const [promoError, setPromoError] = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  const handleApplyPromo = async () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    setPromoLoading(true);
+    setPromoError("");
+    setPromoData(null);
+    try {
+      const r = await fetch(`${API}/promo/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        setPromoError(err.message || "Code invalide ou expiré");
+      } else {
+        const promo = await r.json();
+        setPromoData(promo);
+        setPromoError("");
+      }
+    } catch {
+      setPromoError("Erreur de connexion");
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const removePromo = () => { setPromoData(null); setPromoInput(""); setPromoError(""); };
+
   const { data: cartItems, isLoading } = useGetCart(sessionId, { query: { enabled: !!sessionId } });
 
   const updateItem = useUpdateCartItem({
@@ -47,7 +84,9 @@ export default function Cart() {
     }
   });
 
-  const total = cartItems?.reduce((sum, item) => sum + ((item.selectedPrice || item.product.price) * item.quantity), 0) || 0;
+  const rawTotal = cartItems?.reduce((sum, item) => sum + ((item.selectedPrice || item.product.price) * item.quantity), 0) || 0;
+  const discount = promoData ? Math.round(rawTotal * promoData.discountPercent / 100) : 0;
+  const total = rawTotal - discount;
 
   const buildTelegramMessage = () => {
     const lines: string[] = [];
@@ -59,6 +98,10 @@ export default function Cart() {
       lines.push(`• ${item.product.name}${item.selectedWeight ? ` (${item.selectedWeight})` : ""} × ${item.quantity} = ${price * item.quantity}€`);
     });
     lines.push("");
+    if (promoData) {
+      lines.push(`🏷️ Code promo : ${promoData.code} (-${promoData.discountPercent}%)`);
+      lines.push(`💸 Sous-total : ${rawTotal}€  →  Remise : -${discount}€`);
+    }
     lines.push(`💰 Total : ${total}€`);
     lines.push("");
     lines.push(`🚚 Mode : ${deliveryMode === "livraison" ? "Livraison à domicile" : "Point Relais"}`);
@@ -78,7 +121,8 @@ export default function Cart() {
         sessionId,
         chatId: chatId || "guest",
         deliveryType: deliveryMode,
-        deliveryAddress: deliveryMode === "livraison" ? address : `Relais - ${phone}`
+        deliveryAddress: deliveryMode === "livraison" ? address : `Relais - ${phone}`,
+        promoCode: promoData?.code,
       }
     });
     const message = buildTelegramMessage();
@@ -168,11 +212,84 @@ export default function Cart() {
                 </div>
               ))}
 
-              <div className="glass-panel p-6 rounded-[1.5rem] mt-6">
-                <div className="flex justify-between items-end">
-                  <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Total</span>
-                  <span className="text-3xl font-black font-display text-primary glow-text">{total}€</span>
+              {/* ── Code promo ── */}
+              <div className="glass-panel p-4 rounded-[1.5rem]">
+                <div className="flex items-center gap-2 mb-3">
+                  <Tag className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Code promo</span>
                 </div>
+                <AnimatePresence mode="wait">
+                  {promoData ? (
+                    <motion.div
+                      key="applied"
+                      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                      className="flex items-center justify-between px-4 py-3 rounded-xl"
+                      style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)" }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span className="font-bold text-sm text-emerald-400">{promoData.code}</span>
+                        <span className="text-xs text-emerald-400/70 font-bold">-{promoData.discountPercent}%</span>
+                      </div>
+                      <button onClick={removePromo} className="p-1 text-white/30 hover:text-white/60 transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex gap-2">
+                      <input
+                        value={promoInput}
+                        onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromoError(""); }}
+                        onKeyDown={e => e.key === "Enter" && handleApplyPromo()}
+                        placeholder="PLUG2024"
+                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono uppercase tracking-widest focus:outline-none focus:border-primary transition-all"
+                        maxLength={20}
+                      />
+                      <button
+                        onClick={handleApplyPromo}
+                        disabled={promoLoading || !promoInput.trim()}
+                        className="px-4 py-3 rounded-xl font-bold text-sm disabled:opacity-40 active:scale-95 transition-all flex items-center gap-1.5"
+                        style={{ background: "rgba(147,51,234,0.2)", border: "1px solid rgba(147,51,234,0.35)", color: "hsl(270,90%,75%)" }}
+                      >
+                        {promoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Appliquer"}
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <AnimatePresence>
+                  {promoError && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs text-red-400 mt-2 flex items-center gap-1">
+                      <X className="w-3 h-3" /> {promoError}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* ── Total ── */}
+              <div className="glass-panel p-6 rounded-[1.5rem]">
+                {promoData ? (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm text-muted-foreground">
+                      <span className="uppercase tracking-widest font-bold text-xs">Sous-total</span>
+                      <span className="line-through">{rawTotal}€</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+                        <Tag className="w-3 h-3" /> Remise {promoData.code}
+                      </span>
+                      <span className="text-sm font-bold text-emerald-400">-{discount}€</span>
+                    </div>
+                    <div className="border-t border-white/10 pt-2 flex justify-between items-end">
+                      <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Total</span>
+                      <span className="text-3xl font-black font-display text-primary glow-text">{total}€</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-end">
+                    <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Total</span>
+                    <span className="text-3xl font-black font-display text-primary glow-text">{rawTotal}€</span>
+                  </div>
+                )}
               </div>
 
               <button
@@ -367,6 +484,17 @@ export default function Cart() {
                     <span className="text-primary font-bold">{(item.selectedPrice || item.product.price) * item.quantity}€</span>
                   </div>
                 ))}
+                {promoData && (
+                  <>
+                    <div className="flex justify-between pt-1 text-muted-foreground">
+                      <span>Sous-total</span><span className="line-through">{rawTotal}€</span>
+                    </div>
+                    <div className="flex justify-between py-0.5 text-emerald-400">
+                      <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> {promoData.code} (-{promoData.discountPercent}%)</span>
+                      <span className="font-bold">-{discount}€</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between pt-2 font-black text-white">
                   <span>Total</span><span className="text-primary">{total}€</span>
                 </div>
