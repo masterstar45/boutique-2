@@ -80,6 +80,7 @@ export default function Cart() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetCartQueryKey(sessionId) });
+        navigate("/account");
       }
     }
   });
@@ -116,6 +117,14 @@ export default function Cart() {
   };
 
   const handleSendOrder = () => {
+    const message = buildTelegramMessage();
+    const url = `https://t.me/SOSLePlug75?text=${encodeURIComponent(message)}`;
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg?.openLink) {
+      tg.openLink(url);
+    } else {
+      window.open(url, "_blank");
+    }
     checkoutMut.mutate({
       data: {
         sessionId,
@@ -125,15 +134,6 @@ export default function Cart() {
         promoCode: promoData?.code,
       }
     });
-    const message = buildTelegramMessage();
-    const url = `https://t.me/SOSLePlug75?text=${encodeURIComponent(message)}`;
-    const tg = (window as any).Telegram?.WebApp;
-    if (tg?.openLink) {
-      tg.openLink(url);
-    } else {
-      window.open(url, "_blank");
-    }
-    navigate("/account");
   };
 
   const detailsValid =
