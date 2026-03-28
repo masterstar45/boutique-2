@@ -153,6 +153,7 @@ function Router() {
 function ConditionalBottomNav() {
   const [location] = useLocation();
   if (location === "/info") return null;
+  if (location.startsWith("/cart")) return null;
   return <BottomNav />;
 }
 
