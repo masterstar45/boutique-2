@@ -60,6 +60,109 @@ async function runMigrations() {
   await runMigration("add orders notes", sql`
     ALTER TABLE orders ADD COLUMN notes TEXT;
   `);
+
+  // Loyalty balances
+  await runMigration("create loyalty_balances", sql`
+    CREATE TABLE IF NOT EXISTS loyalty_balances (
+      id SERIAL PRIMARY KEY,
+      chat_id TEXT NOT NULL UNIQUE,
+      points INTEGER NOT NULL DEFAULT 0,
+      tier TEXT NOT NULL DEFAULT 'Bronze',
+      total_earned INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+
+  // Loyalty transactions
+  await runMigration("create loyalty_transactions", sql`
+    CREATE TABLE IF NOT EXISTS loyalty_transactions (
+      id SERIAL PRIMARY KEY,
+      chat_id TEXT NOT NULL,
+      delta INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      order_code TEXT,
+      description TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  // Loyalty settings
+  await runMigration("create loyalty_settings", sql`
+    CREATE TABLE IF NOT EXISTS loyalty_settings (
+      id SERIAL PRIMARY KEY,
+      points_per_euro INTEGER NOT NULL DEFAULT 1,
+      points_value_cents INTEGER NOT NULL DEFAULT 1,
+      min_redeem_points INTEGER NOT NULL DEFAULT 100,
+      silver_threshold INTEGER NOT NULL DEFAULT 500,
+      gold_threshold INTEGER NOT NULL DEFAULT 1500
+    );
+  `);
+
+  // Daily stats
+  await runMigration("create daily_stats", sql`
+    CREATE TABLE IF NOT EXISTS daily_stats (
+      id SERIAL PRIMARY KEY,
+      date TEXT NOT NULL UNIQUE,
+      order_count INTEGER NOT NULL DEFAULT 0,
+      revenue INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+
+  // Reviews
+  await runMigration("create reviews", sql`
+    CREATE TABLE IF NOT EXISTS reviews (
+      id SERIAL PRIMARY KEY,
+      chat_id TEXT NOT NULL,
+      username TEXT,
+      rating INTEGER NOT NULL,
+      comment TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  // Promo codes
+  await runMigration("create promo_codes", sql`
+    CREATE TABLE IF NOT EXISTS promo_codes (
+      id SERIAL PRIMARY KEY,
+      code TEXT NOT NULL UNIQUE,
+      discount_percent INTEGER NOT NULL DEFAULT 0,
+      discount_amount INTEGER NOT NULL DEFAULT 0,
+      max_uses INTEGER,
+      uses INTEGER NOT NULL DEFAULT 0,
+      expires_at TEXT,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TEXT NOT NULL DEFAULT ''
+    );
+  `);
+
+  // Saved addresses
+  await runMigration("create saved_addresses", sql`
+    CREATE TABLE IF NOT EXISTS saved_addresses (
+      id SERIAL PRIMARY KEY,
+      chat_id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      address TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  // Favorites
+  await runMigration("create favorites", sql`
+    CREATE TABLE IF NOT EXISTS favorites (
+      id SERIAL PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      product_id INTEGER NOT NULL
+    );
+  `);
+
+  // Access passwords
+  await runMigration("create access_passwords", sql`
+    CREATE TABLE IF NOT EXISTS access_passwords (
+      id SERIAL PRIMARY KEY,
+      password TEXT NOT NULL UNIQUE,
+      label TEXT,
+      active BOOLEAN NOT NULL DEFAULT TRUE
+    );
+  `);
 }
 
 // ─── Daily Stats Scheduler ────────────────────────────────────────────────────
