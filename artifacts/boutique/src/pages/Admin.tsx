@@ -746,6 +746,7 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
   );
   const [imageLoading, setImageLoading] = useState(false);
   const [videoLoading, setVideoLoading] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0); // 0-100 : envoi vers serveur ; 101 : traitement CDN
   const imageRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
 
@@ -781,28 +782,54 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
     reader.readAsDataURL(file);
   };
 
-  const handleVideoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 100 * 1024 * 1024) { alert("Vidéo trop lourde (max 100 Mo)"); return; }
+    const maxMb = 200;
+    if (file.size > maxMb * 1024 * 1024) { alert(`Vidéo trop lourde (max ${maxMb} Mo)`); return; }
     setVideoLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch(`${API}/upload`, { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || "Upload échoué");
-      const url: string = data.url;
-      // url de type /api/gcs-media/... — on le préfixe avec BASE_URL si besoin
-      const fullUrl = url.startsWith("http") ? url : `${import.meta.env.BASE_URL.replace(/\/$/, "")}${url}`;
-      set("videoUrl", fullUrl);
-    } catch (err: any) {
-      alert("Échec de l'import vidéo : " + (err?.message || "erreur inconnue"));
-      console.error(err);
-    } finally {
+    setVideoProgress(0);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const xhr = new XMLHttpRequest();
+
+    // Progression de l'envoi vers notre serveur (0→100%)
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable) {
+        setVideoProgress(Math.round((ev.loaded / ev.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 400) throw new Error(data?.message || "Upload échoué");
+        const url: string = data.url;
+        const fullUrl = url.startsWith("http") ? url : `${import.meta.env.BASE_URL.replace(/\/$/, "")}${url}`;
+        set("videoUrl", fullUrl);
+      } catch (err: any) {
+        alert("Échec de l'import vidéo : " + (err?.message || "erreur inconnue"));
+      } finally {
+        setVideoLoading(false);
+        setVideoProgress(0);
+        if (videoRef.current) videoRef.current.value = "";
+      }
+    };
+
+    xhr.onerror = () => {
+      alert("Erreur réseau lors de l'upload vidéo");
       setVideoLoading(false);
+      setVideoProgress(0);
       if (videoRef.current) videoRef.current.value = "";
-    }
+    };
+
+    // Passer en mode "traitement CDN" dès que l'envoi est terminé (progress → 101)
+    xhr.upload.onloadend = () => setVideoProgress(101);
+
+    xhr.open("POST", `${API}/upload`);
+    xhr.send(formData);
   };
 
   const handleSubmit = () => {
@@ -881,13 +908,33 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
                   </button>
                 </div>
               </div>
+            ) : videoLoading ? (
+              <div className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium" style={{ color: "rgba(201,160,76,0.9)" }}>
+                    {videoProgress <= 100 ? `Envoi… ${videoProgress}%` : "Traitement côté serveur…"}
+                  </span>
+                  <span className="text-white/30 text-[10px]">Ne ferme pas</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: videoProgress <= 100 ? `${videoProgress}%` : "100%",
+                      background: "linear-gradient(90deg, #c9a04c, #f0d070)",
+                      animation: videoProgress > 100 ? "pulse 1s ease-in-out infinite" : undefined,
+                    }}
+                  />
+                </div>
+                <span className="text-[10px] text-white/30">
+                  {videoProgress <= 100 ? "Transfert vers le serveur" : "Upload vers le CDN en cours…"}
+                </span>
+              </div>
             ) : (
-              <label htmlFor="admin-video-upload" className={`w-full h-20 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center gap-2 text-muted-foreground active:scale-95 transition-all cursor-pointer ${videoLoading ? "opacity-50 pointer-events-none" : "hover:border-primary/40 hover:bg-primary/5"}`}>
-                {videoLoading ? (
-                  <><span className="text-xs animate-pulse">Upload en cours…</span><span className="text-[10px] text-muted-foreground">Ne ferme pas cette fenêtre</span></>
-                ) : (
-                  <><Video className="w-5 h-5 opacity-60" /><span className="text-xs">Importer une vidéo (max 50 Mo)</span><span className="text-[10px] text-muted-foreground">MP4, MOV</span></>
-                )}
+              <label htmlFor="admin-video-upload" className="w-full h-20 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center gap-2 text-muted-foreground active:scale-95 transition-all cursor-pointer hover:border-primary/40 hover:bg-primary/5">
+                <Video className="w-5 h-5 opacity-60" />
+                <span className="text-xs">Importer une vidéo (max 200 Mo)</span>
+                <span className="text-[10px] text-muted-foreground">MP4, MOV</span>
               </label>
             )}
           </div>

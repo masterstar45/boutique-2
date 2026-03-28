@@ -227,84 +227,95 @@ router.post("/upload", (req, res, next) => {
   const isVideo = req.file.mimetype.startsWith("video/") ||
     /\.(mp4|mov|webm|avi|mkv|m4v|3gp)$/i.test(req.file.originalname);
 
-  // ── Vidéo → Telegram (backup permanent) + Cloudinary (CDN principal si configuré)
+  // ── Vidéo → Cloudinary (CDN) + Telegram (backup) en parallèle ─────────────
   if (isVideo) {
-    try {
-      const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-      if (!BOT_TOKEN) throw new Error("Bot token manquant");
-      const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || "5818221358";
+    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+    if (!BOT_TOKEN) { res.status(500).json({ message: "Bot token manquant" }); return; }
 
-      const ext = path.extname(req.file.originalname).toLowerCase() || ".mp4";
-      const filename = `product-${Date.now()}${ext}`;
+    const ADMIN_CHAT_ID_ENV = "5818221358";
+    const ext = path.extname(req.file.originalname).toLowerCase() || ".mp4";
+    const filename = `product-${Date.now()}${ext}`;
+    const buffer = req.file.buffer;
+    const mimetype = req.file.mimetype || "video/mp4";
 
-      // ── Étape 1 : Upload Telegram (backup systématique, fonctionne partout)
-      const tgForm = new FormData();
-      tgForm.append("chat_id", ADMIN_CHAT_ID);
-      const blob = new Blob([req.file.buffer], { type: req.file.mimetype || "video/mp4" });
-      tgForm.append("video", blob, filename);
-      tgForm.append("caption", "📦 [Vidéo produit — backup — ne pas supprimer]");
-      tgForm.append("disable_notification", "true");
+    const CLOUD_NAME  = process.env.CLOUDINARY_CLOUD_NAME;
+    const CDN_KEY     = process.env.CLOUDINARY_API_KEY;
+    const CDN_SECRET  = process.env.CLOUDINARY_API_SECRET;
+    const hasCloudinary = !!(CLOUD_NAME && CDN_KEY && CDN_SECRET);
 
-      const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
-        method: "POST",
-        body: tgForm as any,
-      });
-      const tgData = await tgRes.json() as any;
-      if (!tgData.ok) throw new Error("Telegram upload: " + (tgData.description || "erreur inconnue"));
+    // ── Backup Telegram via sendDocument (pas de traitement vidéo = 5-10× plus rapide)
+    const telegramBackup = async (): Promise<string | null> => {
+      try {
+        const tgForm = new FormData();
+        tgForm.append("chat_id", ADMIN_CHAT_ID_ENV);
+        tgForm.append("document", new Blob([buffer], { type: mimetype }), filename);
+        tgForm.append("caption", "📦 [Vidéo produit — backup — ne pas supprimer]");
+        tgForm.append("disable_notification", "true");
+        const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, {
+          method: "POST", body: tgForm as any,
+        });
+        const tgData = await tgRes.json() as any;
+        if (!tgData.ok) { console.warn("Telegram backup failed:", tgData.description); return null; }
+        const fileId = tgData.result?.document?.file_id;
+        return fileId ? `/api/telegram-video/${fileId}` : null;
+      } catch (e: any) { console.warn("Telegram backup error:", e.message); return null; }
+    };
 
-      const fileId: string = tgData.result?.video?.file_id;
-      if (!fileId) throw new Error("Telegram n'a pas renvoyé de file_id");
-      const telegramProxyUrl = `/api/telegram-video/${fileId}`;
+    // ── Upload Cloudinary (CDN principal)
+    const cloudinaryUpload = async (): Promise<string | null> => {
+      if (!hasCloudinary) return null;
+      try {
+        const { createHmac } = await import("crypto");
+        const timestamp = Math.round(Date.now() / 1000);
+        const folder    = "sos-le-plug/videos";
+        const publicId  = `product-${Date.now()}`;
+        const paramStr  = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
+        const signature = createHmac("sha1", CDN_SECRET!).update(paramStr).digest("hex");
+        const cdnForm = new FormData();
+        cdnForm.append("file", new Blob([buffer], { type: mimetype }), filename);
+        cdnForm.append("api_key",    CDN_KEY!);
+        cdnForm.append("timestamp",  String(timestamp));
+        cdnForm.append("folder",     folder);
+        cdnForm.append("public_id",  publicId);
+        cdnForm.append("signature",  signature);
+        const cdnRes  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`, {
+          method: "POST", body: cdnForm as any,
+        });
+        const cdnData = await cdnRes.json() as any;
+        if (cdnData.secure_url) return cdnData.secure_url as string;
+        console.warn("Cloudinary upload failed:", cdnData.error?.message);
+        return null;
+      } catch (e: any) { console.warn("Cloudinary upload error:", e.message); return null; }
+    };
 
-      // ── Étape 2 : Upload Cloudinary (CDN principal — si credentials configurés)
-      const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
-      const API_KEY = process.env.CLOUDINARY_API_KEY;
-      const API_SECRET = process.env.CLOUDINARY_API_SECRET;
+    if (hasCloudinary) {
+      // ── Les deux uploads démarrent EN PARALLÈLE
+      const cdnPromise = cloudinaryUpload();
+      const tgPromise  = telegramBackup(); // démarre en même temps — n'attend pas CDN
 
-      if (CLOUD_NAME && API_KEY && API_SECRET) {
-        try {
-          const { createHmac } = await import("crypto");
-          const timestamp = Math.round(Date.now() / 1000);
-          const folder = "sos-le-plug/videos";
-          const publicId = `product-${Date.now()}`;
+      const cdnUrl = await cdnPromise;
 
-          // Signature Cloudinary : SHA1(sorted_params + api_secret)
-          const paramStr = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
-          const signature = createHmac("sha1", API_SECRET).update(paramStr).digest("hex");
-
-          const cdnForm = new FormData();
-          cdnForm.append("file", new Blob([req.file.buffer], { type: req.file.mimetype || "video/mp4" }), filename);
-          cdnForm.append("api_key", API_KEY);
-          cdnForm.append("timestamp", String(timestamp));
-          cdnForm.append("folder", folder);
-          cdnForm.append("public_id", publicId);
-          cdnForm.append("signature", signature);
-
-          const cdnRes = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`, {
-            method: "POST",
-            body: cdnForm as any,
-          });
-          const cdnData = await cdnRes.json() as any;
-
-          if (cdnData.secure_url) {
-            console.log(`✅ Vidéo uploadée sur Cloudinary: ${cdnData.secure_url} (backup Telegram: ${telegramProxyUrl})`);
-            // Cloudinary CDN = URL principale ; Telegram = backup stocké dans le log
-            res.json({ url: cdnData.secure_url, telegramBackup: telegramProxyUrl });
-            return;
-          } else {
-            console.warn("Cloudinary upload failed:", cdnData.error?.message || JSON.stringify(cdnData));
-          }
-        } catch (cdnErr: any) {
-          console.warn("Cloudinary upload error (fallback Telegram):", cdnErr.message);
-        }
+      if (cdnUrl) {
+        // Cloudinary prêt → répondre IMMÉDIATEMENT (Telegram continue en arrière-plan)
+        res.json({ url: cdnUrl });
+        tgPromise.then(u => u && console.log(`📹 Telegram backup OK: ${u}`)).catch(() => {});
+        return;
       }
 
-      // Fallback : URL Telegram proxiée (fonctionnelle même sans Cloudinary)
-      console.log(`📹 Vidéo stockée sur Telegram: ${telegramProxyUrl}`);
-      res.json({ url: telegramProxyUrl });
-    } catch (err: any) {
-      console.error("Telegram video upload error:", err);
-      res.status(500).json({ message: "Erreur upload vidéo: " + (err.message || "inconnue") });
+      // Cloudinary a échoué → attendre Telegram (déjà en cours)
+      const tgUrl = await tgPromise;
+      if (tgUrl) { res.json({ url: tgUrl }); return; }
+      res.status(500).json({ message: "Upload vidéo échoué (Cloudinary et Telegram en échec)" });
+      return;
+    }
+
+    // ── Telegram only (sendDocument = rapide car pas de traitement vidéo)
+    const tgUrl = await telegramBackup();
+    if (tgUrl) {
+      console.log(`📹 Vidéo stockée sur Telegram: ${tgUrl}`);
+      res.json({ url: tgUrl });
+    } else {
+      res.status(500).json({ message: "Erreur upload vidéo" });
     }
     return;
   }
