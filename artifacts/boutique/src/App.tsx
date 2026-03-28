@@ -178,21 +178,24 @@ function App() {
 
     /* ── Safe areas Telegram → CSS variables ── */
     const applySafeAreas = () => {
-      // safeAreaInset = barre statut téléphone (notch/status bar)
-      // contentSafeAreaInset = barre Telegram flottante (bouton X Fermer)
-      // Il faut ADDITIONNER les deux, pas prendre le max
+      // En mode NON-fullscreen, Telegram positionne lui-même le WebView sous la barre statut
+      // → aucun padding nécessaire de notre côté
+      // En mode FULLSCREEN uniquement, on additionne barre statut + barre Telegram flottante
+      const isFullscreen = !!tg.isFullscreen; // NE PAS utiliser isExpanded (= true en mode normal aussi)
+      if (!isFullscreen) {
+        document.documentElement.style.setProperty("--tg-safe-top",    "0px");
+        document.documentElement.style.setProperty("--tg-safe-bottom", "0px");
+        return;
+      }
       const devT = tg.safeAreaInset?.top    ?? 0;
       const devB = tg.safeAreaInset?.bottom ?? 0;
       const tgT  = tg.contentSafeAreaInset?.top    ?? 0;
       const tgB  = tg.contentSafeAreaInset?.bottom ?? 0;
       const sumT = devT + tgT;
       const sumB = devB + tgB;
-      // Fallback : si API renvoie 0 en fullscreen → ~80px haut (statut 24 + barre TG 56), 20px bas
-      const isFullscreen = !!(tg.isFullscreen || tg.isExpanded);
-      const t = sumT || (isFullscreen ? 80 : 0);
-      const b = sumB || (isFullscreen ? 20 : 0);
-      document.documentElement.style.setProperty("--tg-safe-bottom", `${b}px`);
-      document.documentElement.style.setProperty("--tg-safe-top",    `${t}px`);
+      // Fallback si API renvoie 0 : ~80px haut (statut 24 + barre TG 56), 20px bas
+      document.documentElement.style.setProperty("--tg-safe-top",    `${sumT || 80}px`);
+      document.documentElement.style.setProperty("--tg-safe-bottom", `${sumB || 20}px`);
     };
     applySafeAreas();
     try { tg.onEvent?.("safeAreaChanged",        applySafeAreas); } catch {}
