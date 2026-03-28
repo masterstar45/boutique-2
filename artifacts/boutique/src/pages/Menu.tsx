@@ -27,7 +27,7 @@ export default function Menu() {
 
   return (
     <div className="min-h-screen relative">
-      <TopBar subtitle="Collection" />
+      <TopBar branded subtitle="Collection" />
 
       {/* Header greeting */}
       <div className="px-5 pt-5 pb-4">
