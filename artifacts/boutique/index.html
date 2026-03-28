@@ -19,6 +19,25 @@
           tg.setHeaderColor('#080603');
           tg.setBackgroundColor('#080603');
           tg.setBottomBarColor('#080603');
+
+          /* ── Safe areas CSS variables (dès le chargement) ── */
+          var rawT = (tg.safeAreaInset && tg.safeAreaInset.top)    || (tg.contentSafeAreaInset && tg.contentSafeAreaInset.top)    || 0;
+          var rawB = (tg.safeAreaInset && tg.safeAreaInset.bottom) || (tg.contentSafeAreaInset && tg.contentSafeAreaInset.bottom) || 0;
+          var isFs = !!(tg.isFullscreen || tg.isExpanded);
+          var t = rawT || (isFs ? 44 : 0);
+          var b = rawB || (isFs ? 20 : 0);
+          document.documentElement.style.setProperty('--tg-safe-top',    t + 'px');
+          document.documentElement.style.setProperty('--tg-safe-bottom', b + 'px');
+
+          /* Mise à jour après que le fullscreen soit activé */
+          try {
+            tg.onEvent('safeAreaChanged', function() {
+              var nt = (tg.safeAreaInset && tg.safeAreaInset.top)    || 0;
+              var nb = (tg.safeAreaInset && tg.safeAreaInset.bottom) || 0;
+              if (nt) document.documentElement.style.setProperty('--tg-safe-top',    nt + 'px');
+              if (nb) document.documentElement.style.setProperty('--tg-safe-bottom', nb + 'px');
+            });
+          } catch(e) {}
         }
       })();
     </script>

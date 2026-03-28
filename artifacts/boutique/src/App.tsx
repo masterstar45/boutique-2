@@ -178,8 +178,12 @@ function App() {
 
     /* ── Safe areas Telegram → CSS variables ── */
     const applySafeAreas = () => {
-      const b = tg.safeAreaInset?.bottom ?? tg.contentSafeAreaInset?.bottom ?? 0;
-      const t = tg.safeAreaInset?.top    ?? tg.contentSafeAreaInset?.top    ?? 0;
+      const rawB = tg.safeAreaInset?.bottom ?? tg.contentSafeAreaInset?.bottom ?? 0;
+      const rawT = tg.safeAreaInset?.top    ?? tg.contentSafeAreaInset?.top    ?? 0;
+      // En plein écran, si l'API renvoie 0, utiliser les valeurs standard iOS (44px top, 20px bottom)
+      const isFullscreen = !!(tg.isFullscreen || tg.isExpanded);
+      const b = rawB || (isFullscreen ? 20 : 0);
+      const t = rawT || (isFullscreen ? 44 : 0);
       document.documentElement.style.setProperty("--tg-safe-bottom", `${b}px`);
       document.documentElement.style.setProperty("--tg-safe-top",    `${t}px`);
     };

@@ -114,8 +114,9 @@ export default function ProductDetail() {
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.1 }}
         onClick={() => navigate("/menu")}
-        className="fixed top-4 left-4 z-50 w-11 h-11 flex items-center justify-center rounded-full active:scale-90 transition-all"
+        className="fixed left-4 z-50 w-11 h-11 flex items-center justify-center rounded-full active:scale-90 transition-all"
         style={{
+          top: "calc(max(env(safe-area-inset-top, 0px), var(--tg-safe-top, 0px)) + 16px)",
           background: "rgba(8,6,3,0.75)",
           backdropFilter: "blur(16px)",
           border: `1px solid ${GOLD}0.2)`,
@@ -150,8 +151,9 @@ export default function ProductDetail() {
 
         {/* Sticker */}
         {product.sticker && (
-          <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+          <div className="absolute right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full"
             style={{
+              top: "calc(max(env(safe-area-inset-top, 0px), var(--tg-safe-top, 0px)) + 16px)",
               background: "rgba(8,6,3,0.8)",
               backdropFilter: "blur(12px)",
               border: `1px solid ${GOLD}0.25)`,
