@@ -841,56 +841,54 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
 
           {/* Image */}
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Image *</label>
-            <input ref={imageRef} type="file" accept="image/*" className="sr-only" onChange={handleImageFile} />
+            <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Image *</span>
+            <input id="admin-image-upload" ref={imageRef} type="file" accept="image/*" className="sr-only" onChange={handleImageFile} />
             {form.imageUrl ? (
               <div className="relative rounded-xl overflow-hidden">
                 <img src={form.imageUrl} alt="" className="w-full h-36 object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 <div className="absolute bottom-2 right-2 flex gap-1.5">
-                  <button onClick={() => imageRef.current?.click()} className="bg-primary/90 backdrop-blur-sm rounded-lg px-2.5 py-1 text-xs font-bold flex items-center gap-1">
+                  <label htmlFor="admin-image-upload" className="cursor-pointer bg-primary/90 backdrop-blur-sm rounded-lg px-2.5 py-1 text-xs font-bold flex items-center gap-1">
                     <Upload className="w-3 h-3" /> Changer
-                  </button>
-                  <button onClick={() => { set("imageUrl", ""); if (imageRef.current) imageRef.current.value = ""; }} className="bg-red-500/80 backdrop-blur-sm rounded-lg p-1">
+                  </label>
+                  <button type="button" onClick={() => { set("imageUrl", ""); if (imageRef.current) imageRef.current.value = ""; }} className="bg-red-500/80 backdrop-blur-sm rounded-lg p-1">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
               </div>
             ) : (
-              <button onClick={() => imageRef.current?.click()} disabled={imageLoading}
-                className="w-full h-28 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-95">
+              <label htmlFor="admin-image-upload" className={`w-full h-28 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center gap-2 text-muted-foreground active:scale-95 transition-all cursor-pointer ${imageLoading ? "opacity-50 pointer-events-none" : "hover:border-primary/40 hover:bg-primary/5"}`}>
                 {imageLoading ? <span className="text-xs animate-pulse">Chargement…</span> : (
                   <><ImageIcon className="w-6 h-6 opacity-60" /><span className="text-xs">Importer une image</span></>
                 )}
-              </button>
+              </label>
             )}
           </div>
 
           {/* Vidéo */}
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Vidéo (optionnel)</label>
-            <input ref={videoRef} type="file" accept="video/mp4,video/quicktime,video/mov,video/*" className="sr-only" onChange={handleVideoFile} />
+            <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Vidéo (optionnel)</span>
+            <input id="admin-video-upload" ref={videoRef} type="file" accept="video/mp4,video/quicktime,video/mov,video/*" className="sr-only" onChange={handleVideoFile} />
             {form.videoUrl ? (
               <div className="relative rounded-xl overflow-hidden bg-black">
                 <video src={form.videoUrl} className="w-full h-32 object-cover" muted playsInline />
                 <div className="absolute bottom-2 right-2 flex gap-1.5">
-                  <button onClick={() => videoRef.current?.click()} className="bg-primary/90 backdrop-blur-sm rounded-lg px-2.5 py-1 text-xs font-bold flex items-center gap-1">
+                  <label htmlFor="admin-video-upload" className="cursor-pointer bg-primary/90 backdrop-blur-sm rounded-lg px-2.5 py-1 text-xs font-bold flex items-center gap-1">
                     <Upload className="w-3 h-3" /> Changer
-                  </button>
-                  <button onClick={() => { set("videoUrl", ""); if (videoRef.current) videoRef.current.value = ""; }} className="bg-red-500/80 backdrop-blur-sm rounded-lg p-1">
+                  </label>
+                  <button type="button" onClick={() => { set("videoUrl", ""); if (videoRef.current) videoRef.current.value = ""; }} className="bg-red-500/80 backdrop-blur-sm rounded-lg p-1">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
               </div>
             ) : (
-              <button onClick={() => videoRef.current?.click()} disabled={videoLoading}
-                className="w-full h-20 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-95">
+              <label htmlFor="admin-video-upload" className={`w-full h-20 border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center gap-2 text-muted-foreground active:scale-95 transition-all cursor-pointer ${videoLoading ? "opacity-50 pointer-events-none" : "hover:border-primary/40 hover:bg-primary/5"}`}>
                 {videoLoading ? (
                   <><span className="text-xs animate-pulse">Upload en cours…</span><span className="text-[10px] text-muted-foreground">Ne ferme pas cette fenêtre</span></>
                 ) : (
-                  <><Video className="w-5 h-5 opacity-60" /><span className="text-xs">Importer une vidéo (max 50 Mo)</span><span className="text-[10px] text-muted-foreground">MP4, WebM, MOV</span></>
+                  <><Video className="w-5 h-5 opacity-60" /><span className="text-xs">Importer une vidéo (max 50 Mo)</span><span className="text-[10px] text-muted-foreground">MP4, MOV</span></>
                 )}
-              </button>
+              </label>
             )}
           </div>
 
