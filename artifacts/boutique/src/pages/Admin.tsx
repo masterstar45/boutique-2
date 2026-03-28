@@ -1166,7 +1166,7 @@ function BotStartTab() {
               </>
             )}
           </div>
-          <input type="file" accept="image/*,video/*" onChange={handleMediaSelect} className="hidden" />
+          <input type="file" accept="image/jpeg,image/png,image/gif,image/*,video/mp4,video/quicktime,video/*" onChange={handleMediaSelect} className="sr-only" />
         </label>
 
         {mediaFile && (
