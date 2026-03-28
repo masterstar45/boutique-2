@@ -34,13 +34,26 @@ const ADMIN_PANEL_BUTTON = {
 async function notifyAdmin(text: string, extra: object = {}) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
+
+  // Récupérer tous les admins enregistrés en DB + le super admin
+  let adminIds: string[] = [ADMIN_CHAT_ID];
   try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text, parse_mode: "HTML", ...ADMIN_PANEL_BUTTON, ...extra }),
-    });
+    const rows = await db.select({ telegramId: admins.telegramId }).from(admins);
+    const dbIds = rows.map(r => r.telegramId).filter(Boolean) as string[];
+    // Fusionner sans doublons
+    adminIds = [...new Set([ADMIN_CHAT_ID, ...dbIds])];
   } catch {}
+
+  const payload = { text, parse_mode: "HTML", ...ADMIN_PANEL_BUTTON, ...extra };
+  await Promise.allSettled(
+    adminIds.map(chatId =>
+      fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, ...payload }),
+      })
+    )
+  );
 }
 
 // ─── Helper : infos client ────────────────────────────────────────────────────
