@@ -561,6 +561,7 @@ router.delete("/cart/:id", async (req, res) => {
 // ─── Checkout ─────────────────────────────────────────────────────────────────
 
 router.post("/checkout", async (req, res) => {
+  try {
   const { sessionId, chatId, deliveryType, deliveryAddress, promoCode, pointsToRedeem } = req.body;
   if (!sessionId || !deliveryType) {
     res.status(400).json({ message: "sessionId and deliveryType are required" });
@@ -659,6 +660,10 @@ router.post("/checkout", async (req, res) => {
   ).catch(() => {});
 
   res.json(order);
+  } catch (err: any) {
+    console.error("Checkout error:", err);
+    res.status(500).json({ message: err?.message || "Erreur serveur lors du checkout" });
+  }
 });
 
 // ─── Orders ───────────────────────────────────────────────────────────────────

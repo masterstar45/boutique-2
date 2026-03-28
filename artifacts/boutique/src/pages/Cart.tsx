@@ -81,6 +81,10 @@ export default function Cart() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetCartQueryKey(sessionId) });
         setStep("confirmed");
+      },
+      onError: (err: any) => {
+        const msg = err?.response?.data?.message || err?.message || "Erreur inconnue";
+        alert("❌ Commande non envoyée : " + msg);
       }
     }
   });
