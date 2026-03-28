@@ -27,6 +27,7 @@ const TABS = [
   { id: "promos",    label: "Promos",   icon: Tag },
   { id: "notifs",    label: "Notifs",   icon: Bell },
   { id: "bot",       label: "Bot",      icon: Users },
+  { id: "livreurs",  label: "Livreurs", icon: Truck },
   { id: "admins",    label: "Admins",   icon: UserCog },
 ];
 
@@ -80,6 +81,33 @@ export default function Admin() {
     } finally { setOrdersLoading(false); }
   };
   useEffect(() => { if (tab === "orders") fetchEnrichedOrders(); }, [tab]);
+
+  // ── Livreurs (pour l'onglet commandes) ──
+  const [livreursList, setLivreursList] = useState<any[]>([]);
+  const [selectedLivreur, setSelectedLivreur] = useState<Record<string, string>>({});
+  const [transmitting, setTransmitting] = useState<string | null>(null);
+  const [transmitOk, setTransmitOk] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tab === "orders" || tab === "livreurs") {
+      fetch(`${API}/admin/livreurs`).then(r => r.json()).then(setLivreursList).catch(() => {});
+    }
+  }, [tab]);
+
+  const handleTransmit = async (orderCode: string) => {
+    const livreurId = selectedLivreur[orderCode];
+    if (!livreurId) return;
+    setTransmitting(orderCode);
+    try {
+      const r = await fetch(`${API}/admin/orders/${orderCode}/transmit-livreur`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ livreurId: Number(livreurId) }),
+      });
+      if (r.ok) { setTransmitOk(orderCode); setTimeout(() => setTransmitOk(null), 3000); }
+      else { const d = await r.json(); alert(d.error || "Erreur"); }
+    } finally { setTransmitting(null); }
+  };
 
   // ── Order contact & notes ──
   const [contactOrder, setContactOrder] = useState<string | null>(null);
@@ -418,6 +446,47 @@ export default function Admin() {
                                   {savingNotes === order.orderCode ? "Sauvegarde…" : "💾 Sauvegarder la note"}
                                 </button>
                               </div>
+
+                              {/* ── Transmission livreur ── */}
+                              {order.deliveryType === "delivery" && (
+                                <div className="pt-1 border-t border-white/5">
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
+                                    <Truck className="w-3 h-3" /> Transmettre au livreur
+                                  </p>
+                                  {livreursList.filter(l => l.isActive).length === 0 ? (
+                                    <p className="text-[10px] text-amber-400/80 text-center py-2">
+                                      Aucun livreur actif — configure-les dans l'onglet "Livreurs"
+                                    </p>
+                                  ) : (
+                                    <div className="space-y-1.5">
+                                      <select
+                                        value={selectedLivreur[order.orderCode] || ""}
+                                        onChange={e => setSelectedLivreur(s => ({ ...s, [order.orderCode]: e.target.value }))}
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all appearance-none"
+                                      >
+                                        <option value="">— Choisir un livreur —</option>
+                                        {livreursList.filter(l => l.isActive).map(l => (
+                                          <option key={l.id} value={String(l.id)}>
+                                            🛵 {l.name}{l.username ? ` (@${l.username})` : ""}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <button
+                                        onClick={() => handleTransmit(order.orderCode)}
+                                        disabled={!selectedLivreur[order.orderCode] || transmitting === order.orderCode}
+                                        className="w-full py-2 rounded-xl text-xs font-bold active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                        style={{ background: transmitOk === order.orderCode ? "rgba(16,185,129,0.2)" : "linear-gradient(135deg, rgba(201,160,76,0.25), rgba(240,208,112,0.15))", border: `1px solid ${transmitOk === order.orderCode ? "rgba(16,185,129,0.4)" : "rgba(201,160,76,0.3)"}`, color: transmitOk === order.orderCode ? "#10b981" : "#f0d070" }}
+                                      >
+                                        {transmitOk === order.orderCode
+                                          ? <><Check className="w-3.5 h-3.5" /> Transmis avec succès !</>
+                                          : transmitting === order.orderCode
+                                          ? "Envoi en cours…"
+                                          : <><Send className="w-3.5 h-3.5" /> Transmettre via Telegram</>}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </motion.div>
                         )}
@@ -522,6 +591,9 @@ export default function Admin() {
 
             {/* ── BOT /start ── */}
             {tab === "bot" && <BotStartTab />}
+
+            {/* ── LIVREURS ── */}
+            {tab === "livreurs" && <LivreursTab livreursList={livreursList} onRefresh={() => fetch(`${API}/admin/livreurs`).then(r => r.json()).then(setLivreursList).catch(() => {})} />}
 
             {/* ── ADMINS ── */}
             {tab === "admins" && <AdminsTab />}
@@ -1573,6 +1645,114 @@ function UsersTab() {
 }
 
 // ─── Admins Tab ───────────────────────────────────────────────────────────────
+
+function LivreursTab({ livreursList, onRefresh }: { livreursList: any[]; onRefresh: () => void }) {
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [chatId, setChatId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const handleAdd = async () => {
+    if (!name.trim() || !chatId.trim()) return;
+    setLoading(true); setErr("");
+    try {
+      const r = await fetch(`${API}/admin/livreurs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), username: username.trim() || null, chatId: chatId.trim() }),
+      });
+      if (r.status === 409) { setErr("Ce livreur existe déjà (Chat ID en double)."); return; }
+      if (!r.ok) { const d = await r.json(); setErr(d.error || "Erreur"); return; }
+      setName(""); setUsername(""); setChatId("");
+      onRefresh();
+    } finally { setLoading(false); }
+  };
+
+  const handleToggle = async (id: number) => {
+    await fetch(`${API}/admin/livreurs/${id}/toggle`, { method: "PATCH" });
+    onRefresh();
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Supprimer ce livreur ?")) return;
+    await fetch(`${API}/admin/livreurs/${id}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Formulaire ajout */}
+      <div className="glass-panel p-5 rounded-[1.5rem]">
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+          <Truck className="w-4 h-4 text-primary" /> Ajouter un livreur
+        </h2>
+        <div className="space-y-2.5">
+          <input value={name} onChange={e => setName(e.target.value)}
+            placeholder="Nom du livreur *"
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
+          <input value={username} onChange={e => setUsername(e.target.value)}
+            placeholder="@username Telegram (optionnel)"
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
+          <input value={chatId} onChange={e => setChatId(e.target.value)}
+            placeholder="Chat ID Telegram * (ex: 123456789)"
+            type="number"
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
+          {err && <p className="text-xs text-red-400 font-bold">{err}</p>}
+          <button onClick={handleAdd} disabled={!name.trim() || !chatId.trim() || loading}
+            className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-50 active:scale-95 transition-all flex items-center justify-center gap-2"
+            style={{ background: "linear-gradient(135deg, rgba(201,160,76,0.3), rgba(240,208,112,0.2))", border: "1px solid rgba(201,160,76,0.4)", color: "#f0d070" }}>
+            <Plus className="w-4 h-4" /> {loading ? "Ajout…" : "Ajouter le livreur"}
+          </button>
+        </div>
+      </div>
+
+      {/* Liste livreurs */}
+      <div className="space-y-2">
+        {livreursList.length === 0 && (
+          <div className="text-center py-10 text-muted-foreground">
+            <Truck className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Aucun livreur configuré</p>
+          </div>
+        )}
+        {livreursList.map(l => (
+          <div key={l.id} className="glass-panel rounded-[1.25rem] p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg"
+              style={{ background: l.isActive ? "rgba(201,160,76,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${l.isActive ? "rgba(201,160,76,0.3)" : "rgba(255,255,255,0.1)"}` }}>
+              🛵
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm truncate" style={{ color: l.isActive ? "#f0d070" : "rgba(255,255,255,0.4)" }}>
+                {l.name}
+              </p>
+              {l.username && <p className="text-[10px] text-muted-foreground truncate">@{l.username}</p>}
+              <p className="text-[10px] font-mono text-muted-foreground/60">ID: {l.chatId}</p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button onClick={() => handleToggle(l.id)}
+                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold active:scale-95 transition-all"
+                style={{ background: l.isActive ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${l.isActive ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.1)"}`, color: l.isActive ? "#10b981" : "rgba(255,255,255,0.4)" }}>
+                {l.isActive ? "Actif" : "Inactif"}
+              </button>
+              <button onClick={() => handleDelete(l.id)}
+                className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 active:scale-95 transition-all">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Aide */}
+      <div className="glass-panel p-4 rounded-[1.25rem] text-xs text-muted-foreground space-y-1" style={{ border: "1px solid rgba(201,160,76,0.15)" }}>
+        <p className="font-bold text-[#f0d070] flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> Comment ça marche</p>
+        <p>1. Ajoute les livreurs ici avec leur Chat ID Telegram (le bot doit avoir un historique avec eux).</p>
+        <p>2. Dans les commandes en livraison, ouvre les "Détails" et sélectionne un livreur pour lui envoyer la commande.</p>
+        <p>3. Le livreur reçoit un message Telegram avec tous les détails de la livraison.</p>
+      </div>
+    </div>
+  );
+}
 
 function AdminsTab() {
   const [adminsList, setAdminsList] = useState<any[]>([]);

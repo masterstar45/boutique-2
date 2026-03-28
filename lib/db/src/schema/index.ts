@@ -147,6 +147,15 @@ export const botSettings = pgTable("bot_settings", {
   value: text("value").notNull(),
 });
 
+export const livreurs = pgTable("livreurs", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  username: text("username"),
+  chatId: text("chat_id").notNull().unique(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: text("created_at").notNull(),
+});
+
 export const insertProductSchema = createInsertSchema(products).omit({ id: true });
 export const insertCartItemSchema = createInsertSchema(cartItems).omit({ id: true });
 export const insertAdminSchema = createInsertSchema(admins).omit({ id: true });
@@ -193,6 +202,7 @@ export type SavedAddress = typeof savedAddresses.$inferSelect;
 export type InsertSavedAddress = z.infer<typeof insertSavedAddressSchema>;
 export type ClientButton = typeof clientButtons.$inferSelect;
 export type InsertClientButton = z.infer<typeof insertClientButtonSchema>;
+export type Livreur = typeof livreurs.$inferSelect;
 
 export type CartItemWithProduct = CartItem & { product: Product };
 export type FavoriteWithProduct = Favorite & { product: Product };

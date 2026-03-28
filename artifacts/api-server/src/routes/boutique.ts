@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import {
   products, cartItems, orders, reviews, promoCodes, dailyStats,
   loyaltyBalances, loyaltyTransactions, loyaltySettings,
-  favorites, savedAddresses, botUsers, admins, clientButtons, botSettings,
+  favorites, savedAddresses, botUsers, admins, clientButtons, botSettings, livreurs,
   type InsertProduct, type InsertCartItem, type InsertOrder,
   type InsertReview, type InsertPromoCode, type InsertFavorite,
 } from "@workspace/db";
@@ -990,6 +990,120 @@ router.post("/admin/bot-settings", async (req, res) => {
 router.delete("/admin/client-buttons/:id", async (req, res) => {
   await db.delete(clientButtons).where(eq(clientButtons.id, Number(req.params.id)));
   res.json({ ok: true });
+});
+
+// ─── Livreurs ─────────────────────────────────────────────────────────────────
+
+// Migration runtime : ajout colonne livreur_id sur orders
+;(async () => {
+  try {
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN livreur_id INTEGER`);
+  } catch {}
+})();
+
+router.get("/admin/livreurs", async (_req, res) => {
+  const rows = await db.select().from(livreurs).orderBy(desc(livreurs.id));
+  res.json(rows);
+});
+
+router.post("/admin/livreurs", async (req, res) => {
+  const { name, username, chatId } = req.body;
+  if (!name || !chatId) return res.status(400).json({ error: "name et chatId requis" });
+  const [existing] = await db.select().from(livreurs).where(eq(livreurs.chatId, chatId));
+  if (existing) return res.status(409).json({ error: "Ce livreur existe déjà" });
+  const [row] = await db.insert(livreurs).values({
+    name: name.trim(),
+    username: username?.trim().replace(/^@/, "") || null,
+    chatId: chatId.trim(),
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  }).returning();
+  res.json(row);
+});
+
+router.patch("/admin/livreurs/:id/toggle", async (req, res) => {
+  const id = Number(req.params.id);
+  const [row] = await db.select().from(livreurs).where(eq(livreurs.id, id));
+  if (!row) return res.status(404).json({ error: "Livreur introuvable" });
+  const [updated] = await db.update(livreurs).set({ isActive: !row.isActive }).where(eq(livreurs.id, id)).returning();
+  res.json(updated);
+});
+
+router.delete("/admin/livreurs/:id", async (req, res) => {
+  await db.delete(livreurs).where(eq(livreurs.id, Number(req.params.id)));
+  res.json({ ok: true });
+});
+
+// Assigner un livreur à une commande
+router.patch("/admin/orders/:orderCode/livreur", async (req, res) => {
+  const { livreurId } = req.body;  // null pour désassigner
+  await db.execute(sql`UPDATE orders SET livreur_id = ${livreurId ?? null} WHERE order_code = ${req.params.orderCode}`);
+  res.json({ ok: true });
+});
+
+// Transmettre la commande au livreur via Telegram
+router.post("/admin/orders/:orderCode/transmit-livreur", async (req, res) => {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return res.status(500).json({ error: "Token manquant" });
+
+  const { livreurId } = req.body;
+  if (!livreurId) return res.status(400).json({ error: "livreurId requis" });
+
+  const [livreur] = await db.select().from(livreurs).where(eq(livreurs.id, Number(livreurId)));
+  if (!livreur) return res.status(404).json({ error: "Livreur introuvable" });
+
+  // Récupère la commande
+  const [order] = await db.select().from(orders).where(eq(orders.orderCode, req.params.orderCode));
+  if (!order) return res.status(404).json({ error: "Commande introuvable" });
+
+  let parsed: any = {};
+  try { parsed = JSON.parse(order.orderData); } catch {}
+
+  const items = (parsed.items || []).map((i: any) =>
+    `• ${i.product?.name || "?"} ×${i.quantity} — ${((i.selectedPrice || i.product?.price || 0) / 100).toFixed(2)}€${i.selectedWeight ? ` (${i.selectedWeight})` : ""}`
+  ).join("\n");
+  const total = (parsed.items || []).reduce((s: number, i: any) => s + (i.selectedPrice || i.product?.price || 0) * i.quantity, 0);
+
+  // Récupère les infos client si dispo
+  const chatIdStr = order.chatId;
+  let clientInfo = chatIdStr ? `ID: ${chatIdStr}` : "Anonyme";
+  if (chatIdStr) {
+    const [user] = await db.select().from(botUsers).where(eq(botUsers.chatId, chatIdStr));
+    if (user) clientInfo = `${user.firstName || ""}${user.username ? ` @${user.username}` : ""}`.trim() || clientInfo;
+  }
+
+  const msg = [
+    `🛵 <b>Nouvelle livraison à effectuer</b>`,
+    ``,
+    `📦 Commande : <b>#${order.orderCode}</b>`,
+    `👤 Client : ${clientInfo}`,
+    parsed.deliveryAddress ? `📍 Adresse : ${parsed.deliveryAddress}` : `🏪 Retrait en magasin`,
+    parsed.deliveryNotes ? `📝 Note client : ${parsed.deliveryNotes}` : null,
+    ``,
+    `🛍 Articles :`,
+    items,
+    ``,
+    `💰 Total : <b>${(total / 100).toFixed(2)}€</b>`,
+    parsed.promoCode ? `🏷️ Promo utilisée : ${parsed.promoCode}` : null,
+    ``,
+    `⚡ SOS LE PLUG`,
+  ].filter(l => l !== null).join("\n");
+
+  try {
+    const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: livreur.chatId, text: msg, parse_mode: "HTML" }),
+    });
+    const tgData: any = await tgRes.json();
+    if (!tgData.ok) return res.status(400).json({ error: tgData.description || "Erreur Telegram" });
+
+    // Assigne le livreur à la commande
+    await db.execute(sql`UPDATE orders SET livreur_id = ${livreurId} WHERE order_code = ${req.params.orderCode}`);
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── Admin List Management ────────────────────────────────────────────────────
