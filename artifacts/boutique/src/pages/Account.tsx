@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useSession } from "@/hooks/use-session";
 import { useGetMyOrders } from "@workspace/api-client-react";
-import { User, Package, KeyRound, Save, Shield } from "lucide-react";
+import { User, Package, KeyRound, Save, Shield, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { TopBar } from "@/components/TopBar";
 
