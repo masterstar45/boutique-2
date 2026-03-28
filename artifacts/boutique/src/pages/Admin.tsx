@@ -291,7 +291,9 @@ export default function Admin() {
                 )}
                 {enrichedOrders.map(order => {
                   const parsed = (() => { try { return JSON.parse(order.orderData); } catch { return {}; } })();
-                  const total = parsed.items?.reduce((s: number, i: any) => s + (i.selectedPrice || i.product?.price || 0) * i.quantity, 0) ?? 0;
+                  // selectedPrice in euros, product.price in centimes
+                  const getEuros = (i: any) => i.selectedPrice != null ? i.selectedPrice : (i.product?.price || 0) / 100;
+                  const total = parsed.items?.reduce((s: number, i: any) => s + getEuros(i) * i.quantity, 0) ?? 0;
                   const u = order.user;
                   const displayName = u?.firstName || u?.username
                     ? `${u.firstName || ""}${u.username ? ` @${u.username}` : ""}`.trim()
@@ -312,7 +314,7 @@ export default function Admin() {
                           <StatusBadge status={order.status} />
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className="font-bold text-primary">{(total / 100).toFixed(2)}€</p>
+                          <p className="font-bold text-primary">{total.toFixed(2)}€</p>
                           <p className="text-xs text-muted-foreground">{parsed.items?.length ?? 0} article{(parsed.items?.length ?? 0) > 1 ? "s" : ""}</p>
                         </div>
                       </div>
@@ -428,7 +430,7 @@ export default function Admin() {
                                   <img src={item.product?.imageUrl || ""} alt="" className="w-10 h-10 rounded-lg object-cover bg-white/5 shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold truncate">{item.product?.name}</p>
-                                    <p className="text-xs text-muted-foreground">{item.quantity}× · {((item.selectedPrice || item.product?.price || 0) / 100).toFixed(2)}€{item.selectedWeight ? ` · ${item.selectedWeight}` : ""}</p>
+                                    <p className="text-xs text-muted-foreground">{item.quantity}× · {(item.selectedPrice != null ? item.selectedPrice : (item.product?.price || 0) / 100).toFixed(2)}€{item.selectedWeight ? ` · ${item.selectedWeight}` : ""}</p>
                                   </div>
                                 </div>
                               ))}
@@ -1652,12 +1654,13 @@ function UsersTab() {
                     {!ordersLoading && !userOrders.length && <p className="text-xs text-center text-muted-foreground py-2">Aucune commande</p>}
                     {userOrders.map(o => {
                       const parsed = (() => { try { return JSON.parse(o.orderData); } catch { return {}; } })();
-                      const total = parsed.items?.reduce((s: number, i: any) => s + (i.selectedPrice || i.product?.price || 0) * i.quantity, 0) ?? 0;
+                      const getEuros2 = (i: any) => i.selectedPrice != null ? i.selectedPrice : (i.product?.price || 0) / 100;
+                      const total = parsed.items?.reduce((s: number, i: any) => s + getEuros2(i) * i.quantity, 0) ?? 0;
                       return (
                         <div key={o.id} className="flex items-center justify-between bg-black/20 rounded-xl px-3 py-2">
                           <div>
                             <p className="text-xs font-bold">#{o.orderCode}</p>
-                            <p className="text-[10px] text-muted-foreground">{(total / 100).toFixed(2)}€ · {parsed.items?.length ?? 0} art.</p>
+                            <p className="text-[10px] text-muted-foreground">{total.toFixed(2)}€ · {parsed.items?.length ?? 0} art.</p>
                           </div>
                           <StatusBadge status={o.status} />
                         </div>

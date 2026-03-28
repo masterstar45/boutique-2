@@ -239,8 +239,9 @@ function OrderCard({ order }: { order: any }) {
   try {
     const parsed = typeof order.orderData === "string" ? JSON.parse(order.orderData) : order.orderData;
     items = parsed?.items ?? [];
+    // selectedPrice is in euros; product.price is in centimes
     total = items.reduce((s: number, it: any) => {
-      const price = it.selectedPrice || it.product?.price || 0;
+      const price = it.selectedPrice != null ? it.selectedPrice : (it.product?.price || 0) / 100;
       return s + price * (it.quantity || 1);
     }, 0);
   } catch { }
@@ -284,7 +285,7 @@ function OrderCard({ order }: { order: any }) {
         <div className="shrink-0 flex items-center gap-2">
           {total > 0 && (
             <span className="font-black text-sm" style={{ color: "rgba(201,160,76,0.9)" }}>
-              {(total / 100).toFixed(0)}€
+              {total.toFixed(0)}€
             </span>
           )}
           <ChevronRight
@@ -310,13 +311,13 @@ function OrderCard({ order }: { order: any }) {
               {items.length > 0 ? items.map((it: any, i: number) => {
                 const name = it.product?.name ?? "Produit";
                 const weight = it.selectedWeight ?? null;
-                const price = it.selectedPrice || it.product?.price || 0;
+                const price = it.selectedPrice != null ? it.selectedPrice : (it.product?.price || 0) / 100;
                 return (
                   <div key={i} className="flex justify-between items-center text-xs">
                     <span className="text-white/60 font-medium">
                       {it.quantity}× {name}{weight ? ` (${weight})` : ""}
                     </span>
-                    <span className="font-bold text-white/50">{(price * it.quantity / 100).toFixed(0)}€</span>
+                    <span className="font-bold text-white/50">{(price * it.quantity).toFixed(0)}€</span>
                   </div>
                 );
               }) : (
@@ -327,7 +328,7 @@ function OrderCard({ order }: { order: any }) {
                   style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                   <span className="font-bold text-white/40 uppercase tracking-wider text-[10px]">Total</span>
                   <span className="font-black text-sm" style={{ background: "linear-gradient(135deg, #c9a04c, #f0d070)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-                    {(total / 100).toFixed(0)} €
+                    {total.toFixed(0)} €
                   </span>
                 </div>
               )}

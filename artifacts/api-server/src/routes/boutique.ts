@@ -427,10 +427,13 @@ router.post("/checkout", async (req, res) => {
   }).returning();
 
   // Add loyalty points if chatId provided
+  // NB: selectedPrice is in euros, product.price is in centimes → normalize to centimes
+  const priceInCents = (item: any) =>
+    item.selectedPrice != null ? item.selectedPrice * 100 : (item.product?.price || 0);
+
   if (chatId) {
     const totalAmount = itemsWithProducts.reduce((sum, item) => {
-      const price = item.selectedPrice || item.product?.price || 0;
-      return sum + price * item.quantity;
+      return sum + priceInCents(item) * item.quantity;
     }, 0);
     const pointsEarned = Math.floor(totalAmount / 100); // 1 point per euro
     if (pointsEarned > 0) {
@@ -460,8 +463,7 @@ router.post("/checkout", async (req, res) => {
   // Update daily stats
   const today = new Date().toISOString().split("T")[0];
   const totalRevenue = itemsWithProducts.reduce((s, item) => {
-    const price = item.selectedPrice || item.product?.price || 0;
-    return s + price * item.quantity;
+    return s + priceInCents(item) * item.quantity; // always centimes
   }, 0);
   const existing = await db.select().from(dailyStats).where(eq(dailyStats.date, today));
   if (existing.length === 0) {
@@ -471,12 +473,14 @@ router.post("/checkout", async (req, res) => {
   }
 
   // Notify admin of new order
+  const priceEuros = (item: any) =>
+    item.selectedPrice != null ? Number(item.selectedPrice) : (item.product?.price || 0) / 100;
   const articleList = itemsWithProducts.map(item => {
     const name = item.product?.name || "Produit";
-    const price = (((item as any).selectedPrice || item.product?.price || 0) / 100).toFixed(2);
+    const price = priceEuros(item).toFixed(2);
     return `  • ${item.quantity}× ${name} — ${price}€`;
   }).join("\n");
-  const delivLabel = deliveryType === "delivery" ? "🚚 Livraison" : "🏪 Click & Collect";
+  const delivLabel = deliveryType === "livraison" ? "🚚 Livraison" : "🏪 Click & Collect";
   const userLabel = chatId ? `Client #${chatId}` : "Client anonyme";
   notifyAdmin(
     `🛒 <b>Nouvelle commande !</b>\n\n` +
@@ -1125,10 +1129,12 @@ router.post("/admin/orders/:orderCode/transmit-livreur", async (req, res) => {
   let parsed: any = {};
   try { parsed = JSON.parse(order.orderData); } catch {}
 
+  // selectedPrice is in euros; product.price is in centimes
+  const getPriceEuros = (i: any) => i.selectedPrice != null ? Number(i.selectedPrice) : (i.product?.price || 0) / 100;
   const items = (parsed.items || []).map((i: any) =>
-    `• ${i.product?.name || "?"} ×${i.quantity} — ${((i.selectedPrice || i.product?.price || 0) / 100).toFixed(2)}€${i.selectedWeight ? ` (${i.selectedWeight})` : ""}`
+    `• ${i.product?.name || "?"} ×${i.quantity} — ${getPriceEuros(i).toFixed(2)}€${i.selectedWeight ? ` (${i.selectedWeight})` : ""}`
   ).join("\n");
-  const total = (parsed.items || []).reduce((s: number, i: any) => s + (i.selectedPrice || i.product?.price || 0) * i.quantity, 0);
+  const total = (parsed.items || []).reduce((s: number, i: any) => s + getPriceEuros(i) * i.quantity, 0);
 
   // Récupère les infos client si dispo
   const chatIdStr = order.chatId;
@@ -1149,7 +1155,7 @@ router.post("/admin/orders/:orderCode/transmit-livreur", async (req, res) => {
     `🛍 Articles :`,
     items,
     ``,
-    `💰 Total : <b>${(total / 100).toFixed(2)}€</b>`,
+    `💰 Total : <b>${total.toFixed(2)}€</b>`,
     parsed.promoCode ? `🏷️ Promo utilisée : ${parsed.promoCode}` : null,
     ``,
     `⚡ SOS LE PLUG`,
