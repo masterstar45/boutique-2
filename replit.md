@@ -57,6 +57,11 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- `src/routes/boutique.ts` — main boutique API (produits, commandes, clients, panier, admin, Telegram)
+- `src/routes/telegram.ts` — webhook Telegram pour @sosleplugbot (Mini App)
+- `src/lib/objectStorage.ts` + `objectAcl.ts` — client GCS (Replit Object Storage) pour stockage persistant des vidéos
+- **Upload fichiers** : `POST /api/upload` → multer memoryStorage → GCS (`product-uploads/{uuid}.ext`). `GET /api/gcs-media/:path` → stream depuis GCS avec support Range (seek vidéo). Dépendance : `@google-cloud/storage`.
+- `POST /api/admin/upload-start-media` → multer diskStorage → upload Telegram → fileId
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)

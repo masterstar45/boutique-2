@@ -815,6 +815,15 @@ router.get("/admin/stats", async (req, res) => {
   });
 });
 
+// Remet à zéro le revenu journalier d'aujourd'hui
+router.post("/admin/reset-daily-revenue", async (req, res) => {
+  const today = new Date().toISOString().split("T")[0];
+  await db.insert(dailyStats)
+    .values({ date: today, orderCount: 0, revenue: 0 })
+    .onConflictDoUpdate({ target: dailyStats.date, set: { revenue: 0 } });
+  res.json({ ok: true });
+});
+
 // ─── Client Buttons (/start) ─────────────────────────────────────────────────
 
 // Ensure the table + all columns exist.

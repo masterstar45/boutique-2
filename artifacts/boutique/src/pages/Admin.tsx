@@ -14,7 +14,7 @@ import {
   Clock, Truck, CheckCircle, AlertCircle, Eye, RefreshCw, BarChart3,
   Upload, Video, Image as ImageIcon, UserCog, UserCheck,
   MessageSquare, Send, Search, Lock, Unlock, FileText,
-  Bell, BellRing, Megaphone, Calendar, Radio,
+  Bell, BellRing, Megaphone, Calendar, Radio, RotateCcw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -61,6 +61,8 @@ export default function Admin() {
   const [orderDetail, setOrderDetail] = useState<any>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [editProduct, setEditProduct] = useState<any>(null);
+  const [resetRevenueConfirm, setResetRevenueConfirm] = useState(false);
+  const [resetRevenueLoading, setResetRevenueLoading] = useState(false);
   const qc = useQueryClient();
 
   // ── Enriched orders (with user info) ──
@@ -118,6 +120,15 @@ export default function Admin() {
     "📦 Votre commande est disponible.",
     "⚠️ Problème avec votre commande. Contactez-nous.",
   ];
+
+  const handleResetDailyRevenue = async () => {
+    setResetRevenueLoading(true);
+    try {
+      await fetch(`${API}/admin/reset-daily-revenue`, { method: "POST" });
+      await refetchStats();
+      setResetRevenueConfirm(false);
+    } finally { setResetRevenueLoading(false); }
+  };
 
   const { data: stats, refetch: refetchStats } = useGetAdminStats({} as any);
   const { data: ordersData, refetch: refetchOrders } = useListOrders({}, { query: { enabled: tab === "orders" } as any });
@@ -179,13 +190,30 @@ export default function Admin() {
             {tab === "dashboard" && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
+                  {/* Carte Revenus — cliquable pour remettre à zéro */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0 }}
+                    onClick={() => setResetRevenueConfirm(true)}
+                    className="glass-panel p-4 rounded-[1.5rem] cursor-pointer active:scale-95 transition-transform relative overflow-hidden"
+                    style={{ borderColor: "rgba(201,160,76,0.15)" }}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-400/10 flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <RotateCcw className="w-3.5 h-3.5 text-white/20 mt-1" />
+                    </div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest mb-0.5">Revenus</p>
+                    <p className="text-2xl font-black font-display text-emerald-400">{((stats?.totalRevenue || 0) / 100).toFixed(0)}€</p>
+                  </motion.div>
+
+                  {/* Autres cartes stats */}
                   {[
-                    { icon: DollarSign, label: "Revenus", value: `${((stats?.totalRevenue || 0) / 100).toFixed(0)}€`, color: "text-emerald-400", bg: "bg-emerald-400/10" },
                     { icon: ShoppingBag, label: "Commandes", value: stats?.totalOrders ?? 0, color: "text-blue-400", bg: "bg-blue-400/10" },
                     { icon: Users, label: "Clients", value: stats?.totalUsers ?? 0, color: "text-purple-400", bg: "bg-purple-400/10" },
                     { icon: Package, label: "Produits", value: stats?.totalProducts ?? 0, color: "text-amber-400", bg: "bg-amber-400/10" },
                   ].map((card, i) => (
-                    <motion.div key={i} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.06 }} className="glass-panel p-4 rounded-[1.5rem]">
+                    <motion.div key={i} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: (i + 1) * 0.06 }} className="glass-panel p-4 rounded-[1.5rem]">
                       <div className={`w-9 h-9 rounded-xl ${card.bg} flex items-center justify-center mb-3`}>
                         <card.icon className={`w-5 h-5 ${card.color}`} />
                       </div>
@@ -511,6 +539,59 @@ export default function Admin() {
             onCreate={data => createProduct({ data })}
             onUpdate={(id, data) => updateProduct({ id, data })}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Modal confirmation reset revenu journalier */}
+      <AnimatePresence>
+        {resetRevenueConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center"
+            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+            onClick={() => setResetRevenueConfirm(false)}
+          >
+            <motion.div
+              initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 320, damping: 30 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-[430px] rounded-t-[2rem] p-6 pb-10 space-y-4"
+              style={{ background: "#12100a", border: "1px solid rgba(201,160,76,0.15)", borderBottom: "none" }}
+            >
+              <div className="w-12 h-1 rounded-full bg-white/20 mx-auto mb-2" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                  <RotateCcw className="w-5 h-5 text-red-400" />
+                </div>
+                <div>
+                  <p className="font-bold text-sm">Remettre les revenus à zéro</p>
+                  <p className="text-xs text-muted-foreground">Le revenu d'aujourd'hui passera à 0€.</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground bg-white/5 rounded-xl px-4 py-3">
+                Cette action remet uniquement le compteur journalier à zéro. Les commandes existantes ne sont pas modifiées.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setResetRevenueConfirm(false)}
+                  className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-sm font-bold active:scale-95 transition-all"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleResetDailyRevenue}
+                  disabled={resetRevenueLoading}
+                  className="flex-1 py-3 rounded-xl text-sm font-bold active:scale-95 transition-all flex items-center justify-center gap-2"
+                  style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171" }}
+                >
+                  {resetRevenueLoading
+                    ? <RefreshCw className="w-4 h-4 animate-spin" />
+                    : <><RotateCcw className="w-4 h-4" /> Remettre à zéro</>
+                  }
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
