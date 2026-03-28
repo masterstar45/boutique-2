@@ -594,37 +594,6 @@ router.post("/checkout", async (req, res) => {
     createdAt: new Date().toISOString(),
   }).returning();
 
-  // Add loyalty points if chatId provided
-  // NB: selectedPrice is in euros, product.price is in centimes → normalize to centimes
-  const priceInCents = (item: any) =>
-    item.selectedPrice != null ? item.selectedPrice * 100 : (item.product?.price || 0);
-
-  if (chatId) {
-    const totalAmount = itemsWithProducts.reduce((sum, item) => {
-      return sum + priceInCents(item) * item.quantity;
-    }, 0);
-    const pointsEarned = Math.floor(totalAmount / 100); // 1 point per euro
-    if (pointsEarned > 0) {
-      const existing = await db.select().from(loyaltyBalances).where(eq(loyaltyBalances.chatId, chatId));
-      if (existing.length === 0) {
-        await db.insert(loyaltyBalances).values({ chatId, points: pointsEarned, tier: "Bronze", totalEarned: pointsEarned });
-      } else {
-        const newPoints = existing[0].points + pointsEarned;
-        const newTotal = existing[0].totalEarned + pointsEarned;
-        const tier = newTotal >= 1500 ? "Gold" : newTotal >= 500 ? "Silver" : "Bronze";
-        await db.update(loyaltyBalances).set({ points: newPoints, totalEarned: newTotal, tier }).where(eq(loyaltyBalances.chatId, chatId));
-      }
-      await db.insert(loyaltyTransactions).values({
-        chatId,
-        delta: pointsEarned,
-        reason: "purchase",
-        orderCode,
-        description: `Commande ${orderCode}`,
-        createdAt: new Date().toISOString(),
-      });
-    }
-  }
-
   // Clear cart
   await db.delete(cartItems).where(eq(cartItems.sessionId, sessionId));
 
