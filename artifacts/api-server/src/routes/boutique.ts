@@ -20,6 +20,17 @@ const router: IRouter = Router();
 
 const ADMIN_CHAT_ID = "5818221358";
 
+// URL du panel admin (Mini App Telegram)
+const ADMIN_PANEL_URL = (process.env.MINI_APP_URL || "https://boutique-2-production.up.railway.app/boutique") + "/admin";
+
+const ADMIN_PANEL_BUTTON = {
+  reply_markup: {
+    inline_keyboard: [[
+      { text: "⚙️ Panel Admin", web_app: { url: ADMIN_PANEL_URL } }
+    ]]
+  }
+};
+
 async function notifyAdmin(text: string, extra: object = {}) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return;
@@ -27,7 +38,7 @@ async function notifyAdmin(text: string, extra: object = {}) {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text, parse_mode: "HTML", ...extra }),
+      body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text, parse_mode: "HTML", ...ADMIN_PANEL_BUTTON, ...extra }),
     });
   } catch {}
 }
