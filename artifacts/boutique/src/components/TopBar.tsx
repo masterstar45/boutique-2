@@ -11,7 +11,7 @@ interface TopBarProps {
 const GOLD = "rgba(201,160,76,";
 const GOLD_GRAD = "linear-gradient(135deg, #c9a04c 0%, #f0d070 45%, #d4a843 100%)";
 
-export function TopBar({ title, subtitle, backHref = "/", branded = false }: TopBarProps) {
+export function TopBar({ title, subtitle, backHref, branded = false }: TopBarProps) {
   return (
     <header
       className="sticky top-0 z-40 pt-safe"
@@ -37,65 +37,68 @@ export function TopBar({ title, subtitle, backHref = "/", branded = false }: Top
         />
       )}
 
-      <div className="px-4 py-3 flex items-center gap-3 relative">
-        {/* Back button */}
-        <Link
-          href={backHref}
-          className="w-9 h-9 flex items-center justify-center rounded-full transition-all active:scale-90 shrink-0"
-          style={{
-            background: `${GOLD}0.06)`,
-            border: `1px solid ${GOLD}0.15)`,
-          }}
-        >
-          <ArrowLeft className="w-4 h-4" style={{ color: `${GOLD}0.8)` }} />
-        </Link>
-
-        {/* Title */}
-        {branded ? (
-          <div className="flex-1 flex flex-col items-start">
-            {/* Brand name with gold gradient + glow */}
-            <h1
-              className="font-display font-black leading-none select-none"
+      {branded ? (
+        /* Branded mode: perfectly centered title, no back button */
+        <div className="px-4 py-3 flex flex-col items-center justify-center relative">
+          <h1
+            className="font-display font-black leading-none select-none"
+            style={{
+              fontSize: "1.25rem",
+              letterSpacing: "0.12em",
+              background: GOLD_GRAD,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              filter: "drop-shadow(0 0 8px rgba(201,160,76,0.55))",
+            }}
+          >
+            🔌 SOS LE PLUG 🔌
+          </h1>
+          {subtitle && (
+            <p
+              className="text-[9px] font-bold uppercase tracking-[0.28em] mt-0.5"
+              style={{ color: `${GOLD}0.55)` }}
+            >
+              {subtitle}
+            </p>
+          )}
+        </div>
+      ) : (
+        /* Standard mode: back button + title */
+        <div className="px-4 py-3 flex items-center gap-3 relative">
+          {backHref && (
+            <Link
+              href={backHref}
+              className="w-9 h-9 flex items-center justify-center rounded-full transition-all active:scale-90 shrink-0"
               style={{
-                fontSize: "1.25rem",
-                letterSpacing: "0.12em",
-                background: GOLD_GRAD,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-                filter: "drop-shadow(0 0 8px rgba(201,160,76,0.55))",
+                background: `${GOLD}0.06)`,
+                border: `1px solid ${GOLD}0.15)`,
               }}
             >
-              🔌 SOS LE PLUG 🔌
-            </h1>
-            {subtitle && (
-              <p
-                className="text-[9px] font-bold uppercase tracking-[0.28em] mt-0.5"
-                style={{ color: `${GOLD}0.55)` }}
+              <ArrowLeft className="w-4 h-4" style={{ color: `${GOLD}0.8)` }} />
+            </Link>
+          )}
+
+          {title && (
+            <div className="flex-1 min-w-0">
+              <h1
+                className="text-xl font-display font-semibold truncate"
+                style={{ letterSpacing: "0.02em" }}
               >
-                {subtitle}
-              </p>
-            )}
-          </div>
-        ) : title ? (
-          <div className="flex-1 min-w-0">
-            <h1
-              className="text-xl font-display font-semibold truncate"
-              style={{ letterSpacing: "0.02em" }}
-            >
-              {title}
-            </h1>
-            {subtitle && (
-              <p
-                className="text-[10px] font-medium uppercase tracking-[0.2em] mt-0.5"
-                style={{ color: `${GOLD}0.7)` }}
-              >
-                {subtitle}
-              </p>
-            )}
-          </div>
-        ) : null}
-      </div>
+                {title}
+              </h1>
+              {subtitle && (
+                <p
+                  className="text-[10px] font-medium uppercase tracking-[0.2em] mt-0.5"
+                  style={{ color: `${GOLD}0.7)` }}
+                >
+                  {subtitle}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Gold separator — more vivid in branded mode */}
       <div
