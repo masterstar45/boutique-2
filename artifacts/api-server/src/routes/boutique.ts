@@ -522,7 +522,7 @@ router.get("/cart/:sessionId", async (req, res) => {
 });
 
 router.post("/cart", async (req, res) => {
-  const { sessionId, productId, quantity, selectedPrice, selectedWeight } = req.body;
+  const { sessionId, productId, quantity, selectedPrice, selectedWeight, chatId } = req.body;
   if (!sessionId || !productId) {
     res.status(400).json({ message: "sessionId and productId are required" });
     return;
@@ -535,6 +535,21 @@ router.post("/cart", async (req, res) => {
     selectedWeight: selectedWeight || null,
   }).returning();
   res.json(item);
+
+  // Notify admin
+  try {
+    const [product] = await db.select().from(products).where(eq(products.id, Number(productId)));
+    const productName = product?.name || `Produit #${productId}`;
+    const weightStr = selectedWeight ? ` (${selectedWeight})` : "";
+    const priceStr = selectedPrice ? `${selectedPrice}€` : product ? `${(product.price / 100).toFixed(2)}€` : "";
+    const clientStr = chatId ? `Client #${chatId}` : `Session ${String(sessionId).slice(0, 8)}`;
+    notifyAdmin(
+      `🛒 <b>Ajout au panier</b>\n\n` +
+      `👤 ${clientStr}\n` +
+      `📦 ${Number(quantity) || 1}× ${productName}${weightStr}` +
+      (priceStr ? ` — ${priceStr}` : "")
+    ).catch(() => {});
+  } catch {}
 });
 
 router.patch("/cart/:id", async (req, res) => {

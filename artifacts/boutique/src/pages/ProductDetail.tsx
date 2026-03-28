@@ -14,7 +14,7 @@ export default function ProductDetail() {
   const [, params] = useRoute("/product/:id");
   const [, navigate] = useLocation();
   const productId = Number(params?.id);
-  const { sessionId } = useSession();
+  const { sessionId, chatId } = useSession();
   const queryClient = useQueryClient();
 
   const [selectedOption, setSelectedOption] = useState<{ price: number; weight: string } | null>(null);
@@ -53,7 +53,7 @@ export default function ProductDetail() {
   const handleAddDirect = () => {
     if (!product || !sessionId) return;
     addToCartMutation.mutate({
-      data: { productId: product.id, sessionId, quantity: 1, selectedPrice: product.price }
+      data: { productId: product.id, sessionId, quantity: 1, selectedPrice: product.price, chatId } as any
     });
     setAddedOk(true);
     setTimeout(() => setAddedOk(false), 2000);
@@ -68,7 +68,8 @@ export default function ProductDetail() {
         quantity,
         selectedPrice: selectedOption.price,
         selectedWeight: selectedOption.weight,
-      }
+        chatId,
+      } as any
     });
   };
 
