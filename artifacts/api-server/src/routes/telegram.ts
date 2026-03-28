@@ -155,7 +155,7 @@ router.post("/telegram/webhook", async (req, res) => {
         // Édite le message pour retirer le bouton et indiquer la confirmation
         if (messageId) {
           await editMessageText(msgChatId, messageId,
-            originalText + `\n\n✅ <b>Livraison confirmée à ${new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</b>`,
+            originalText + `\n\n✅ <b>Livraison confirmée à ${new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}</b>`,
             { reply_markup: { inline_keyboard: [] } }
           );
         }
@@ -320,7 +320,7 @@ router.post("/telegram/webhook", async (req, res) => {
       let msg = `📦 <b>Vos ${userOrders.length} dernières commandes :</b>\n\n`;
       for (const o of userOrders) {
         const emoji = statusEmoji[o.status] ?? "📋";
-        const date = new Date(o.createdAt!).toLocaleDateString("fr-FR");
+        const date = new Date(o.createdAt!).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
         const total = ((o.totalAmount ?? 0) / 100).toFixed(2);
         msg += `${emoji} Commande #${o.id} — <b>${total}€</b>\n`;
         msg += `   📅 ${date} | Statut : <b>${o.status}</b>\n\n`;
