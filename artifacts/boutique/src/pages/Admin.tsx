@@ -1320,6 +1320,8 @@ function NotifsTab() {
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsOk, setStatsOk] = useState(false);
   const [statsDate, setStatsDate] = useState("");
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message?: string; error?: string } | null>(null);
 
   const [broadcastText, setBroadcastText] = useState("");
   const [onlyUnlocked, setOnlyUnlocked] = useState(true);
@@ -1333,6 +1335,18 @@ function NotifsTab() {
     "📢 La boutique est ouverte ! Bonne commande à tous 🛒",
     "🌿 Nouvelle gamme arrivée, découvrez-la maintenant !",
   ];
+
+  const sendTestNotification = async () => {
+    setTestLoading(true); setTestResult(null);
+    try {
+      const r = await fetch(`${API}/admin/test-notification`, { method: "POST", headers: { "Content-Type": "application/json" } });
+      const data = await r.json();
+      setTestResult(data);
+      setTimeout(() => setTestResult(null), 6000);
+    } catch (e: any) {
+      setTestResult({ ok: false, error: e.message });
+    } finally { setTestLoading(false); }
+  };
 
   const sendStatsReport = async () => {
     setStatsLoading(true); setStatsOk(false);
@@ -1392,6 +1406,22 @@ function NotifsTab() {
             </div>
           </div>
         </div>
+
+        {/* ── Bouton test ── */}
+        <button
+          onClick={sendTestNotification}
+          disabled={testLoading}
+          className="w-full py-2.5 rounded-xl text-xs font-bold border border-amber-500/40 bg-amber-500/10 text-amber-400 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {testLoading
+            ? <><div className="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" /> Test en cours…</>
+            : <><Bell className="w-3.5 h-3.5" /> Tester les notifications Telegram</>}
+        </button>
+        {testResult && (
+          <div className={`rounded-xl px-3 py-2.5 text-xs font-medium flex items-center gap-2 ${testResult.ok ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400" : "bg-red-500/15 border border-red-500/30 text-red-400"}`}>
+            {testResult.ok ? "✅ " + testResult.message : "❌ " + testResult.error}
+          </div>
+        )}
       </div>
 
       {/* ── Rapport manuel ── */}

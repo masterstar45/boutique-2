@@ -647,11 +647,37 @@ router.post("/admin/send-telegram", async (req, res) => {
 
 router.post("/admin/notify-stats", async (req, res) => {
   try {
-    const date = req.body.date as string | undefined;
+    const date = (req.body?.date) as string | undefined;
     await sendDailyStatsToAdmin(date);
     res.json({ ok: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Test notification (diagnostic Railway) ──────────────────────────────────
+router.post("/admin/test-notification", async (req, res) => {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    return res.status(500).json({ ok: false, error: "TELEGRAM_BOT_TOKEN non configuré sur ce serveur" });
+  }
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: ADMIN_CHAT_ID,
+        text: `🔔 <b>Test de notification</b>\n\n✅ Le serveur peut envoyer des messages Telegram.\n🕐 ${new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`,
+        parse_mode: "HTML",
+      }),
+    });
+    const data = await r.json() as any;
+    if (!data.ok) {
+      return res.status(400).json({ ok: false, error: data.description, details: data });
+    }
+    res.json({ ok: true, message: "Message envoyé avec succès !" });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 
