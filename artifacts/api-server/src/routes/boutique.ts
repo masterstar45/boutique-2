@@ -121,7 +121,45 @@ const memUpload = multer({
   },
 });
 
-// Upload vers GCS (stockage persistant)
+// ─── Telegram Video Proxy ─────────────────────────────────────────────────────
+// Sert les vidéos stockées sur Telegram sans exposer le bot token dans l'URL
+router.get("/telegram-video/:fileId", async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+    if (!BOT_TOKEN) { res.status(500).json({ message: "Bot token manquant" }); return; }
+
+    // Récupère le chemin du fichier sur Telegram
+    const getFileRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`);
+    const getFileData = await getFileRes.json() as any;
+    if (!getFileData.ok) { res.status(404).json({ message: "Fichier introuvable sur Telegram" }); return; }
+
+    const filePath: string = getFileData.result.file_path;
+    const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
+
+    // Proxy le contenu vidéo (le bot token reste côté serveur)
+    const videoRes = await fetch(fileUrl);
+    if (!videoRes.ok) { res.status(404).json({ message: "Téléchargement Telegram échoué" }); return; }
+
+    const contentType = videoRes.headers.get("content-type") || "video/mp4";
+    const contentLength = videoRes.headers.get("content-length");
+    res.setHeader("Content-Type", contentType);
+    if (contentLength) res.setHeader("Content-Length", contentLength);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Accept-Ranges", "bytes");
+
+    const { Readable } = await import("stream");
+    const nodeStream = Readable.fromWeb(videoRes.body as any);
+    nodeStream.pipe(res);
+  } catch (err: any) {
+    console.error("Telegram video proxy error:", err);
+    if (!res.headersSent) res.status(500).json({ message: "Erreur proxy vidéo" });
+  }
+});
+
+// ─── Upload produit ────────────────────────────────────────────────────────────
+// Vidéos → Telegram (fonctionne partout, pas besoin du sidecar Replit)
+// Images → GCS si dispo, sinon base64 en réponse
 router.post("/upload", (req, res, next) => {
   memUpload.single("file")(req, res, (err) => {
     if (err) {
@@ -136,29 +174,65 @@ router.post("/upload", (req, res, next) => {
     res.status(400).json({ message: "Aucun fichier envoyé" });
     return;
   }
+
+  const isVideo = req.file.mimetype.startsWith("video/") ||
+    /\.(mp4|mov|webm|avi|mkv|m4v|3gp)$/i.test(req.file.originalname);
+
+  // ── Vidéo → upload sur Telegram (fonctionne sur Railway ET Replit)
+  if (isVideo) {
+    try {
+      const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+      if (!BOT_TOKEN) throw new Error("Bot token manquant");
+      const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID || "5818221358";
+
+      const ext = path.extname(req.file.originalname).toLowerCase() || ".mp4";
+      const filename = `product-${Date.now()}${ext}`;
+
+      // Envoie la vidéo dans le chat admin (stockage Telegram)
+      const formData = new FormData();
+      formData.append("chat_id", ADMIN_CHAT_ID);
+      const blob = new Blob([req.file.buffer], { type: req.file.mimetype || "video/mp4" });
+      formData.append("video", blob, filename);
+      formData.append("caption", "📦 [Vidéo produit — ne pas supprimer]");
+      formData.append("disable_notification", "true");
+
+      const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
+        method: "POST",
+        body: formData as any,
+      });
+      const tgData = await tgRes.json() as any;
+      if (!tgData.ok) throw new Error("Telegram upload: " + (tgData.description || "erreur inconnue"));
+
+      const fileId: string = tgData.result?.video?.file_id;
+      if (!fileId) throw new Error("Telegram n'a pas renvoyé de file_id");
+
+      // URL proxiée — bot token jamais exposé au client
+      const url = `/api/telegram-video/${fileId}`;
+      res.json({ url });
+    } catch (err: any) {
+      console.error("Telegram video upload error:", err);
+      res.status(500).json({ message: "Erreur upload vidéo: " + (err.message || "inconnue") });
+    }
+    return;
+  }
+
+  // ── Image → GCS si disponible
   try {
     const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
     if (!bucketId) throw new Error("Bucket GCS non configuré");
 
-    const ext = path.extname(req.file.originalname).toLowerCase() ||
-      (req.file.mimetype.startsWith("video/") ? ".mp4" : ".jpg");
+    const ext = path.extname(req.file.originalname).toLowerCase() || ".jpg";
     const objectName = `product-uploads/${Date.now()}-${randomUUID()}${ext}`;
-
-    // Normalise le content-type pour les vidéos non-standard
-    let contentType = req.file.mimetype;
-    if (contentType === "video/mov" || contentType === "video/x-m4v") contentType = "video/mp4";
-    if (contentType === "video/x-msvideo") contentType = "video/avi";
 
     const bucket = objectStorageClient.bucket(bucketId);
     const gcsFile = bucket.file(objectName);
-    await gcsFile.save(req.file.buffer, { contentType, resumable: false });
+    await gcsFile.save(req.file.buffer, { contentType: req.file.mimetype, resumable: false });
 
-    // URL servie via notre endpoint de streaming
     const url = `/api/gcs-media/${objectName}`;
     res.json({ url });
   } catch (err: any) {
     console.error("GCS upload error:", err);
-    res.status(500).json({ message: "Erreur upload: " + (err.message || "inconnue") });
+    res.status(500).json({ message: "Erreur upload image: " + (err.message || "inconnue") });
   }
 });
 
