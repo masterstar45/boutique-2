@@ -32,9 +32,9 @@ export default function Menu() {
       {/* Header greeting */}
       <div className="px-5 pt-5 pb-4">
         <motion.div
-          initial={{ opacity: 0, x: -16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2 }}
         >
           {username ? (
             <>
@@ -94,7 +94,7 @@ export default function Menu() {
                 key={product.id}
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i * 0.045, 0.35), duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ delay: Math.min(i * 0.025, 0.12), duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               >
                 <ProductCard product={product} />
               </motion.div>

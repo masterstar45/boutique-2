@@ -22,9 +22,9 @@ export default function Home() {
 
         {/* ── Monogram logo ── */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.88, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           className="relative flex flex-col items-center gap-5"
         >
           {/* Ambient glow behind logo */}
@@ -51,9 +51,9 @@ export default function Home() {
 
         {/* ── Feature grid ── */}
         <motion.div
-          initial={{ opacity: 0, y: 18 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ delay: 0.06, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           className="grid grid-cols-3 gap-3 w-full max-w-sm"
         >
           {features.map(({ icon: Icon, label, color }) => (
@@ -74,9 +74,9 @@ export default function Home() {
         {/* ── Product count pill ── */}
         {productCount > 0 && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.4, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1, duration: 0.2 }}
             className="flex items-center gap-3 px-6 py-3 rounded-full"
             style={{
               background: "rgba(201,160,76,0.06)",
@@ -93,9 +93,9 @@ export default function Home() {
 
         {/* ── CTA Buttons ── */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ delay: 0.12, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           className="flex flex-col gap-3 w-full max-w-sm"
         >
           <Link

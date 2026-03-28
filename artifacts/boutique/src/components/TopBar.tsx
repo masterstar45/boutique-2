@@ -1,6 +1,5 @@
 import { Link } from "wouter";
 import { ArrowLeft } from "lucide-react";
-import { motion } from "framer-motion";
 
 interface TopBarProps {
   title?: string;
@@ -12,10 +11,7 @@ const GOLD = "rgba(201,160,76,";
 
 export function TopBar({ title, subtitle, backHref = "/" }: TopBarProps) {
   return (
-    <motion.header
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+    <header
       className="sticky top-0 z-40 pt-safe"
       style={{
         background: "rgba(10,7,4,0.85)",
@@ -60,6 +56,6 @@ export function TopBar({ title, subtitle, backHref = "/" }: TopBarProps) {
 
       {/* Gold separator */}
       <div className="gold-line" />
-    </motion.header>
+    </header>
   );
 }

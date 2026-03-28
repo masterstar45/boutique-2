@@ -1,12 +1,12 @@
 import { useState, useCallback } from "react";
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { BottomNav } from "@/components/BottomNav";
 import { SplashScreen } from "@/components/SplashScreen";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Pages
 import Home from "@/pages/Home";
@@ -24,12 +24,12 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: false,
+      staleTime: 30_000,
     },
   },
 });
 
 function isTelegramConnected(): boolean {
-  // Le panel admin est toujours accessible (protégé par chat ID)
   const path = window.location.pathname;
   if (path.endsWith("/admin") || path.includes("/admin")) return true;
   const tg = (window as any).Telegram?.WebApp;
@@ -50,7 +50,6 @@ function TelegramGate() {
         className="absolute inset-0 w-full h-full object-cover opacity-10 mix-blend-luminosity"
       />
       <div className="absolute inset-0" style={{ background: "rgba(8,6,3,0.85)" }} />
-      {/* Gold ambient */}
       <div className="absolute rounded-full blur-3xl" style={{
         width: "70vw", height: "70vw",
         top: "50%", left: "50%",
@@ -61,10 +60,9 @@ function TelegramGate() {
       <motion.div
         initial={{ opacity: 0, y: 24, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="relative z-10 w-full max-w-xs flex flex-col items-center gap-7 text-center"
       >
-        {/* Logo + name */}
         <div className="flex flex-col items-center gap-4">
           <div className="w-20 h-20 rounded-[1.25rem] overflow-hidden" style={{
             border: "1px solid rgba(201,160,76,0.25)",
@@ -81,7 +79,6 @@ function TelegramGate() {
           </div>
         </div>
 
-        {/* Card */}
         <div className="w-full flex flex-col items-center gap-5 p-6 rounded-[1.75rem]"
           style={{
             background: "rgba(201,160,76,0.04)",
@@ -118,19 +115,38 @@ function TelegramGate() {
   );
 }
 
+function PageTransition({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.1, ease: "easeOut" }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/menu" component={Menu} />
-      <Route path="/product/:id" component={ProductDetail} />
-      <Route path="/cart" component={Cart} />
-      <Route path="/account" component={Account} />
-      <Route path="/reviews" component={Reviews} />
-      <Route path="/info" component={Info} />
-      <Route path="/admin" component={Admin} />
-      <Route component={NotFound} />
-    </Switch>
+    <PageTransition>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/menu" component={Menu} />
+        <Route path="/product/:id" component={ProductDetail} />
+        <Route path="/cart" component={Cart} />
+        <Route path="/account" component={Account} />
+        <Route path="/reviews" component={Reviews} />
+        <Route path="/info" component={Info} />
+        <Route path="/admin" component={Admin} />
+        <Route component={NotFound} />
+      </Switch>
+    </PageTransition>
   );
 }
 
@@ -162,14 +178,20 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           {!splashDone && <SplashScreen onDone={handleSplashDone} />}
-          <div className="relative z-10 bg-transparent min-h-screen text-foreground font-body antialiased selection:bg-primary/30">
-            <AnimatedBackground />
-            <div className="relative z-20">
-              <Router />
-              <BottomNav />
-            </div>
-            <Toaster />
+
+          {/* Fond vidéo global — toujours présent, jamais remonté */}
+          <AnimatedBackground />
+
+          {/* Conteneur centré : plein écran mobile, max 430px desktop */}
+          <div
+            className="relative z-10 mx-auto text-foreground font-body antialiased selection:bg-primary/30"
+            style={{ maxWidth: "430px", minHeight: "100dvh" }}
+          >
+            <Router />
+            <BottomNav />
           </div>
+
+          <Toaster />
         </WouterRouter>
       </TooltipProvider>
     </QueryClientProvider>
