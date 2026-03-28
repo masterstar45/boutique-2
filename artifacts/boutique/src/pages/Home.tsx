@@ -35,32 +35,6 @@ export default function Home() {
               animation: "pulse-gold 4s ease-in-out infinite",
             }} />
 
-          {/* Logo frame */}
-          <div className="relative">
-            <div className="w-28 h-28 rounded-[1.75rem] overflow-hidden"
-              style={{
-                border: "1px solid rgba(201,160,76,0.25)",
-                boxShadow: "0 0 50px -10px rgba(201,160,76,0.35), inset 0 1px 0 rgba(255,240,180,0.06)",
-              }}>
-              <img
-                src={`${import.meta.env.BASE_URL}bg.png`}
-                alt="SOS LE PLUG"
-                className="w-full h-full object-cover object-top scale-150"
-              />
-              <div className="absolute inset-0" style={{ background: "rgba(8,6,3,0.15)" }} />
-            </div>
-            {/* Corner ornaments */}
-            {[
-              "-top-2 -left-2 border-t border-l",
-              "-top-2 -right-2 border-t border-r",
-              "-bottom-2 -left-2 border-b border-l",
-              "-bottom-2 -right-2 border-b border-r",
-            ].map((pos, i) => (
-              <div key={i} className={`absolute w-4 h-4 ${pos}`}
-                style={{ borderColor: "rgba(201,160,76,0.5)", borderWidth: "1.5px" }} />
-            ))}
-          </div>
-
           {/* Title */}
           <div>
             <h1 className="font-display font-semibold tracking-[0.1em] uppercase gradient-gold glow-gold"
