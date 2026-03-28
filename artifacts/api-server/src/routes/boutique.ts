@@ -11,6 +11,8 @@ import { eq, and, desc, ilike, or, sql, count, sum, gte, lte } from "drizzle-orm
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { randomUUID } from "crypto";
+import { objectStorageClient } from "../lib/objectStorage";
 
 const router: IRouter = Router();
 
@@ -75,6 +77,7 @@ export async function sendDailyStatsToAdmin(date?: string) {
 
 // ─── File Upload ─────────────────────────────────────────────────────────────
 
+// Disk-based multer (pour upload-start-media → Telegram)
 const uploadsDir = path.resolve(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -101,13 +104,90 @@ const upload = multer({
   },
 });
 
-router.post("/upload", upload.single("file"), (req, res) => {
+// Memory-based multer (pour upload produit → GCS)
+const memUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedMime = /^(image\/(jpeg|png|gif|webp)|video\/(mp4|quicktime|webm))$/;
+    if (allowedMime.test(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Type de fichier non supporté"));
+    }
+  },
+});
+
+// Upload vers GCS (stockage persistant)
+router.post("/upload", memUpload.single("file"), async (req, res) => {
   if (!req.file) {
     res.status(400).json({ message: "Aucun fichier envoyé" });
     return;
   }
-  const url = `/api/uploads/${req.file.filename}`;
-  res.json({ url });
+  try {
+    const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+    if (!bucketId) throw new Error("Bucket GCS non configuré");
+
+    const ext = path.extname(req.file.originalname).toLowerCase() ||
+      (req.file.mimetype.startsWith("video/") ? ".mp4" : ".jpg");
+    const objectName = `product-uploads/${Date.now()}-${randomUUID()}${ext}`;
+
+    const bucket = objectStorageClient.bucket(bucketId);
+    const gcsFile = bucket.file(objectName);
+    await gcsFile.save(req.file.buffer, { contentType: req.file.mimetype, resumable: false });
+
+    // URL servie via notre endpoint de streaming
+    const url = `/api/gcs-media/${objectName}`;
+    res.json({ url });
+  } catch (err: any) {
+    console.error("GCS upload error:", err);
+    res.status(500).json({ message: "Erreur upload: " + (err.message || "inconnue") });
+  }
+});
+
+// Streaming GCS (vidéos + images produit — supporte Range pour le seek vidéo)
+// router.use() évite path-to-regexp et donne req.path directement
+router.use("/gcs-media", async (req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") { next(); return; }
+  try {
+    // req.path = "/product-uploads/uuid.mp4" → on retire le "/" initial
+    const objectName = req.path.replace(/^\//, "");
+    if (!objectName) { res.status(400).json({ message: "Chemin manquant" }); return; }
+
+    const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+    if (!bucketId) { res.status(500).json({ message: "Storage non configuré" }); return; }
+
+    const bucket = objectStorageClient.bucket(bucketId);
+    const gcsFile = bucket.file(objectName);
+    const [exists] = await gcsFile.exists();
+    if (!exists) { res.status(404).json({ message: "Fichier introuvable" }); return; }
+
+    const [meta] = await gcsFile.getMetadata();
+    const contentType = (meta.contentType as string) || "application/octet-stream";
+    const fileSize = Number(meta.size || 0);
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("Accept-Ranges", "bytes");
+
+    const rangeHeader = req.headers.range;
+    if (rangeHeader && fileSize > 0) {
+      const parts = rangeHeader.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunkSize = end - start + 1;
+      res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
+      res.setHeader("Content-Length", chunkSize);
+      res.status(206);
+      gcsFile.createReadStream({ start, end }).pipe(res);
+    } else {
+      if (fileSize > 0) res.setHeader("Content-Length", fileSize);
+      gcsFile.createReadStream().pipe(res);
+    }
+  } catch (err: any) {
+    console.error("GCS serve error:", err);
+    res.status(500).json({ message: "Erreur lecture: " + (err.message || "inconnue") });
+  }
 });
 
 // ─── Upload média /start vers Telegram ───────────────────────────────────────
