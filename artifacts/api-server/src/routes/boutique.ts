@@ -797,6 +797,46 @@ router.delete("/favorites/:chatId/:productId", async (req, res) => {
 
 // ─── Admin Stats ──────────────────────────────────────────────────────────────
 
+// Photo de profil Telegram — proxy serveur (cache 1h, ne pas exposer le token)
+router.get("/user-photo/:chatId", async (req, res) => {
+  const { chatId } = req.params;
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) { res.status(500).end(); return; }
+
+  try {
+    // 1. Récupère les photos de profil
+    const photosRes = await fetch(
+      `https://api.telegram.org/bot${token}/getUserProfilePhotos?user_id=${chatId}&limit=1`
+    );
+    const photosData: any = await photosRes.json();
+    if (!photosData.ok || !photosData.result?.total_count) {
+      res.status(404).end(); return;
+    }
+
+    // 2. Prend la taille la plus grande du premier set
+    const sizes: any[] = photosData.result.photos[0];
+    const fileId = sizes[sizes.length - 1].file_id;
+
+    // 3. Résout le file_path
+    const fileRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`);
+    const fileData: any = await fileRes.json();
+    if (!fileData.ok || !fileData.result?.file_path) { res.status(404).end(); return; }
+
+    // 4. Télécharge et proxifie l'image (le token ne sort jamais vers le client)
+    const imgRes = await fetch(`https://api.telegram.org/file/bot${token}/${fileData.result.file_path}`);
+    if (!imgRes.ok) { res.status(404).end(); return; }
+
+    res.setHeader("Content-Type", imgRes.headers.get("Content-Type") || "image/jpeg");
+    res.setHeader("Cache-Control", "public, max-age=7200, stale-while-revalidate=3600");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+
+    const buf = await imgRes.arrayBuffer();
+    res.end(Buffer.from(buf));
+  } catch {
+    res.status(500).end();
+  }
+});
+
 router.get("/admin/stats", async (req, res) => {
   const [totalOrdersResult] = await db.select({ count: count() }).from(orders);
   const [pendingOrdersResult] = await db.select({ count: count() }).from(orders).where(eq(orders.status, "pending"));

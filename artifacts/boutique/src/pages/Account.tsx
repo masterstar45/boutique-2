@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useSession } from "@/hooks/use-session";
 import { useGetMyOrders } from "@workspace/api-client-react";
-import { User, Package, KeyRound, Save, Shield, Settings } from "lucide-react";
+import { User, Package, KeyRound, Save, Shield } from "lucide-react";
 import { format } from "date-fns";
 import { TopBar } from "@/components/TopBar";
 
@@ -12,6 +12,8 @@ export default function Account() {
   const { chatId, username, saveChatId } = useSession();
   const [inputChatId, setInputChatId] = useState(chatId);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState(false);
 
   useEffect(() => {
     if (!chatId) { setIsAdmin(false); return; }
@@ -19,6 +21,17 @@ export default function Account() {
       .then(r => r.json())
       .then(d => setIsAdmin(d.isAdmin === true))
       .catch(() => setIsAdmin(false));
+  }, [chatId]);
+
+  // Charge la photo de profil Telegram via le proxy API
+  useEffect(() => {
+    if (!chatId) return;
+    setAvatarUrl(null);
+    setAvatarError(false);
+    // On effectue juste un HEAD pour tester la disponibilité avant de setter l'URL
+    fetch(`${API}/user-photo/${chatId}`, { method: "HEAD" })
+      .then(r => { if (r.ok) setAvatarUrl(`${API}/user-photo/${chatId}`); })
+      .catch(() => {});
   }, [chatId]);
 
   const { data: orders } = useGetMyOrders(chatId, { query: { enabled: !!chatId } });
@@ -65,9 +78,37 @@ export default function Account() {
         {/* Profile Card */}
         <div className="glass-panel p-6 rounded-[2rem] flex items-center gap-5 relative overflow-hidden">
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center shrink-0 border border-primary/30 text-2xl">
-            {username ? "👤" : <User className="w-8 h-8 text-primary" />}
+
+          {/* Avatar — photo Telegram ou fallback */}
+          <div className="relative shrink-0">
+            <div className="w-16 h-16 rounded-full overflow-hidden border border-primary/30 bg-primary/10 flex items-center justify-center text-2xl"
+              style={{ boxShadow: "0 0 20px -4px rgba(147,51,234,0.25)" }}>
+              {avatarUrl && !avatarError ? (
+                <img
+                  src={avatarUrl}
+                  alt="Photo de profil"
+                  className="w-full h-full object-cover"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : username ? (
+                <span className="font-display font-black text-2xl text-primary">
+                  {username[0]?.toUpperCase()}
+                </span>
+              ) : (
+                <User className="w-8 h-8 text-primary" />
+              )}
+            </div>
+            {/* Indicateur Telegram live */}
+            {avatarUrl && !avatarError && (
+              <div className="absolute -bottom-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-[#2aabee] border-2 border-[#080603] flex items-center justify-center"
+                style={{ width: 18, height: 18 }}>
+                <svg viewBox="0 0 24 24" fill="white" style={{ width: 10, height: 10 }}>
+                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/>
+                </svg>
+              </div>
+            )}
           </div>
+
           <div className="min-w-0">
             {username && (
               <p className="font-display font-black text-xl text-primary truncate">@{username}</p>
