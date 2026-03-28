@@ -613,16 +613,20 @@ router.post("/checkout", async (req, res) => {
   await db.delete(cartItems).where(eq(cartItems.sessionId, sessionId));
 
   // Update daily stats
+  const priceInCents = (item: any) =>
+    item.selectedPrice != null ? item.selectedPrice * 100 : (item.product?.price || 0);
   const today = new Date().toISOString().split("T")[0];
   const totalRevenue = itemsWithProducts.reduce((s, item) => {
-    return s + priceInCents(item) * item.quantity; // always centimes
+    return s + priceInCents(item) * item.quantity;
   }, 0);
-  const existing = await db.select().from(dailyStats).where(eq(dailyStats.date, today));
-  if (existing.length === 0) {
-    await db.insert(dailyStats).values({ date: today, orderCount: 1, revenue: totalRevenue });
-  } else {
-    await db.update(dailyStats).set({ orderCount: existing[0].orderCount + 1, revenue: existing[0].revenue + totalRevenue }).where(eq(dailyStats.date, today));
-  }
+  try {
+    const existing = await db.select().from(dailyStats).where(eq(dailyStats.date, today));
+    if (existing.length === 0) {
+      await db.insert(dailyStats).values({ date: today, orderCount: 1, revenue: totalRevenue });
+    } else {
+      await db.update(dailyStats).set({ orderCount: existing[0].orderCount + 1, revenue: existing[0].revenue + totalRevenue }).where(eq(dailyStats.date, today));
+    }
+  } catch { /* stats non bloquantes */ }
 
   // Notify admin of new order
   const priceEuros = (item: any) =>
