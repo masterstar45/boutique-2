@@ -6,10 +6,13 @@ interface SplashScreenProps {
   onDone: () => void;
 }
 
+const GOLD = "rgba(201,160,76,";
+const GOLD_GRAD = "linear-gradient(135deg, #c9a04c 0%, #f0d070 45%, #d4a843 100%)";
+
 export function SplashScreen({ onDone }: SplashScreenProps) {
   const { saveChatId, saveUsername } = useSession();
   const [username, setUsername] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"logo" | "user" | "out">("logo");
+  const [phase, setPhase] = useState<"intro" | "logo" | "user" | "out">("intro");
   const onDoneRef = useRef(onDone);
   useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
@@ -45,11 +48,14 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
   }, []);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("user"), 1400);
-    const t2 = setTimeout(() => setPhase("out"), 3000);
-    const t3 = setTimeout(() => onDoneRef.current(), 3500);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    const t1 = setTimeout(() => setPhase("logo"), 120);
+    const t2 = setTimeout(() => setPhase("user"), 1900);
+    const t3 = setTimeout(() => setPhase("out"), 3300);
+    const t4 = setTimeout(() => onDoneRef.current(), 3800);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   }, []);
+
+  const isActive = phase !== "intro";
 
   return (
     <AnimatePresence>
@@ -57,120 +63,236 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
         <motion.div
           key="splash"
           initial={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          exit={{ opacity: 0, scale: 1.04 }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden select-none"
           style={{ background: "#080603" }}
         >
-          {/* Background image — very dark */}
-          <img
-            src={`${import.meta.env.BASE_URL}bg.png`}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover opacity-8 mix-blend-luminosity"
-          />
-          <div className="absolute inset-0" style={{ background: "rgba(8,6,3,0.88)" }} />
-
-          {/* Gold ambient glow */}
-          <div className="absolute rounded-full" style={{
-            width: "70vw", height: "70vw",
-            top: "50%", left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: "radial-gradient(circle, rgba(201,160,76,0.1) 0%, transparent 65%)",
-            animation: "pulse-gold 3s ease-in-out infinite",
+          {/* Deep radial glow */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            background: "radial-gradient(ellipse 80% 65% at 50% 52%, rgba(201,160,76,0.08) 0%, rgba(201,160,76,0.03) 40%, transparent 70%)",
           }} />
 
-          <div className="relative z-10 flex flex-col items-center gap-8">
+          {/* Grain texture */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            opacity: 0.025,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "repeat",
+          }} />
 
-            {/* Logo monogram */}
+          {/* ── Central content ── */}
+          <div className="relative z-10 flex flex-col items-center" style={{ gap: "2.2rem" }}>
+
+            {/* ── Animated rings + plug ── */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.15, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-              className="relative"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={isActive ? { opacity: 1, scale: 1 } : {}}
+              transition={{ delay: 0.05, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+              className="relative flex items-center justify-center"
+              style={{ width: 100, height: 100 }}
             >
-              <div className="w-24 h-24 rounded-2xl overflow-hidden relative"
+              {/* Outer rotating ring — clockwise */}
+              <motion.div
+                className="absolute inset-0 rounded-full"
                 style={{
-                  border: "1px solid rgba(201,160,76,0.25)",
-                  boxShadow: "0 0 40px -8px rgba(201,160,76,0.3), inset 0 1px 0 rgba(255,240,180,0.08)",
-                }}>
-                <img
-                  src={`${import.meta.env.BASE_URL}bg.png`}
-                  alt=""
-                  className="w-full h-full object-cover object-top scale-150"
-                />
-                <div className="absolute inset-0" style={{ background: "rgba(8,6,3,0.2)" }} />
+                  border: "1px solid transparent",
+                  borderTopColor: GOLD + "0.7)",
+                  borderRightColor: GOLD + "0.15)",
+                  borderBottomColor: "transparent",
+                  borderLeftColor: GOLD + "0.15)",
+                }}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 3.5, repeat: Infinity, ease: "linear" }}
+              />
+              {/* Inner rotating ring — counter-clockwise */}
+              <motion.div
+                className="absolute rounded-full"
+                style={{
+                  width: 76, height: 76,
+                  top: "50%", left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  border: "1px solid transparent",
+                  borderBottomColor: GOLD + "0.5)",
+                  borderLeftColor: GOLD + "0.1)",
+                  borderTopColor: "transparent",
+                  borderRightColor: GOLD + "0.1)",
+                }}
+                animate={{ rotate: -360 }}
+                transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
+              />
+              {/* Glow pulse */}
+              <motion.div
+                className="absolute rounded-full"
+                style={{
+                  width: 52, height: 52,
+                  top: "50%", left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  background: GOLD + "0.06)",
+                }}
+                animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+              />
+              {/* Center disc */}
+              <div
+                className="absolute rounded-full flex items-center justify-center"
+                style={{
+                  width: 54, height: 54,
+                  top: "50%", left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  background: "linear-gradient(135deg, rgba(201,160,76,0.1), rgba(201,160,76,0.04))",
+                  border: `1px solid ${GOLD}0.25)`,
+                  boxShadow: `0 0 24px -4px ${GOLD}0.3), inset 0 1px 0 rgba(255,240,180,0.06)`,
+                  fontSize: 22,
+                }}
+              >
+                🔌
               </div>
-              {/* Corner ornaments */}
-              <div className="absolute -top-1.5 -left-1.5 w-4 h-4 border-t border-l" style={{ borderColor: "rgba(201,160,76,0.5)" }} />
-              <div className="absolute -top-1.5 -right-1.5 w-4 h-4 border-t border-r" style={{ borderColor: "rgba(201,160,76,0.5)" }} />
-              <div className="absolute -bottom-1.5 -left-1.5 w-4 h-4 border-b border-l" style={{ borderColor: "rgba(201,160,76,0.5)" }} />
-              <div className="absolute -bottom-1.5 -right-1.5 w-4 h-4 border-b border-r" style={{ borderColor: "rgba(201,160,76,0.5)" }} />
             </motion.div>
 
-            {/* Name */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              className="text-center"
-            >
-              <h1 className="font-display font-semibold tracking-[0.12em] uppercase glow-gold gradient-gold"
-                style={{ fontSize: "clamp(1.6rem, 6vw, 2.2rem)" }}>
-                SOS LE PLUG
-              </h1>
-              <div className="gold-line mt-4 mx-8" />
-              <p className="text-[9px] tracking-[0.35em] uppercase mt-3"
-                style={{ color: "rgba(201,160,76,0.55)" }}>
+            {/* ── Brand name — word by word blur reveal ── */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex items-center gap-[0.6rem]">
+                {["SOS", "LE", "PLUG"].map((word, i) => (
+                  <motion.span
+                    key={word}
+                    initial={{ opacity: 0, y: 18, filter: "blur(10px)" }}
+                    animate={isActive ? { opacity: 1, y: 0, filter: "blur(0px)" } : {}}
+                    transition={{ delay: 0.28 + i * 0.2, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                    className="font-display font-black tracking-widest"
+                    style={{
+                      fontSize: "clamp(1.8rem, 7.5vw, 2.5rem)",
+                      background: GOLD_GRAD,
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      backgroundClip: "text",
+                    }}
+                  >
+                    {word}
+                  </motion.span>
+                ))}
+              </div>
+
+              {/* Separator line expanding from center */}
+              <motion.div
+                initial={{ scaleX: 0, opacity: 0 }}
+                animate={isActive ? { scaleX: 1, opacity: 1 } : {}}
+                transition={{ delay: 0.9, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                style={{
+                  height: 1,
+                  width: 160,
+                  background: `linear-gradient(90deg, transparent, ${GOLD}0.6), transparent)`,
+                  transformOrigin: "center",
+                }}
+              />
+
+              {/* Tagline */}
+              <motion.p
+                initial={{ opacity: 0, letterSpacing: "0.2em" }}
+                animate={isActive ? { opacity: 1, letterSpacing: "0.38em" } : {}}
+                transition={{ delay: 1.05, duration: 0.9, ease: "easeOut" }}
+                style={{
+                  fontSize: "0.58rem",
+                  textTransform: "uppercase",
+                  color: GOLD + "0.5)",
+                }}
+              >
                 Premium Selection
-              </p>
-            </motion.div>
+              </motion.p>
+            </div>
 
-            {/* User greeting */}
-            <AnimatePresence>
+            {/* ── User greeting ── */}
+            <AnimatePresence mode="wait">
               {phase === "user" && username && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  key="user-card"
+                  initial={{ opacity: 0, y: 22, scale: 0.88 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
-                  className="flex flex-col items-center gap-3 px-8 py-5 rounded-2xl"
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.55, ease: [0.34, 1.4, 0.64, 1] }}
                   style={{
-                    background: "rgba(201,160,76,0.04)",
-                    border: "1px solid rgba(201,160,76,0.15)",
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.8rem",
+                    padding: "0.75rem 1.25rem",
+                    borderRadius: "1rem",
+                    background: `linear-gradient(135deg, ${GOLD}0.07), ${GOLD}0.03))`,
+                    border: `1px solid ${GOLD}0.18)`,
+                    boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,240,180,0.03)`,
+                    minWidth: 200,
                   }}
                 >
-                  <div className="w-11 h-11 rounded-full flex items-center justify-center font-display text-xl font-semibold"
-                    style={{
-                      background: "rgba(201,160,76,0.1)",
-                      border: "1px solid rgba(201,160,76,0.25)",
-                      color: "rgba(201,160,76,0.9)",
+                  {/* Avatar */}
+                  <div style={{
+                    width: 38, height: 38,
+                    borderRadius: "50%",
+                    background: GOLD + "0.1)",
+                    border: `1.5px solid ${GOLD}0.3)`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "Syne, sans-serif",
+                    fontWeight: 800, fontSize: "1.05rem",
+                    color: GOLD + "0.9)",
+                    flexShrink: 0,
+                    boxShadow: `0 0 12px -2px ${GOLD}0.2)`,
+                  }}>
+                    {username[0]?.toUpperCase() || "🔌"}
+                  </div>
+
+                  {/* Text */}
+                  <div style={{ flex: 1 }}>
+                    <p style={{
+                      fontSize: "0.55rem",
+                      letterSpacing: "0.22em",
+                      textTransform: "uppercase",
+                      color: GOLD + "0.45)",
+                      marginBottom: "0.15rem",
                     }}>
-                    {username[0]?.toUpperCase() || "?"}
+                      Bienvenue
+                    </p>
+                    <p style={{
+                      fontFamily: "Syne, sans-serif",
+                      fontWeight: 700,
+                      fontSize: "0.95rem",
+                      background: GOLD_GRAD,
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      backgroundClip: "text",
+                    }}>
+                      @{username}
+                    </p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-[9px] tracking-[0.25em] uppercase" style={{ color: "rgba(201,160,76,0.5)" }}>Bienvenue</p>
-                    <p className="font-display font-medium text-lg mt-0.5 gradient-gold">@{username}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "rgba(201,160,76,0.8)" }} />
-                    <span className="text-[10px]" style={{ color: "rgba(201,160,76,0.5)" }}>Compte synchronisé</span>
-                  </div>
+
+                  {/* Live dot */}
+                  <motion.div
+                    style={{
+                      width: 7, height: 7,
+                      borderRadius: "50%",
+                      background: GOLD + "0.85)",
+                      boxShadow: `0 0 6px ${GOLD}0.6)`,
+                    }}
+                    animate={{ opacity: [0.4, 1, 0.4], scale: [0.85, 1, 0.85] }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                  />
                 </motion.div>
               )}
+
               {phase === "user" && !username && (
                 <motion.div
+                  key="dots"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex gap-1.5"
+                  exit={{ opacity: 0 }}
+                  className="flex gap-2"
                 >
                   {[0, 1, 2].map((i) => (
                     <motion.div
                       key={i}
-                      className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: "rgba(201,160,76,0.5)" }}
-                      animate={{ opacity: [0.3, 1, 0.3] }}
-                      transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.25 }}
+                      style={{
+                        width: 5, height: 5,
+                        borderRadius: "50%",
+                        background: GOLD + "0.5)",
+                      }}
+                      animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1, 0.8] }}
+                      transition={{ duration: 1.1, repeat: Infinity, delay: i * 0.22, ease: "easeInOut" }}
                     />
                   ))}
                 </motion.div>
@@ -178,16 +300,42 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
             </AnimatePresence>
           </div>
 
-          {/* Progress line */}
-          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-24 h-px overflow-hidden"
-            style={{ background: "rgba(201,160,76,0.1)" }}>
-            <motion.div
-              className="h-full"
-              style={{ background: "linear-gradient(90deg, transparent, rgba(201,160,76,0.8), transparent)" }}
-              initial={{ x: "-100%" }}
-              animate={{ x: "100%" }}
-              transition={{ duration: 3, ease: "easeInOut" }}
-            />
+          {/* ── Bottom progress ── */}
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2" style={{ width: 110 }}>
+            {/* Track */}
+            <div style={{
+              width: "100%", height: 1,
+              background: GOLD + "0.1)",
+              borderRadius: 2,
+              overflow: "hidden",
+              position: "relative",
+            }}>
+              <motion.div
+                style={{
+                  position: "absolute", top: 0, left: 0,
+                  height: "100%", borderRadius: 2,
+                  background: `linear-gradient(90deg, ${GOLD}0.3), ${GOLD}0.9), ${GOLD}0.6))`,
+                  boxShadow: `0 0 6px ${GOLD}0.4)`,
+                }}
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 3.0, ease: [0.4, 0, 0.2, 1], delay: 0.2 }}
+              />
+            </div>
+            {/* Label */}
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.38 }}
+              transition={{ delay: 0.6, duration: 0.6 }}
+              style={{
+                fontSize: "0.5rem",
+                letterSpacing: "0.25em",
+                textTransform: "uppercase",
+                color: GOLD + "0.7)",
+              }}
+            >
+              Chargement
+            </motion.p>
           </div>
         </motion.div>
       )}
