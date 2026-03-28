@@ -1646,92 +1646,139 @@ function UsersTab() {
 
 // ─── Admins Tab ───────────────────────────────────────────────────────────────
 
-function LivreursTab({ livreursList, onRefresh }: { livreursList: any[]; onRefresh: () => void }) {
+function LivreursTab({ livreursList: _ignored, onRefresh: _onRefresh }: { livreursList: any[]; onRefresh: () => void }) {
+  const [list, setList] = useState<any[]>([]);
+  const [fetching, setFetching] = useState(true);
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [chatId, setChatId] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const fetchList = async () => {
+    try {
+      setFetching(true);
+      const r = await fetch(`${API}/admin/livreurs`);
+      if (r.ok) setList(await r.json());
+    } finally { setFetching(false); }
+  };
+
+  useEffect(() => { fetchList(); }, []);
 
   const handleAdd = async () => {
-    if (!name.trim() || !chatId.trim()) return;
-    setLoading(true); setErr("");
+    const n = name.trim();
+    const cid = chatId.trim();
+    if (!n || !cid) {
+      setErr(!n ? "Le nom est obligatoire." : "Le Chat ID est obligatoire.");
+      return;
+    }
+    setLoading(true); setErr(""); setSuccess("");
     try {
       const r = await fetch(`${API}/admin/livreurs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), username: username.trim() || null, chatId: chatId.trim() }),
+        body: JSON.stringify({ name: n, username: username.trim().replace(/^@/, "") || null, chatId: cid }),
       });
-      if (r.status === 409) { setErr("Ce livreur existe déjà (Chat ID en double)."); return; }
-      if (!r.ok) { const d = await r.json(); setErr(d.error || "Erreur"); return; }
+      if (r.status === 409) { setErr("Ce livreur existe déjà (Chat ID déjà enregistré)."); return; }
+      if (!r.ok) { const d = await r.json(); setErr(d.error || "Erreur serveur"); return; }
       setName(""); setUsername(""); setChatId("");
-      onRefresh();
+      setSuccess("Livreur ajouté ✓");
+      setTimeout(() => setSuccess(""), 3000);
+      await fetchList();
+    } catch (e: any) {
+      setErr("Erreur réseau — " + e.message);
     } finally { setLoading(false); }
   };
 
   const handleToggle = async (id: number) => {
     await fetch(`${API}/admin/livreurs/${id}/toggle`, { method: "PATCH" });
-    onRefresh();
+    await fetchList();
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm("Supprimer ce livreur ?")) return;
     await fetch(`${API}/admin/livreurs/${id}`, { method: "DELETE" });
-    onRefresh();
+    await fetchList();
   };
+
+  const inputCls = "w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all placeholder:text-white/30";
 
   return (
     <div className="space-y-4">
       {/* Formulaire ajout */}
       <div className="glass-panel p-5 rounded-[1.5rem]">
         <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
-          <Truck className="w-4 h-4 text-primary" /> Ajouter un livreur
+          <Truck className="w-4 h-4" style={{ color: "#f0d070" }} /> Ajouter un livreur
         </h2>
         <div className="space-y-2.5">
-          <input value={name} onChange={e => setName(e.target.value)}
-            placeholder="Nom du livreur *"
-            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
+          <input value={name} onChange={e => { setName(e.target.value); setErr(""); }}
+            placeholder="Nom du livreur *" className={inputCls} />
           <input value={username} onChange={e => setUsername(e.target.value)}
-            placeholder="@username Telegram (optionnel)"
-            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
-          <input value={chatId} onChange={e => setChatId(e.target.value)}
-            placeholder="Chat ID Telegram * (ex: 123456789)"
-            type="number"
-            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
-          {err && <p className="text-xs text-red-400 font-bold">{err}</p>}
-          <button onClick={handleAdd} disabled={!name.trim() || !chatId.trim() || loading}
-            className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-50 active:scale-95 transition-all flex items-center justify-center gap-2"
-            style={{ background: "linear-gradient(135deg, rgba(201,160,76,0.3), rgba(240,208,112,0.2))", border: "1px solid rgba(201,160,76,0.4)", color: "#f0d070" }}>
-            <Plus className="w-4 h-4" /> {loading ? "Ajout…" : "Ajouter le livreur"}
+            placeholder="@username Telegram (optionnel)" className={inputCls} />
+          <input value={chatId} onChange={e => { setChatId(e.target.value); setErr(""); }}
+            placeholder="Chat ID Telegram * (ex : 5818221358)"
+            inputMode="numeric"
+            className={inputCls} />
+
+          {err && (
+            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">
+              <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+              <p className="text-xs text-red-400 font-bold">{err}</p>
+            </div>
+          )}
+          {success && (
+            <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2">
+              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <p className="text-xs text-emerald-400 font-bold">{success}</p>
+            </div>
+          )}
+
+          <button
+            onClick={handleAdd}
+            disabled={loading}
+            className="w-full py-3 rounded-xl font-bold text-sm active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+            style={{ background: "linear-gradient(135deg, rgba(201,160,76,0.35), rgba(240,208,112,0.2))", border: "1px solid rgba(201,160,76,0.5)", color: "#f0d070" }}>
+            {loading ? (
+              <><RefreshCw className="w-4 h-4 animate-spin" /> Ajout en cours…</>
+            ) : (
+              <><Plus className="w-4 h-4" /> Ajouter le livreur</>
+            )}
           </button>
         </div>
       </div>
 
       {/* Liste livreurs */}
       <div className="space-y-2">
-        {livreursList.length === 0 && (
-          <div className="text-center py-10 text-muted-foreground">
-            <Truck className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Aucun livreur configuré</p>
+        {fetching && (
+          <div className="text-center py-8 text-muted-foreground">
+            <RefreshCw className="w-5 h-5 mx-auto mb-2 animate-spin opacity-40" />
           </div>
         )}
-        {livreursList.map(l => (
+        {!fetching && list.length === 0 && (
+          <div className="text-center py-10 text-muted-foreground">
+            <Truck className="w-10 h-10 mx-auto mb-3 opacity-20" />
+            <p className="text-sm">Aucun livreur configuré</p>
+            <p className="text-xs mt-1 opacity-60">Remplis le formulaire ci-dessus</p>
+          </div>
+        )}
+        {list.map(l => (
           <div key={l.id} className="glass-panel rounded-[1.25rem] p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg"
-              style={{ background: l.isActive ? "rgba(201,160,76,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${l.isActive ? "rgba(201,160,76,0.3)" : "rgba(255,255,255,0.1)"}` }}>
+              style={{ background: l.isActive ? "rgba(201,160,76,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${l.isActive ? "rgba(201,160,76,0.3)" : "rgba(255,255,255,0.08)"}` }}>
               🛵
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm truncate" style={{ color: l.isActive ? "#f0d070" : "rgba(255,255,255,0.4)" }}>
+              <p className="font-bold text-sm truncate" style={{ color: l.isActive ? "#f0d070" : "rgba(255,255,255,0.35)" }}>
                 {l.name}
               </p>
               {l.username && <p className="text-[10px] text-muted-foreground truncate">@{l.username}</p>}
-              <p className="text-[10px] font-mono text-muted-foreground/60">ID: {l.chatId}</p>
+              <p className="text-[10px] font-mono text-muted-foreground/50">ID : {l.chatId}</p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <button onClick={() => handleToggle(l.id)}
                 className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold active:scale-95 transition-all"
-                style={{ background: l.isActive ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${l.isActive ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.1)"}`, color: l.isActive ? "#10b981" : "rgba(255,255,255,0.4)" }}>
+                style={{ background: l.isActive ? "rgba(16,185,129,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${l.isActive ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.08)"}`, color: l.isActive ? "#10b981" : "rgba(255,255,255,0.35)" }}>
                 {l.isActive ? "Actif" : "Inactif"}
               </button>
               <button onClick={() => handleDelete(l.id)}
@@ -1744,11 +1791,13 @@ function LivreursTab({ livreursList, onRefresh }: { livreursList: any[]; onRefre
       </div>
 
       {/* Aide */}
-      <div className="glass-panel p-4 rounded-[1.25rem] text-xs text-muted-foreground space-y-1" style={{ border: "1px solid rgba(201,160,76,0.15)" }}>
-        <p className="font-bold text-[#f0d070] flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> Comment ça marche</p>
-        <p>1. Ajoute les livreurs ici avec leur Chat ID Telegram (le bot doit avoir un historique avec eux).</p>
-        <p>2. Dans les commandes en livraison, ouvre les "Détails" et sélectionne un livreur pour lui envoyer la commande.</p>
-        <p>3. Le livreur reçoit un message Telegram avec tous les détails de la livraison.</p>
+      <div className="glass-panel p-4 rounded-[1.25rem] text-xs text-muted-foreground space-y-1.5" style={{ border: "1px solid rgba(201,160,76,0.12)" }}>
+        <p className="font-bold flex items-center gap-1.5" style={{ color: "#f0d070" }}>
+          <AlertCircle className="w-3.5 h-3.5" /> Comment ça marche
+        </p>
+        <p>1. Ajoute ici les livreurs avec leur Chat ID Telegram (obtenu via @userinfobot).</p>
+        <p>2. Le bot doit avoir déjà échangé avec le livreur (au moins un /start).</p>
+        <p>3. Dans les commandes, ouvre "Détails" → sélectionne un livreur → "Transmettre".</p>
       </div>
     </div>
   );
