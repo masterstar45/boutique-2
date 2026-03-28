@@ -448,7 +448,7 @@ export default function Admin() {
                               </div>
 
                               {/* ── Transmission livreur ── */}
-                              {order.deliveryType === "delivery" && (
+                              {(order.deliveryType === "delivery" || order.deliveryType === "livraison" || order.deliveryType === "meetup") && (
                                 <div className="pt-1 border-t border-white/5">
                                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1">
                                     <Truck className="w-3 h-3" /> Transmettre au livreur
