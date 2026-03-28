@@ -84,13 +84,35 @@ export async function setupWebhook() {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: webhookUrl, allowed_updates: ["message"], drop_pending_updates: true }),
+      body: JSON.stringify({ url: webhookUrl, allowed_updates: ["message", "callback_query"], drop_pending_updates: true }),
     });
     const data = await res.json() as any;
     console.log("Telegram webhook setup:", data.description ?? data);
   } catch (err) {
     console.error("Telegram webhook setup error:", err);
   }
+}
+
+async function answerCallbackQuery(callbackQueryId: string, text?: string, showAlert = false) {
+  if (!BOT_TOKEN) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callback_query_id: callbackQueryId, text, show_alert: showAlert }),
+    });
+  } catch {}
+}
+
+async function editMessageText(chatId: string | number, messageId: number, text: string, extra: object = {}) {
+  if (!BOT_TOKEN) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/editMessageText`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId, text, parse_mode: "HTML", ...extra }),
+    });
+  } catch {}
 }
 
 function formatDate(timestamp: number): string {
@@ -110,6 +132,53 @@ router.post("/telegram/webhook", async (req, res) => {
   res.sendStatus(200);
 
   const update = req.body;
+
+  // ── Callback query (bouton inline livreur "Terminer") ─────────────────────
+  const callbackQuery = update?.callback_query;
+  if (callbackQuery) {
+    const callbackData = (callbackQuery.data ?? "") as string;
+    const callbackId = callbackQuery.id as string;
+    const from = callbackQuery.from ?? {};
+    const msgChatId = String(callbackQuery.message?.chat?.id ?? from.id);
+    const messageId = callbackQuery.message?.message_id as number | undefined;
+    const originalText = callbackQuery.message?.text ?? "";
+
+    if (callbackData.startsWith("deliver:")) {
+      const orderCode = callbackData.slice("deliver:".length);
+      try {
+        // Marque la commande comme livrée
+        await db.execute(sql`UPDATE orders SET status = 'delivered' WHERE order_code = ${orderCode}`);
+
+        // Toast de confirmation au livreur
+        await answerCallbackQuery(callbackId, "✅ Livraison confirmée ! Merci.", true);
+
+        // Édite le message pour retirer le bouton et indiquer la confirmation
+        if (messageId) {
+          await editMessageText(msgChatId, messageId,
+            originalText + `\n\n✅ <b>Livraison confirmée à ${new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</b>`,
+            { reply_markup: { inline_keyboard: [] } }
+          );
+        }
+
+        // Notifie l'admin
+        const livreurName = from.first_name
+          ? `${from.first_name}${from.username ? ` (@${from.username})` : ""}`
+          : from.username ? `@${from.username}` : "Livreur";
+        await sendMessage(ADMIN_CHAT_ID,
+          `🎉 <b>Commande livrée !</b>\n\n` +
+          `📦 <b>#${orderCode}</b> a été marquée comme livrée.\n` +
+          `🛵 Livreur : ${livreurName}`
+        );
+      } catch (err) {
+        console.error("deliver callback error:", err);
+        await answerCallbackQuery(callbackId, "❌ Erreur, contacte l'admin.", true);
+      }
+    } else {
+      await answerCallbackQuery(callbackId);
+    }
+    return;
+  }
+
   const message = update?.message;
   if (!message || !message.text) return;
 

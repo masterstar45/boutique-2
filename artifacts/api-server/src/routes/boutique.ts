@@ -1093,7 +1093,16 @@ router.post("/admin/orders/:orderCode/transmit-livreur", async (req, res) => {
     const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: livreur.chatId, text: msg, parse_mode: "HTML" }),
+      body: JSON.stringify({
+        chat_id: livreur.chatId,
+        text: msg,
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [[
+            { text: "✅ Terminer la livraison", callback_data: `deliver:${order.orderCode}` }
+          ]]
+        }
+      }),
     });
     const tgData: any = await tgRes.json();
     if (!tgData.ok) return res.status(400).json({ error: tgData.description || "Erreur Telegram" });
