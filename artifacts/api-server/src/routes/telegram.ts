@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { orders, loyaltyBalances, clientButtons, botSettings } from "@workspace/db/schema";
-import { eq, desc, asc } from "drizzle-orm";
+import { orders, loyaltyBalances, clientButtons, botSettings, botUsers } from "@workspace/db/schema";
+import { eq, desc, asc, sql } from "drizzle-orm";
+
+const ADMIN_CHAT_ID = "5818221358";
 
 const router: IRouter = Router();
 
@@ -120,6 +122,43 @@ router.post("/telegram/webhook", async (req, res) => {
 
   if (text.startsWith("/start")) {
     const firstName = from.first_name ?? username;
+
+    // ── Sauvegarder/mettre à jour le client dans bot_users ──────────────────
+    let isNewUser = false;
+    try {
+      const existing = await db.select({ id: botUsers.id })
+        .from(botUsers)
+        .where(eq(botUsers.chatId, String(userId)))
+        .limit(1);
+
+      isNewUser = existing.length === 0;
+
+      await db.insert(botUsers).values({
+        chatId: String(userId),
+        username: from.username ?? null,
+        firstName: from.first_name ?? null,
+      }).onConflictDoUpdate({
+        target: botUsers.chatId,
+        set: {
+          username: sql`excluded.username`,
+          firstName: sql`excluded.first_name`,
+        },
+      });
+    } catch (err) {
+      console.error("Erreur upsert bot_users:", err);
+    }
+
+    // ── Notification admin si nouveau client ─────────────────────────────────
+    if (isNewUser) {
+      const adminMsg =
+        `🆕 <b>Nouveau client !</b>\n\n` +
+        `👤 Prénom : <b>${from.first_name ?? "—"}</b>\n` +
+        `🔖 Username : ${from.username ? `@${from.username}` : "—"}\n` +
+        `🆔 ID Telegram : <code>${userId}</code>\n` +
+        `📅 Il vient de démarrer le bot.\n\n` +
+        `<i>Retrouvez-le dans le panel → Clients</i>`;
+      sendMessage(ADMIN_CHAT_ID, adminMsg).catch(() => {});
+    }
 
     // Fetch bot settings (safe — table may not exist yet on fresh deploy)
     const settings: Record<string, string> = {};
