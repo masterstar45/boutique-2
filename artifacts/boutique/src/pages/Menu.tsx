@@ -66,7 +66,7 @@ export default function Menu() {
       </div>
 
       {/* Grid */}
-      <main className="px-4 sm:px-8 pb-32 sm:pb-28 relative z-10">
+      <main className="px-4 sm:px-8 pb-nav relative z-10">
         {isLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5">
             {[...Array(6)].map((_, i) => (

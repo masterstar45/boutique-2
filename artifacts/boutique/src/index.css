@@ -114,17 +114,18 @@
 }
 
 @layer utilities {
+  /* ── Safe area bottom : max(CSS env, Telegram API) + fallback 20px ── */
   .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-bottom, 0px));
   }
 
   .pt-safe {
-    padding-top: env(safe-area-inset-top, 0px);
+    padding-top: max(env(safe-area-inset-top, 0px), var(--tg-safe-top, 0px));
   }
 
-  /* ── Espace en bas = BottomNav (80px) + safe area ── */
+  /* ── Espace en bas = BottomNav (88px) + safe area ── */
   .pb-nav {
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(88px + max(env(safe-area-inset-bottom, 0px), var(--tg-safe-bottom, 0px)));
   }
 
   .hide-scrollbar::-webkit-scrollbar {

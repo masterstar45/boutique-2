@@ -26,8 +26,8 @@ export function BottomNav() {
 
   return (
     <div
-      className="fixed bottom-0 inset-x-0 z-50 flex justify-center pb-safe"
-      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
+      className="fixed bottom-0 inset-x-0 z-50 flex justify-center"
+      style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), var(--tg-safe-bottom, 0px)) + 12px)" }}
     >
       <nav
         className="flex items-center gap-1 px-3 py-2.5 rounded-[2rem]"

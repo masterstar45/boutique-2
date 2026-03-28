@@ -175,12 +175,26 @@ function App() {
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (!tg) return;
+
+    /* ── Safe areas Telegram → CSS variables ── */
+    const applySafeAreas = () => {
+      const b = tg.safeAreaInset?.bottom ?? tg.contentSafeAreaInset?.bottom ?? 0;
+      const t = tg.safeAreaInset?.top    ?? tg.contentSafeAreaInset?.top    ?? 0;
+      document.documentElement.style.setProperty("--tg-safe-bottom", `${b}px`);
+      document.documentElement.style.setProperty("--tg-safe-top",    `${t}px`);
+    };
+    applySafeAreas();
+    try { tg.onEvent?.("safeAreaChanged",        applySafeAreas); } catch {}
+    try { tg.onEvent?.("contentSafeAreaChanged", applySafeAreas); } catch {}
+    try { tg.onEvent?.("viewportChanged",        applySafeAreas); } catch {}
+
+    /* ── Fullscreen ── */
     const requestFs = () => {
       tg.expand();
       try { if (typeof tg.requestFullscreen === "function") tg.requestFullscreen(); } catch {}
     };
     requestFs();
-    const onVisible = () => { if (!document.hidden) requestFs(); };
+    const onVisible = () => { if (!document.hidden) { requestFs(); applySafeAreas(); } };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);

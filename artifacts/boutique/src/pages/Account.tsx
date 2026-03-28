@@ -67,7 +67,7 @@ export default function Account() {
   // ── Pas connecté ─────────────────────────────────────────────────────────────
   if (!chatId) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 pb-28">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 pb-nav">
         <div className="w-24 h-24 rounded-full flex items-center justify-center mb-8"
           style={{ background: "rgba(201,160,76,0.08)", border: "1px solid rgba(201,160,76,0.2)", boxShadow: "0 0 30px -8px rgba(201,160,76,0.3)" }}>
           <KeyRound className="w-10 h-10" style={{ color: `${GOLD}0.8)` }} />
@@ -98,7 +98,7 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-screen pb-28">
+    <div className="min-h-screen pb-nav">
       <TopBar title="Mon Compte" backHref="/menu" />
 
       <main className="px-4 pt-4 space-y-4">

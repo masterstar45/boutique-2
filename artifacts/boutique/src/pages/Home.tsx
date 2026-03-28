@@ -17,7 +17,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="relative min-h-screen flex flex-col text-white overflow-hidden pb-32 sm:pb-28">
+    <div className="relative min-h-screen flex flex-col text-white overflow-hidden pb-nav">
       <div className="flex-1 flex flex-col items-center justify-center px-6 sm:px-10 text-center z-10 pt-12 sm:pt-16 gap-10">
 
         {/* ── Monogram logo ── */}

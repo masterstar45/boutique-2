@@ -106,7 +106,7 @@ export default function ProductDetail() {
   const similar = similarProducts?.filter(p => p.id !== product.id).slice(0, 6) || [];
 
   return (
-    <div className="min-h-screen pb-32 relative">
+    <div className="min-h-screen pb-nav relative">
 
       {/* ── Back button ─────────────────────────────────────────────────────── */}
       <motion.button
