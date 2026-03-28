@@ -107,19 +107,31 @@ const upload = multer({
 // Memory-based multer (pour upload produit → GCS)
 const memUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowedMime = /^(image\/(jpeg|png|gif|webp)|video\/(mp4|quicktime|webm))$/;
-    if (allowedMime.test(file.mimetype)) {
+    // Accepter images + toutes variantes de vidéo
+    const isImage = /^image\/(jpeg|png|gif|webp)$/.test(file.mimetype);
+    const isVideo = file.mimetype.startsWith("video/") ||
+      /\.(mp4|mov|webm|avi|mkv|m4v|3gp|hevc|heic)$/i.test(file.originalname);
+    if (isImage || isVideo) {
       cb(null, true);
     } else {
-      cb(new Error("Type de fichier non supporté"));
+      cb(new Error(`Type de fichier non supporté: ${file.mimetype}`));
     }
   },
 });
 
 // Upload vers GCS (stockage persistant)
-router.post("/upload", memUpload.single("file"), async (req, res) => {
+router.post("/upload", (req, res, next) => {
+  memUpload.single("file")(req, res, (err) => {
+    if (err) {
+      console.error("Multer error:", err.message);
+      res.status(400).json({ message: err.message || "Fichier refusé par le serveur" });
+      return;
+    }
+    next();
+  });
+}, async (req, res) => {
   if (!req.file) {
     res.status(400).json({ message: "Aucun fichier envoyé" });
     return;
@@ -132,9 +144,14 @@ router.post("/upload", memUpload.single("file"), async (req, res) => {
       (req.file.mimetype.startsWith("video/") ? ".mp4" : ".jpg");
     const objectName = `product-uploads/${Date.now()}-${randomUUID()}${ext}`;
 
+    // Normalise le content-type pour les vidéos non-standard
+    let contentType = req.file.mimetype;
+    if (contentType === "video/mov" || contentType === "video/x-m4v") contentType = "video/mp4";
+    if (contentType === "video/x-msvideo") contentType = "video/avi";
+
     const bucket = objectStorageClient.bucket(bucketId);
     const gcsFile = bucket.file(objectName);
-    await gcsFile.save(req.file.buffer, { contentType: req.file.mimetype, resumable: false });
+    await gcsFile.save(req.file.buffer, { contentType, resumable: false });
 
     // URL servie via notre endpoint de streaming
     const url = `/api/gcs-media/${objectName}`;

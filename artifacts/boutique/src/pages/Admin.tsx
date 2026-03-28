@@ -784,19 +784,20 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
   const handleVideoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 50 * 1024 * 1024) { alert("Vidéo trop lourde (max 50 Mo)"); return; }
+    if (file.size > 100 * 1024 * 1024) { alert("Vidéo trop lourde (max 100 Mo)"); return; }
     setVideoLoading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
       const res = await fetch(`${API}/upload`, { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Upload échoué");
-      const { url } = await res.json();
-      // url est du type /api/uploads/filename.mp4 — on le préfixe avec BASE_URL
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "Upload échoué");
+      const url: string = data.url;
+      // url de type /api/gcs-media/... — on le préfixe avec BASE_URL si besoin
       const fullUrl = url.startsWith("http") ? url : `${import.meta.env.BASE_URL.replace(/\/$/, "")}${url}`;
       set("videoUrl", fullUrl);
-    } catch (err) {
-      alert("Erreur lors de l'import de la vidéo. Réessaie.");
+    } catch (err: any) {
+      alert("Échec de l'import vidéo : " + (err?.message || "erreur inconnue"));
       console.error(err);
     } finally {
       setVideoLoading(false);
@@ -868,7 +869,7 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
           {/* Vidéo */}
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Vidéo (optionnel)</label>
-            <input ref={videoRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/mov" className="hidden" onChange={handleVideoFile} />
+            <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={handleVideoFile} />
             {form.videoUrl ? (
               <div className="relative rounded-xl overflow-hidden bg-black">
                 <video src={form.videoUrl} className="w-full h-32 object-cover" muted playsInline />
