@@ -200,7 +200,7 @@ export default function Account() {
         {/* ── Contenu par onglet ── */}
         <AnimatePresence mode="wait">
           {tab === "orders" && <OrdersTab key="orders" orders={orders} />}
-          {tab === "profile" && <ProfileTab key="profile" chatId={chatId} username={username} inputChatId={inputChatId} setInputChatId={setInputChatId} handleSave={handleSave} />}
+          {tab === "profile" && <ProfileTab key="profile" chatId={chatId} username={username} />}
         </AnimatePresence>
       </main>
     </div>
@@ -341,8 +341,7 @@ function OrderCard({ order }: { order: any }) {
 }
 
 // ── Onglet Profil ──────────────────────────────────────────────────────────────
-function ProfileTab({ chatId, username, inputChatId, setInputChatId, handleSave }:
-  { chatId: string; username: string; inputChatId: string; setInputChatId: (v: string) => void; handleSave: () => void }) {
+function ProfileTab({ chatId, username }: { chatId: string; username: string }) {
   return (
     <motion.div key="profile" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
       className="space-y-3">
@@ -363,32 +362,6 @@ function ProfileTab({ chatId, username, inputChatId, setInputChatId, handleSave 
           <span className="font-mono text-xs text-white/60">{chatId}</span>
         </div>
       </div>
-
-      {/* Modifier Chat ID */}
-      <div className="rounded-[1.5rem] p-5 space-y-3"
-        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-white/30">Modifier l'identifiant</p>
-        <input
-          type="text"
-          value={inputChatId}
-          onChange={e => setInputChatId(e.target.value)}
-          placeholder="Nouveau Chat ID"
-          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all font-mono"
-        />
-        <button
-          onClick={handleSave}
-          disabled={!inputChatId.trim() || inputChatId.trim() === chatId}
-          className="w-full py-3 rounded-xl text-sm font-black disabled:opacity-30 active:scale-95 transition-all"
-          style={{ background: "linear-gradient(135deg, #c9a04c, #f0d070)", color: "#080603" }}
-        >
-          <Save className="w-4 h-4 inline-block mr-2 mb-0.5" />
-          Enregistrer
-        </button>
-      </div>
-
-      <p className="text-center text-[10px] text-white/15 pb-2">
-        Obtiens ton Chat ID via @userinfobot sur Telegram
-      </p>
     </motion.div>
   );
 }
