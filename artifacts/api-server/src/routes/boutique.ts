@@ -32,6 +32,23 @@ async function notifyAdmin(text: string, extra: object = {}) {
   } catch {}
 }
 
+// ─── Helper : infos client ────────────────────────────────────────────────────
+
+async function getUserLabel(chatId: string | null | undefined): Promise<string> {
+  if (!chatId) return "Client anonyme";
+  try {
+    const [user] = await db.select().from(botUsers).where(eq(botUsers.chatId, chatId));
+    if (!user) return `#${chatId}`;
+    const parts: string[] = [];
+    if (user.username) parts.push(`@${user.username}`);
+    if (user.firstName) parts.push(user.firstName);
+    parts.push(`(#${chatId})`);
+    return parts.join(" ");
+  } catch {
+    return `#${chatId}`;
+  }
+}
+
 // ─── Daily Stats Builder ───────────────────────────────────────────────────────
 
 export async function buildDailyStatsMessage(date?: string): Promise<string> {
@@ -541,13 +558,15 @@ router.post("/cart", async (req, res) => {
     const [product] = await db.select().from(products).where(eq(products.id, Number(productId)));
     const productName = product?.name || `Produit #${productId}`;
     const weightStr = selectedWeight ? ` (${selectedWeight})` : "";
-    const priceStr = selectedPrice ? `${selectedPrice}€` : product ? `${(product.price / 100).toFixed(2)}€` : "";
-    const clientStr = chatId ? `Client #${chatId}` : `Session ${String(sessionId).slice(0, 8)}`;
+    const qty = Number(quantity) || 1;
+    const priceUnit = selectedPrice ? Number(selectedPrice) : product ? product.price / 100 : 0;
+    const priceStr = priceUnit ? `${priceUnit}€/u — Total : ${(priceUnit * qty).toFixed(2)}€` : "";
+    const userLabel = await getUserLabel(chatId);
     notifyAdmin(
       `🛒 <b>Ajout au panier</b>\n\n` +
-      `👤 ${clientStr}\n` +
-      `📦 ${Number(quantity) || 1}× ${productName}${weightStr}` +
-      (priceStr ? ` — ${priceStr}` : "")
+      `👤 ${userLabel}\n` +
+      `📦 ${qty}× ${productName}${weightStr}\n` +
+      (priceStr ? `💶 ${priceStr}` : "")
     ).catch(() => {});
   } catch {}
 });
@@ -633,18 +652,22 @@ router.post("/checkout", async (req, res) => {
     item.selectedPrice != null ? Number(item.selectedPrice) : (item.product?.price || 0) / 100;
   const articleList = itemsWithProducts.map(item => {
     const name = item.product?.name || "Produit";
-    const price = priceEuros(item).toFixed(2);
-    return `  • ${item.quantity}× ${name} — ${price}€`;
+    const weight = item.selectedWeight ? ` (${item.selectedWeight})` : "";
+    const unitPrice = priceEuros(item);
+    const lineTotal = (unitPrice * item.quantity).toFixed(2);
+    return `  • ${item.quantity}× ${name}${weight} — ${unitPrice}€/u = <b>${lineTotal}€</b>`;
   }).join("\n");
-  const delivLabel = deliveryType === "livraison" ? "🚚 Livraison" : "🏪 Click & Collect";
-  const userLabel = chatId ? `Client #${chatId}` : "Client anonyme";
+  const delivLabel = deliveryType === "livraison" ? "🚚 Livraison à domicile" : deliveryType === "meetup" ? "🤝 Rendez-vous" : "📦 Point relais";
+  const userLabel = await getUserLabel(chatId);
   notifyAdmin(
-    `🛒 <b>Nouvelle commande !</b>\n\n` +
-    `📦 <b>${orderCode}</b>\n` +
-    `👤 ${userLabel}\n` +
-    `${delivLabel}${deliveryAddress ? ` — ${deliveryAddress}` : ""}\n\n` +
-    `<b>Articles :</b>\n${articleList}\n\n` +
-    `💶 Total : <b>${(totalRevenue / 100).toFixed(2)} €</b>`
+    `🔔 <b>NOUVELLE COMMANDE</b>\n` +
+    `━━━━━━━━━━━━━━━━━━\n\n` +
+    `👤 <b>Client :</b> ${userLabel}\n` +
+    `🆔 <b>Commande :</b> ${orderCode}\n\n` +
+    `${delivLabel}\n` +
+    (deliveryAddress ? `📍 ${deliveryAddress}\n` : "") +
+    `\n<b>Articles :</b>\n${articleList}\n\n` +
+    `💶 <b>Total : ${(totalRevenue / 100).toFixed(2)} €</b>`
   ).catch(() => {});
 
   res.json(order);
