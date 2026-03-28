@@ -67,7 +67,7 @@ async function main() {
     "tsconfig.tsbuildinfo", "/tmp"
   ];
 
-  const findCmd = `find ${WORKSPACE} -type f \\( ${excludePatterns.map(p => `-not -path "*/${p}*"`).join(" ")} \\) -not -name "*.log" -not -name "*.map" 2>/dev/null | head -500`;
+  const findCmd = `find ${WORKSPACE} -type f \\( ${excludePatterns.map(p => `-not -path "*/${p}*"`).join(" ")} \\) -not -name "*.log" -not -name "*.map" 2>/dev/null | head -2000`;
   const files = execSync(findCmd, { encoding: "utf8" }).trim().split("\n").filter(Boolean);
   
   console.log(`📁 ${files.length} fichiers trouvés à pousser`);
