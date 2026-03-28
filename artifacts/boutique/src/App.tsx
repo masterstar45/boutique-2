@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -157,8 +157,25 @@ function ConditionalBottomNav() {
   return <BottomNav />;
 }
 
+function useTelegramFullscreen() {
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (!tg) return;
+    const requestFs = () => {
+      tg.expand();
+      if (typeof tg.requestFullscreen === "function") tg.requestFullscreen();
+    };
+    requestFs();
+    // Re-trigger when app regains focus (user returns from another Telegram screen)
+    const onVisible = () => { if (!document.hidden) requestFs(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+}
+
 function App() {
   const [telegramOk] = useState(() => isTelegramConnected());
+  useTelegramFullscreen();
 
   const [splashDone, setSplashDone] = useState(() => {
     const isHome = window.location.pathname === import.meta.env.BASE_URL.replace(/\/$/, "") ||

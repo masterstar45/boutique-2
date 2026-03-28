@@ -21,8 +21,10 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
     if (tgWebApp) {
       tgWebApp.ready();
       tgWebApp.expand();
+      if (typeof tgWebApp.requestFullscreen === "function") tgWebApp.requestFullscreen();
       tgWebApp.setHeaderColor("#080603");
       tgWebApp.setBackgroundColor("#080603");
+      if (typeof tgWebApp.setBottomBarColor === "function") tgWebApp.setBottomBarColor("#080603");
       const user = tgWebApp.initDataUnsafe?.user;
       if (user) {
         const id = String(user.id);

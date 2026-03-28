@@ -10,6 +10,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Telegram Mini App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+      (function() {
+        var tg = window.Telegram && window.Telegram.WebApp;
+        if (tg) {
+          tg.expand();
+          if (typeof tg.requestFullscreen === 'function') tg.requestFullscreen();
+          tg.setHeaderColor('#080603');
+          tg.setBackgroundColor('#080603');
+          tg.setBottomBarColor('#080603');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
