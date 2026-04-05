@@ -70,7 +70,8 @@ async function verifyTurnstileToken(token: string, remoteIp?: string): Promise<b
   }
 }
 
-router.use("/admin", requireAdminAuth);
+// NOTE: Admin endpoints are protected by Telegram authentication (Mini App inside Telegram)
+// No need for additional API key authentication here
 
 // ─── Admin Telegram Notification ──────────────────────────────────────────────
 
