@@ -1,0 +1,8 @@
+{
+  "environments": {
+    "production": {
+      "buildCommand": "pnpm run build",
+      "startCommand": "/bin/sh /app/start.sh"
+    }
+  }
+}
