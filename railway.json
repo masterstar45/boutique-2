@@ -2,7 +2,12 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
+    "dockerfilePath": "Dockerfile",
+    "buildArgs": {
+      "VITE_TURNSTILE_SITE_KEY": "$VITE_TURNSTILE_SITE_KEY",
+      "PORT": "$PORT",
+      "BASE_PATH": "$BASE_PATH"
+    }
   },
   "deploy": {
     "healthcheckPath": "/api/healthz",

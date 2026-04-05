@@ -14,8 +14,13 @@ COPY . .
 # Installer les dépendances
 RUN pnpm install --no-frozen-lockfile
 
-# Builder la boutique front-end
-RUN PORT=3000 BASE_PATH=/ NODE_ENV=development pnpm --filter @workspace/boutique run build
+# Récupérer les args de build
+ARG VITE_TURNSTILE_SITE_KEY=""
+ARG PORT=3000
+ARG BASE_PATH=/
+
+# Builder la boutique front-end avec les variables Vite
+RUN PORT=${PORT} BASE_PATH=${BASE_PATH} NODE_ENV=production VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY} pnpm --filter @workspace/boutique run build
 
 # Builder le serveur API
 RUN pnpm --filter @workspace/api-server run build
