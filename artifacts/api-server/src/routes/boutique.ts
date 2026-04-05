@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import {
   products, cartItems, orders, reviews, promoCodes, dailyStats,
@@ -15,6 +15,31 @@ import { randomUUID } from "crypto";
 import { objectStorageClient } from "../lib/objectStorage";
 
 const router: IRouter = Router();
+
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
+
+function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
+  if (!ADMIN_API_KEY) {
+    res.status(500).json({ error: "ADMIN_API_KEY is not configured" });
+    return;
+  }
+
+  const provided = req.header("x-admin-api-key");
+  if (!provided || provided !== ADMIN_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  next();
+}
+
+function isValidSessionId(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  if (value.length < 12 || value.length > 128) return false;
+  return /^[A-Za-z0-9_-]+$/.test(value);
+}
+
+router.use("/admin", requireAdminAuth);
 
 // ─── Admin Telegram Notification ──────────────────────────────────────────────
 
@@ -234,6 +259,11 @@ router.get("/telegram-video/:fileId", async (req, res) => {
 // Vidéos → Telegram (fonctionne partout, pas besoin du sidecar Replit)
 // Images → GCS si dispo, sinon base64 en réponse
 router.post("/upload", (req, res, next) => {
+  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   memUpload.single("file")(req, res, (err) => {
     if (err) {
       console.error("Multer error:", err.message);
@@ -522,6 +552,11 @@ router.get("/products/:id/video", async (req, res) => {
 });
 
 router.post("/products", async (req, res) => {
+  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   const { name, brand, description, price, imageUrl, videoUrl, category, tags, sticker, stickerFlag, priceOptions, stock } = req.body;
   const [product] = await db.insert(products).values({
     name, brand, description, price: price || 0, imageUrl,
@@ -532,6 +567,11 @@ router.post("/products", async (req, res) => {
 });
 
 router.patch("/products/:id", async (req, res) => {
+  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   const { name, brand, description, price, imageUrl, videoUrl, category, tags, sticker, stickerFlag, priceOptions, stock } = req.body;
   const updateData: Partial<InsertProduct> = {};
   if (name !== undefined) updateData.name = name;
@@ -556,6 +596,11 @@ router.patch("/products/:id", async (req, res) => {
 });
 
 router.delete("/products/:id", async (req, res) => {
+  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   await db.delete(products).where(eq(products.id, Number(req.params.id)));
   res.status(204).send();
 });
@@ -563,6 +608,11 @@ router.delete("/products/:id", async (req, res) => {
 // ─── Cart ─────────────────────────────────────────────────────────────────────
 
 router.get("/cart/:sessionId", async (req, res) => {
+  if (!isValidSessionId(req.params.sessionId)) {
+    res.status(400).json({ message: "Invalid sessionId" });
+    return;
+  }
+
   const items = await db.select().from(cartItems).where(eq(cartItems.sessionId, req.params.sessionId));
   const result = await Promise.all(
     items.map(async (item) => {
@@ -575,7 +625,7 @@ router.get("/cart/:sessionId", async (req, res) => {
 
 router.post("/cart", async (req, res) => {
   const { sessionId, productId, quantity, selectedPrice, selectedWeight, chatId } = req.body;
-  if (!sessionId || !productId) {
+  if (!isValidSessionId(sessionId) || !productId) {
     res.status(400).json({ message: "sessionId and productId are required" });
     return;
   }
@@ -609,7 +659,7 @@ router.post("/cart", async (req, res) => {
 router.patch("/cart/:id", async (req, res) => {
   const id = Number(req.params.id);
   const { quantity, sessionId } = req.body;
-  if (!sessionId || typeof quantity !== "number") {
+  if (!isValidSessionId(sessionId) || typeof quantity !== "number") {
     res.status(400).json({ message: "sessionId and quantity required" });
     return;
   }
@@ -618,6 +668,11 @@ router.patch("/cart/:id", async (req, res) => {
 });
 
 router.delete("/cart/session/:sessionId", async (req, res) => {
+  if (!isValidSessionId(req.params.sessionId)) {
+    res.status(400).json({ message: "Invalid sessionId" });
+    return;
+  }
+
   await db.delete(cartItems).where(eq(cartItems.sessionId, req.params.sessionId));
   res.status(204).send();
 });
@@ -632,7 +687,7 @@ router.delete("/cart/:id", async (req, res) => {
 router.post("/checkout", async (req, res) => {
   try {
   const { sessionId, chatId, deliveryType, deliveryAddress, promoCode, pointsToRedeem } = req.body;
-  if (!sessionId || !deliveryType) {
+  if (!isValidSessionId(sessionId) || !deliveryType) {
     res.status(400).json({ message: "sessionId and deliveryType are required" });
     return;
   }
@@ -715,6 +770,11 @@ router.post("/checkout", async (req, res) => {
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
 router.get("/orders", async (req, res) => {
+  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   const status = typeof req.query.status === "string" ? req.query.status : undefined;
   const limit = Number(req.query.limit) || 50;
   const offset = Number(req.query.offset) || 0;
@@ -731,6 +791,11 @@ router.get("/orders", async (req, res) => {
 });
 
 router.patch("/orders/:orderCode/status", async (req, res) => {
+  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   const { status } = req.body;
   const { orderCode } = req.params;
   await db.update(orders).set({ status }).where(eq(orders.orderCode, orderCode));
@@ -945,6 +1010,11 @@ router.get("/reviews", async (req, res) => {
 });
 
 router.get("/reviews/pending", async (req, res) => {
+  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   const result = await db.select().from(reviews).where(eq(reviews.approved, false)).orderBy(desc(reviews.id));
   res.json(result);
 });
@@ -960,11 +1030,21 @@ router.post("/reviews", async (req, res) => {
 });
 
 router.post("/reviews/:id/approve", async (req, res) => {
+  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   await db.update(reviews).set({ approved: true }).where(eq(reviews.id, Number(req.params.id)));
   res.json({ success: true });
 });
 
 router.delete("/reviews/:id", async (req, res) => {
+  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   await db.delete(reviews).where(eq(reviews.id, Number(req.params.id)));
   res.status(204).send();
 });

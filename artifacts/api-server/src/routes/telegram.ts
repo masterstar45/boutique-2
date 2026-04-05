@@ -8,6 +8,7 @@ const ADMIN_CHAT_ID = "5818221358";
 const router: IRouter = Router();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
   ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
   : process.env.APP_URL ?? "https://boutique-2-production.up.railway.app";
@@ -81,10 +82,19 @@ export async function setupWebhook() {
   if (!BOT_TOKEN) return;
   const webhookUrl = `${BASE_URL}/api/telegram/webhook`;
   try {
+    const payload: Record<string, unknown> = {
+      url: webhookUrl,
+      allowed_updates: ["message", "callback_query"],
+      drop_pending_updates: true,
+    };
+    if (WEBHOOK_SECRET) {
+      payload.secret_token = WEBHOOK_SECRET;
+    }
+
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: webhookUrl, allowed_updates: ["message", "callback_query"], drop_pending_updates: true }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json() as any;
     console.log("Telegram webhook setup:", data.description ?? data);
@@ -129,6 +139,19 @@ function formatDate(timestamp: number): string {
 }
 
 router.post("/telegram/webhook", async (req, res) => {
+  if (!WEBHOOK_SECRET && process.env.NODE_ENV === "production") {
+    res.sendStatus(503);
+    return;
+  }
+
+  if (WEBHOOK_SECRET) {
+    const providedSecret = req.header("x-telegram-bot-api-secret-token");
+    if (!providedSecret || providedSecret !== WEBHOOK_SECRET) {
+      res.sendStatus(401);
+      return;
+    }
+  }
+
   res.sendStatus(200);
 
   const update = req.body;
