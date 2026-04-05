@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -29,15 +29,54 @@ const queryClient = new QueryClient({
   },
 });
 
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+
+type TurnstileApi = {
+  render: (container: string | HTMLElement, params: Record<string, unknown>) => string;
+};
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
+
+function loadTurnstileScript(): Promise<void> {
+  if (window.turnstile) {
+    return Promise.resolve();
+  }
+
+  const existing = document.querySelector<HTMLScriptElement>('script[src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"]');
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Turnstile script load failed")), { once: true });
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Turnstile script load failed"));
+    document.head.appendChild(script);
+  });
+}
+
 function isTelegramConnected(): boolean {
-  const path = window.location.pathname;
-  if (path.endsWith("/admin") || path.includes("/admin")) return true;
   const tg = (window as any).Telegram?.WebApp;
   if (tg?.initData && tg.initData.length > 0) return true;
   if (localStorage.getItem("telegram_chat_id")) return true;
   const params = new URLSearchParams(window.location.search);
   if (params.get("tg_id")) return true;
   return false;
+}
+
+function isAdminPath(): boolean {
+  const path = window.location.pathname;
+  return path.endsWith("/admin") || path.includes("/admin");
 }
 
 function TelegramGate() {
@@ -159,6 +198,16 @@ function ConditionalBottomNav() {
 
 function App() {
   const [telegramOk] = useState(() => isTelegramConnected());
+  const isAdmin = isAdminPath();
+  const turnstileEnabled = Boolean(TURNSTILE_SITE_KEY);
+  const [startupVerified, setStartupVerified] = useState(() => {
+    if (!turnstileEnabled) return true;
+    return sessionStorage.getItem("startup_turnstile_ok") === "1";
+  });
+  const [startupTurnstileError, setStartupTurnstileError] = useState("");
+  const startupTurnstileContainerRef = useRef<HTMLDivElement | null>(null);
+  const startupWidgetIdRef = useRef<string | null>(null);
+
   const [splashDone, setSplashDone] = useState(() => {
     const isHome = window.location.pathname === import.meta.env.BASE_URL.replace(/\/$/, "") ||
                    window.location.pathname === import.meta.env.BASE_URL ||
@@ -170,6 +219,47 @@ function App() {
     sessionStorage.setItem("splash_shown", "1");
     setSplashDone(true);
   }, []);
+
+  useEffect(() => {
+    // Turnstile doit se charger POUR TOUS (y compris /admin)
+    if (startupVerified || !turnstileEnabled) {
+      return;
+    }
+
+    let canceled = false;
+
+    const mountStartupTurnstile = async () => {
+      try {
+        await loadTurnstileScript();
+        if (canceled || !window.turnstile || !startupTurnstileContainerRef.current || startupWidgetIdRef.current) {
+          return;
+        }
+
+        const widgetId = window.turnstile.render(startupTurnstileContainerRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: () => {
+            sessionStorage.setItem("startup_turnstile_ok", "1");
+            setStartupTurnstileError("");
+            setStartupVerified(true);
+          },
+          "error-callback": () => setStartupTurnstileError("Vérification Cloudflare impossible. Réessaie."),
+          "expired-callback": () => setStartupTurnstileError("Vérification expirée. Recharge la page."),
+        });
+
+        startupWidgetIdRef.current = widgetId;
+      } catch {
+        if (!canceled) {
+          setStartupTurnstileError("Impossible de charger Cloudflare Turnstile.");
+        }
+      }
+    };
+
+    mountStartupTurnstile();
+
+    return () => {
+      canceled = true;
+    };
+  }, [startupVerified, turnstileEnabled]);
 
   // Plein écran Telegram — inline pour éviter les règles des hooks
   useEffect(() => {
@@ -227,10 +317,31 @@ function App() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
-  if (!telegramOk) {
+  if (!telegramOk && !isAdmin) {
     return (
       <QueryClientProvider client={queryClient}>
         <TelegramGate />
+      </QueryClientProvider>
+    );
+  }
+
+  if (!startupVerified && turnstileEnabled) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-6" style={{ background: "#080603" }}>
+          <div className="w-full max-w-sm rounded-[1.5rem] p-6" style={{
+            background: "rgba(201,160,76,0.04)",
+            border: "1px solid rgba(201,160,76,0.16)",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+          }}>
+            <h2 className="font-display text-xl font-semibold text-center mb-2">Vérification Cloudflare</h2>
+            <p className="text-sm text-center mb-4" style={{ color: "rgba(201,160,76,0.7)" }}>
+              Valide la vérification pour accéder à la mini app.
+            </p>
+            <div ref={startupTurnstileContainerRef} className="min-h-[65px] flex justify-center" />
+            {startupTurnstileError && <p className="text-xs text-red-400 mt-3 text-center">{startupTurnstileError}</p>}
+          </div>
+        </div>
       </QueryClientProvider>
     );
   }
