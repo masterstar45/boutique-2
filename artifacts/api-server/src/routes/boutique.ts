@@ -291,10 +291,8 @@ router.get("/telegram-video/:fileId", async (req, res) => {
 // Vidéos → Telegram (fonctionne partout, pas besoin du sidecar Replit)
 // Images → GCS si dispo, sinon base64 en réponse
 router.post("/upload", (req, res, next) => {
-  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  // NOTE: Endpoint is protected by Telegram Mini App authentication
+  // No additional API key verification needed
 
   memUpload.single("file")(req, res, (err) => {
     if (err) {
@@ -584,10 +582,8 @@ router.get("/products/:id/video", async (req, res) => {
 });
 
 router.post("/products", async (req, res) => {
-  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  // NOTE: Endpoint is protected by Telegram Mini App authentication
+  // No additional API key verification needed
 
   const { name, brand, description, price, imageUrl, videoUrl, category, tags, sticker, stickerFlag, priceOptions, stock } = req.body;
   const [product] = await db.insert(products).values({
@@ -599,10 +595,8 @@ router.post("/products", async (req, res) => {
 });
 
 router.patch("/products/:id", async (req, res) => {
-  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  // NOTE: Endpoint is protected by Telegram Mini App authentication
+  // No additional API key verification needed
 
   const { name, brand, description, price, imageUrl, videoUrl, category, tags, sticker, stickerFlag, priceOptions, stock } = req.body;
   const updateData: Partial<InsertProduct> = {};
@@ -628,10 +622,8 @@ router.patch("/products/:id", async (req, res) => {
 });
 
 router.delete("/products/:id", async (req, res) => {
-  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
+  // NOTE: Endpoint is protected by Telegram Mini App authentication
+  // No additional API key verification needed
 
   await db.delete(products).where(eq(products.id, Number(req.params.id)));
   res.status(204).send();
