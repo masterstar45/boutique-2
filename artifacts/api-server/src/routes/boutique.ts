@@ -17,6 +17,7 @@ import { objectStorageClient } from "../lib/objectStorage";
 const router: IRouter = Router();
 
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
+const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY;
 
 function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
   if (!ADMIN_API_KEY) {
@@ -37,6 +38,36 @@ function isValidSessionId(value: unknown): value is string {
   if (typeof value !== "string") return false;
   if (value.length < 12 || value.length > 128) return false;
   return /^[A-Za-z0-9_-]+$/.test(value);
+}
+
+async function verifyTurnstileToken(token: string, remoteIp?: string): Promise<boolean> {
+  if (!TURNSTILE_SECRET_KEY) {
+    return true;
+  }
+
+  const body = new URLSearchParams();
+  body.set("secret", TURNSTILE_SECRET_KEY);
+  body.set("response", token);
+  if (remoteIp) {
+    body.set("remoteip", remoteIp);
+  }
+
+  try {
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = await response.json() as { success?: boolean };
+    return !!data.success;
+  } catch {
+    return false;
+  }
 }
 
 router.use("/admin", requireAdminAuth);
@@ -686,10 +717,23 @@ router.delete("/cart/:id", async (req, res) => {
 
 router.post("/checkout", async (req, res) => {
   try {
-  const { sessionId, chatId, deliveryType, deliveryAddress, promoCode, pointsToRedeem } = req.body;
+  const { sessionId, chatId, deliveryType, deliveryAddress, promoCode, pointsToRedeem, turnstileToken } = req.body;
   if (!isValidSessionId(sessionId) || !deliveryType) {
     res.status(400).json({ message: "sessionId and deliveryType are required" });
     return;
+  }
+
+  if (TURNSTILE_SECRET_KEY) {
+    if (typeof turnstileToken !== "string" || !turnstileToken) {
+      res.status(400).json({ message: "Turnstile token is required" });
+      return;
+    }
+
+    const isTurnstileValid = await verifyTurnstileToken(turnstileToken, req.ip || req.socket.remoteAddress || undefined);
+    if (!isTurnstileValid) {
+      res.status(403).json({ message: "Turnstile verification failed" });
+      return;
+    }
   }
 
   const cartItemsList = await db.select().from(cartItems).where(eq(cartItems.sessionId, sessionId));

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, ChevronLeft, Send, MapPin, Phone, Clock, ExternalLink, Tag, Check, X, Loader2 } from "lucide-react";
 import { TopBar } from "@/components/TopBar";
@@ -8,6 +8,42 @@ import { useGetCart, useUpdateCartItem, useRemoveFromCart, useCheckout, getGetCa
 import { useQueryClient } from "@tanstack/react-query";
 
 const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+
+type TurnstileApi = {
+  render: (container: string | HTMLElement, params: Record<string, unknown>) => string;
+  reset: (widgetId?: string) => void;
+};
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
+
+function loadTurnstileScript(): Promise<void> {
+  if (window.turnstile) {
+    return Promise.resolve();
+  }
+
+  const existing = document.querySelector<HTMLScriptElement>('script[src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"]');
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Turnstile script load failed")), { once: true });
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Turnstile script load failed"));
+    document.head.appendChild(script);
+  });
+}
 
 const DELIVERY_MODES = [
   { id: "livraison", label: "Livraison à domicile", emoji: "🛵" },
@@ -32,6 +68,59 @@ export default function Cart() {
   const [phone, setPhone] = useState("");
   const [timeSlot, setTimeSlot] = useState("");
   const [meetupSlot, setMeetupSlot] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReady, setTurnstileReady] = useState(!TURNSTILE_SITE_KEY);
+  const [turnstileError, setTurnstileError] = useState("");
+  const turnstileContainerRef = useRef<HTMLDivElement | null>(null);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
+
+  const turnstileRequired = Boolean(TURNSTILE_SITE_KEY);
+
+  useEffect(() => {
+    if (!turnstileRequired || step !== "details") {
+      return;
+    }
+
+    let canceled = false;
+
+    const mountTurnstile = async () => {
+      try {
+        await loadTurnstileScript();
+        if (canceled || !window.turnstile || !turnstileContainerRef.current || turnstileWidgetIdRef.current) {
+          return;
+        }
+
+        const widgetId = window.turnstile.render(turnstileContainerRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token: string) => {
+            setTurnstileToken(token);
+            setTurnstileError("");
+          },
+          "error-callback": () => {
+            setTurnstileToken("");
+            setTurnstileError("Vérification Cloudflare impossible. Réessaie.");
+          },
+          "expired-callback": () => {
+            setTurnstileToken("");
+            setTurnstileError("Vérification expirée. Merci de valider à nouveau.");
+          },
+        });
+
+        turnstileWidgetIdRef.current = widgetId;
+        setTurnstileReady(true);
+      } catch {
+        if (!canceled) {
+          setTurnstileError("Impossible de charger Cloudflare Turnstile.");
+        }
+      }
+    };
+
+    mountTurnstile();
+
+    return () => {
+      canceled = true;
+    };
+  }, [step, turnstileRequired]);
 
   // ── Code promo ──
   const [promoInput, setPromoInput] = useState("");
@@ -121,6 +210,11 @@ export default function Cart() {
   };
 
   const handleSendOrder = () => {
+    if (turnstileRequired && !turnstileToken) {
+      setTurnstileError("Valide le contrôle Cloudflare avant d'envoyer.");
+      return;
+    }
+
     checkoutMut.mutate({
       data: {
         sessionId,
@@ -128,6 +222,7 @@ export default function Cart() {
         deliveryType: deliveryMode,
         deliveryAddress: deliveryMode === "livraison" ? address : `Relais - ${phone}`,
         promoCode: promoData?.code,
+        turnstileToken,
       }
     });
   };
@@ -507,7 +602,7 @@ export default function Cart() {
               </div>
 
               <button
-                disabled={!detailsValid || checkoutMut.isPending}
+                disabled={!detailsValid || checkoutMut.isPending || (turnstileRequired && (!turnstileReady || !turnstileToken))}
                 onClick={handleSendOrder}
                 className="w-full h-16 rounded-2xl font-black text-lg flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform text-white"
                 style={{ background: "linear-gradient(135deg, hsl(270,90%,55%), hsl(200,90%,55%))" }}
@@ -516,6 +611,14 @@ export default function Cart() {
                   <><Send className="w-5 h-5" /> Envoyer la commande</>
                 )}
               </button>
+
+              {turnstileRequired && (
+                <div className="glass-panel p-4 rounded-[1.5rem]">
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Vérification Cloudflare</p>
+                  <div ref={turnstileContainerRef} className="min-h-[65px]" />
+                  {turnstileError && <p className="text-xs text-red-400 mt-2">{turnstileError}</p>}
+                </div>
+              )}
             </motion.div>
           )}
 
