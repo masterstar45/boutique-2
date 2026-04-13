@@ -199,6 +199,7 @@ function ConditionalBottomNav() {
 function ConditionalBackground() {
   const [location] = useLocation();
   if (location === "/menu" || location.startsWith("/menu/")) return null;
+  if (location.startsWith("/product/")) return null;
   return <AnimatedBackground />;
 }
 
