@@ -17,6 +17,10 @@ const superAdminIds = new Set(
   ].filter((id): id is string => Boolean(id))
 );
 
+if (isProduction && superAdminIds.size === 0) {
+  console.warn("⚠️  No TELEGRAM_SUPER_ADMIN_ID(S) configured in production");
+}
+
 /**
  * Valide la signature d'un webhook Telegram
  * @see https://core.telegram.org/bots/webhooks#validating-the-signature
