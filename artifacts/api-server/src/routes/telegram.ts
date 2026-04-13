@@ -13,6 +13,7 @@ const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
   ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
   : process.env.APP_URL ?? "https://boutique-2-production.up.railway.app";
+let lastWebhookRepairAttempt = 0;
 
 async function sendMessage(chatId: string | number, text: string, extra: object = {}) {
   if (!BOT_TOKEN) return;
@@ -149,6 +150,16 @@ router.post("/telegram/webhook", async (req, res) => {
   if (WEBHOOK_SECRET) {
     if (!secretTokenHeader || secretTokenHeader !== WEBHOOK_SECRET) {
       console.warn("❌ Invalid Telegram webhook secret token");
+
+      // Self-heal: if Telegram webhook lost/changed secret, try to re-register it
+      const now = Date.now();
+      if (now - lastWebhookRepairAttempt > 5 * 60 * 1000) {
+        lastWebhookRepairAttempt = now;
+        setupWebhook().catch((err) => {
+          console.error("Webhook self-repair failed:", err);
+        });
+      }
+
       res.sendStatus(401);
       return;
     }
