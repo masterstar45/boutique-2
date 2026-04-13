@@ -5,6 +5,8 @@ import { admins } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const isProduction = process.env.NODE_ENV === "production";
+const allowUnsignedMiniAppAuth = process.env.ALLOW_UNSIGNED_MINIAPP_AUTH === "true" || !isProduction;
 
 /**
  * Valide la signature d'un webhook Telegram
@@ -55,7 +57,31 @@ export function extractTelegramMiniAppData(header: string | undefined): Telegram
   }
 
   try {
-    const decoded = Buffer.from(header, "base64").toString("utf-8");
+    // Format supporté:
+    // 1) base64(json)
+    // 2) base64(json):hex_hmac_signature
+    const [payloadB64, signature] = header.split(":", 2);
+
+    if (signature) {
+      if (!BOT_TOKEN) {
+        console.warn("⚠️  BOT_TOKEN missing for Mini App signature verification");
+        return null;
+      }
+
+      const computedSignature = createHmac("sha256", BOT_TOKEN).update(payloadB64).digest("hex");
+      const expected = Buffer.from(computedSignature, "utf-8");
+      const provided = Buffer.from(signature, "utf-8");
+
+      if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
+        console.warn("⚠️  Invalid Mini App signature");
+        return null;
+      }
+    } else if (!allowUnsignedMiniAppAuth) {
+      console.warn("⚠️  Unsigned Mini App header rejected in production");
+      return null;
+    }
+
+    const decoded = Buffer.from(payloadB64, "base64").toString("utf-8");
     const data = JSON.parse(decoded);
 
     // Valider les champs requis

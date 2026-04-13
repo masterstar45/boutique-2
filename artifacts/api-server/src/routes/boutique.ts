@@ -452,7 +452,7 @@ router.post("/upload", requireTelegramAuth, uploadRateLimiter, (req, res, next) 
     res.json({ url });
   } catch (err: any) {
     console.error("GCS upload error:", err);
-    res.status(500).json({ message: "Erreur upload image: " + (err.message || "inconnue") });
+    res.status(500).json({ message: "Erreur upload image" });
   }
 });
 
@@ -497,7 +497,7 @@ router.use("/gcs-media", async (req, res, next) => {
     }
   } catch (err: any) {
     console.error("GCS serve error:", err);
-    res.status(500).json({ message: "Erreur lecture: " + (err.message || "inconnue") });
+    res.status(500).json({ message: "Erreur lecture" });
   }
 });
 
@@ -544,7 +544,8 @@ router.post("/admin/upload-start-media", requireTelegramAuth, requireTelegramAdm
 
     res.json({ ok: true, fileId, type: isVideo ? "video" : "photo" });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || "Upload échoué" });
+    console.error("start-media upload error:", err);
+    res.status(500).json({ error: "Upload échoué" });
   }
 });
 
@@ -558,12 +559,24 @@ router.delete("/admin/start-media", requireTelegramAuth, requireTelegramAdmin, a
       .onConflictDoUpdate({ target: botSettings.key, set: { value: "" } });
     res.json({ ok: true });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("start-media delete error:", err);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
 router.get("/uploads/:filename", (req, res) => {
-  const filePath = path.resolve(uploadsDir, req.params.filename);
+  const rawFilename = req.params.filename;
+  if (rawFilename !== path.basename(rawFilename) || rawFilename.includes("..")) {
+    res.status(400).json({ message: "Invalid filename" });
+    return;
+  }
+
+  const filePath = path.resolve(uploadsDir, rawFilename);
+  if (!filePath.startsWith(path.resolve(uploadsDir) + path.sep)) {
+    res.status(400).json({ message: "Invalid path" });
+    return;
+  }
+
   if (!fs.existsSync(filePath)) {
     res.status(404).json({ message: "File not found" });
     return;
@@ -1572,7 +1585,7 @@ router.post("/admin/client-buttons", requireTelegramAuth, requireTelegramAdmin, 
   } catch (err: any) {
     const pg = err?.cause?.message || err?.cause?.code || "";
     console.error("POST client-buttons error:", err?.message, pg);
-    res.status(500).json({ error: err.message || "Erreur serveur", pg });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -1594,7 +1607,7 @@ router.patch("/admin/client-buttons/:id", requireTelegramAuth, requireTelegramAd
   } catch (err: any) {
     const pg = err?.cause?.message || err?.cause?.code || "";
     console.error("PATCH client-buttons error:", err?.message, pg);
-    res.status(500).json({ error: err.message || "Erreur serveur", pg });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
