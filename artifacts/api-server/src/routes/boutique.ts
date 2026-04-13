@@ -290,10 +290,8 @@ router.get("/telegram-video/:fileId", async (req, res) => {
 // ─── Upload produit ────────────────────────────────────────────────────────────
 // Vidéos → Telegram (fonctionne partout, pas besoin du sidecar Replit)
 // Images → GCS si dispo, sinon base64 en réponse
-router.post("/upload", (req, res, next) => {
-  // NOTE: Endpoint is protected by Telegram Mini App authentication
-  // No additional API key verification needed
-
+router.post("/upload", requireTelegramAuth, uploadRateLimiter, (req, res, next) => {
+  // Upload authenticated via Telegram Mini App and rate-limited
   memUpload.single("file")(req, res, (err) => {
     if (err) {
       console.error("Multer error:", err.message);
@@ -785,9 +783,22 @@ router.delete("/cart/:id", async (req, res) => {
 
 // ─── Checkout ─────────────────────────────────────────────────────────────────
 
-router.post("/checkout", async (req, res) => {
+router.post("/checkout", requireTelegramAuth, async (req, res) => {
   try {
+  const telegramUser = (req as any).telegramUser;
   const { sessionId, chatId, deliveryType, deliveryAddress, promoCode, pointsToRedeem, turnstileToken } = req.body;
+  
+  // Verify chatId belongs to authenticated user (BOLA fix)
+  if (chatId !== telegramUser.chatId) {
+    logAdminAction(req, "checkout_unauthorized_access", {
+      status: 403,
+      error: "ChatId does not match authenticated user",
+      details: { requestChatId: chatId },
+    });
+    res.status(403).json({ message: "Forbidden: Different user's cart" });
+    return;
+  }
+  
   if (!isValidSessionId(sessionId) || !deliveryType) {
     res.status(400).json({ message: "sessionId and deliveryType are required" });
     return;
@@ -930,7 +941,20 @@ router.patch("/orders/:orderCode/status", async (req, res) => {
   res.json({ success: true });
 });
 
-router.get("/orders/my/:chatId", async (req, res) => {
+router.get("/orders/my/:chatId", requireTelegramAuth, async (req, res) => {
+  const telegramUser = (req as any).telegramUser;
+  
+  // Verify requesting user owns this chatId (BOLA fix)
+  if (telegramUser.chatId !== req.params.chatId) {
+    logAdminAction(req, "unauthorized_access_attempt", {
+      status: 403,
+      error: "Attempted access to other user's orders",
+      details: { targetChatId: req.params.chatId },
+    });
+    res.status(403).json({ error: "Forbidden: Cannot access other users' orders" });
+    return;
+  }
+  
   const result = await db.select().from(orders).where(eq(orders.chatId, req.params.chatId)).orderBy(desc(orders.id));
   res.json(result);
 });
@@ -1199,7 +1223,20 @@ router.delete("/admin/promo-codes/:id", requireTelegramAuth, requireTelegramAdmi
 
 // ─── Loyalty ──────────────────────────────────────────────────────────────────
 
-router.get("/loyalty/:chatId", async (req, res) => {
+router.get("/loyalty/:chatId", requireTelegramAuth, async (req, res) => {
+  const telegramUser = (req as any).telegramUser;
+  
+  // Verify requesting user owns this chatId (BOLA fix)
+  if (telegramUser.chatId !== req.params.chatId) {
+    logAdminAction(req, "unauthorized_loyalty_access", {
+      status: 403,
+      error: "Attempted access to other user's loyalty balance",
+      details: { targetChatId: req.params.chatId },
+    });
+    res.status(403).json({ error: "Forbidden: Cannot access other users' loyalty" });
+    return;
+  }
+  
   const [balance] = await db.select().from(loyaltyBalances).where(eq(loyaltyBalances.chatId, req.params.chatId));
   if (!balance) {
     res.json({ id: 0, chatId: req.params.chatId, points: 0, tier: "Bronze", totalEarned: 0 });
@@ -1208,7 +1245,20 @@ router.get("/loyalty/:chatId", async (req, res) => {
   res.json(balance);
 });
 
-router.get("/loyalty/:chatId/transactions", async (req, res) => {
+router.get("/loyalty/:chatId/transactions", requireTelegramAuth, async (req, res) => {
+  const telegramUser = (req as any).telegramUser;
+  
+  // Verify requesting user owns this chatId (BOLA fix)
+  if (telegramUser.chatId !== req.params.chatId) {
+    logAdminAction(req, "unauthorized_loyalty_transactions_access", {
+      status: 403,
+      error: "Attempted access to other user's loyalty transactions",
+      details: { targetChatId: req.params.chatId },
+    });
+    res.status(403).json({ error: "Forbidden: Cannot access other users' transactions" });
+    return;
+  }
+  
   const result = await db.select().from(loyaltyTransactions)
     .where(eq(loyaltyTransactions.chatId, req.params.chatId))
     .orderBy(desc(loyaltyTransactions.id))
@@ -1218,7 +1268,20 @@ router.get("/loyalty/:chatId/transactions", async (req, res) => {
 
 // ─── Favorites ────────────────────────────────────────────────────────────────
 
-router.get("/favorites/:chatId", async (req, res) => {
+router.get("/favorites/:chatId", requireTelegramAuth, async (req, res) => {
+  const telegramUser = (req as any).telegramUser;
+  
+  // Verify requesting user owns this chatId (BOLA fix)
+  if (telegramUser.chatId !== req.params.chatId) {
+    logAdminAction(req, "unauthorized_favorites_access", {
+      status: 403,
+      error: "Attempted access to other user's favorites",
+      details: { targetChatId: req.params.chatId },
+    });
+    res.status(403).json({ error: "Forbidden: Cannot access other users' favorites" });
+    return;
+  }
+  
   const favs = await db.select().from(favorites).where(eq(favorites.chatId, req.params.chatId));
   const result = await Promise.all(
     favs.map(async (fav) => {
@@ -1229,8 +1292,21 @@ router.get("/favorites/:chatId", async (req, res) => {
   res.json(result.filter((r) => r.product));
 });
 
-router.post("/favorites", async (req, res) => {
+router.post("/favorites", requireTelegramAuth, async (req, res) => {
+  const telegramUser = (req as any).telegramUser;
   const { chatId, productId } = req.body;
+  
+  // Verify requesting user owns this chatId (BOLA fix)
+  if (telegramUser.chatId !== chatId) {
+    logAdminAction(req, "unauthorized_favorites_modification", {
+      status: 403,
+      error: "Attempted to modify other user's favorites",
+      details: { targetChatId: chatId, productId },
+    });
+    res.status(403).json({ error: "Forbidden: Cannot modify other users' favorites" });
+    return;
+  }
+  
   const existing = await db.select().from(favorites).where(and(eq(favorites.chatId, chatId), eq(favorites.productId, Number(productId))));
   if (existing.length === 0) {
     await db.insert(favorites).values({ chatId, productId: Number(productId) });
@@ -1238,7 +1314,20 @@ router.post("/favorites", async (req, res) => {
   res.json({ success: true });
 });
 
-router.delete("/favorites/:chatId/:productId", async (req, res) => {
+router.delete("/favorites/:chatId/:productId", requireTelegramAuth, async (req, res) => {
+  const telegramUser = (req as any).telegramUser;
+  
+  // Verify requesting user owns this chatId (BOLA fix)
+  if (telegramUser.chatId !== req.params.chatId) {
+    logAdminAction(req, "unauthorized_favorites_deletion", {
+      status: 403,
+      error: "Attempted to delete other user's favorites",
+      details: { targetChatId: req.params.chatId, productId: req.params.productId },
+    });
+    res.status(403).json({ error: "Forbidden: Cannot delete other users' favorites" });
+    return;
+  }
+  
   await db.delete(favorites).where(and(eq(favorites.chatId, req.params.chatId), eq(favorites.productId, Number(req.params.productId))));
   res.status(204).send();
 });
