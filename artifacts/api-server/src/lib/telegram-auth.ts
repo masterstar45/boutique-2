@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const isProduction = process.env.NODE_ENV === "production";
-const allowUnsignedMiniAppAuth = process.env.ALLOW_UNSIGNED_MINIAPP_AUTH === "true" || !isProduction;
+const allowUnsignedMiniAppAuth = !isProduction && process.env.ALLOW_UNSIGNED_MINIAPP_AUTH === "true";
 
 /**
  * Valide la signature d'un webhook Telegram
@@ -44,6 +44,71 @@ export interface TelegramMiniAppData {
   firstName?: string;
   isBot?: boolean;
   isAdmin?: boolean;
+}
+
+function verifyTelegramInitData(initData: string): TelegramMiniAppData | null {
+  if (!BOT_TOKEN) {
+    console.warn("⚠️  BOT_TOKEN missing for initData verification");
+    return null;
+  }
+
+  try {
+    const params = new URLSearchParams(initData);
+    const receivedHash = params.get("hash");
+    if (!receivedHash) {
+      console.warn("⚠️  Missing hash in Telegram initData");
+      return null;
+    }
+
+    const entries: string[] = [];
+    params.forEach((value, key) => {
+      if (key !== "hash") {
+        entries.push(`${key}=${value}`);
+      }
+    });
+    entries.sort();
+    const dataCheckString = entries.join("\n");
+
+    const secretKey = createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
+    const computedHash = createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+
+    const expected = Buffer.from(computedHash, "utf-8");
+    const provided = Buffer.from(receivedHash, "utf-8");
+    if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
+      console.warn("⚠️  Invalid Telegram initData hash");
+      return null;
+    }
+
+    const userRaw = params.get("user");
+    if (!userRaw) {
+      console.warn("⚠️  Missing user payload in initData");
+      return null;
+    }
+
+    const user = JSON.parse(userRaw) as {
+      id?: number;
+      username?: string;
+      first_name?: string;
+      is_bot?: boolean;
+    };
+
+    if (!user.id) {
+      console.warn("⚠️  Missing user.id in initData");
+      return null;
+    }
+
+    return {
+      chatId: String(user.id),
+      userId: Number(user.id),
+      username: user.username,
+      firstName: user.first_name,
+      isBot: !!user.is_bot,
+      isAdmin: false,
+    };
+  } catch (e) {
+    console.warn("⚠️  Failed to verify Telegram initData:", e);
+    return null;
+  }
 }
 
 /**
@@ -113,7 +178,12 @@ export async function requireTelegramAuth(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  const miniAppData = extractTelegramMiniAppData(req.header("x-telegram-mini-app"));
+  const initDataHeader = req.header("x-telegram-init-data");
+  const miniAppHeader = req.header("x-telegram-mini-app");
+
+  const miniAppData = initDataHeader
+    ? verifyTelegramInitData(initDataHeader)
+    : extractTelegramMiniAppData(miniAppHeader);
   
   if (!miniAppData) {
     res.status(401).json({ error: "Unauthorized: Invalid or missing Telegram authentication" });
