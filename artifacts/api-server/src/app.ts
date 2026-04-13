@@ -5,7 +5,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { captureRawBody } from "./lib/telegram-auth";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === "production";
@@ -60,14 +59,6 @@ app.use(
     },
   }),
 );
-
-// ── Capture raw body for webhook signature verification ──────────────────────
-app.use((req, res, next) => {
-  if (req.path === "/api/telegram/webhook") {
-    return captureRawBody(req, res, next);
-  }
-  next();
-});
 
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -149,7 +140,14 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({
+  limit: "2mb",
+  verify: (req, _res, buf) => {
+    if (req.originalUrl?.startsWith("/api/telegram/webhook")) {
+      (req as any).rawBody = buf.toString("utf-8");
+    }
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
 app.use("/api", router);

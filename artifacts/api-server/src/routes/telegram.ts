@@ -140,18 +140,26 @@ function formatDate(timestamp: number): string {
 }
 
 router.post("/telegram/webhook", async (req, res) => {
-  // ── Vérifier la signature du webhook Telegram ───────────────────────────────
-  const signature = req.header("x-telegram-bot-api-secret-token");
+  // ── Vérifier l'authenticité du webhook Telegram ───────────────────────────
+  const secretTokenHeader = req.header("x-telegram-bot-api-secret-token");
+  const customSignature = req.header("x-telegram-webhook-signature");
   const rawBody = (req as any).rawBody || JSON.stringify(req.body);
 
-  // Vérifier soit la signature HMAC-SHA256, soit le token secret (legacy)
-  const hasValidSignature = verifyTelegramWebhookSignature(rawBody, signature);
-  const hasValidToken = WEBHOOK_SECRET && signature === WEBHOOK_SECRET;
-
-  if (!hasValidSignature && !hasValidToken) {
-    console.warn("❌ Invalid Telegram webhook signature/token");
-    res.sendStatus(401);
-    return;
+  // Validation recommandée Telegram: secret token exact si configuré
+  if (WEBHOOK_SECRET) {
+    if (!secretTokenHeader || secretTokenHeader !== WEBHOOK_SECRET) {
+      console.warn("❌ Invalid Telegram webhook secret token");
+      res.sendStatus(401);
+      return;
+    }
+  } else if (customSignature) {
+    // Fallback legacy: signature custom si présente
+    const hasValidLegacySignature = verifyTelegramWebhookSignature(rawBody, customSignature);
+    if (!hasValidLegacySignature) {
+      console.warn("❌ Invalid legacy webhook signature");
+      res.sendStatus(401);
+      return;
+    }
   }
 
   res.sendStatus(200);
