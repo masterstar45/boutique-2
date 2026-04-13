@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { captureRawBody } from "./lib/telegram-auth";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === "production";
@@ -49,6 +50,15 @@ app.use(
     },
   }),
 );
+
+// ── Capture raw body for webhook signature verification ──────────────────────
+app.use((req, res, next) => {
+  if (req.path === "/api/telegram/webhook") {
+    return captureRawBody(req, res, next);
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");

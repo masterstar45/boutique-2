@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { orders, loyaltyBalances, clientButtons, botSettings, botUsers } from "@workspace/db/schema";
 import { eq, desc, asc, sql } from "drizzle-orm";
+import { verifyTelegramWebhookSignature } from "../lib/telegram-auth";
 
 const ADMIN_CHAT_ID = "5818221358";
 
@@ -139,17 +140,18 @@ function formatDate(timestamp: number): string {
 }
 
 router.post("/telegram/webhook", async (req, res) => {
-  if (!WEBHOOK_SECRET && process.env.NODE_ENV === "production") {
-    res.sendStatus(503);
-    return;
-  }
+  // ── Vérifier la signature du webhook Telegram ───────────────────────────────
+  const signature = req.header("x-telegram-bot-api-secret-token");
+  const rawBody = (req as any).rawBody || JSON.stringify(req.body);
 
-  if (WEBHOOK_SECRET) {
-    const providedSecret = req.header("x-telegram-bot-api-secret-token");
-    if (!providedSecret || providedSecret !== WEBHOOK_SECRET) {
-      res.sendStatus(401);
-      return;
-    }
+  // Vérifier soit la signature HMAC-SHA256, soit le token secret (legacy)
+  const hasValidSignature = verifyTelegramWebhookSignature(rawBody, signature);
+  const hasValidToken = WEBHOOK_SECRET && signature === WEBHOOK_SECRET;
+
+  if (!hasValidSignature && !hasValidToken) {
+    console.warn("❌ Invalid Telegram webhook signature/token");
+    res.sendStatus(401);
+    return;
   }
 
   res.sendStatus(200);

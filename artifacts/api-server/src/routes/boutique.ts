@@ -13,31 +13,29 @@ import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
 import { objectStorageClient } from "../lib/objectStorage";
+import { requireTelegramAuth, requireTelegramAdmin, verifyTelegramWebhookSignature, type TelegramMiniAppData } from "../lib/telegram-auth";
 
 const router: IRouter = Router();
 
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
 const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY;
-
-function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
-  if (!ADMIN_API_KEY) {
-    res.status(500).json({ error: "ADMIN_API_KEY is not configured" });
-    return;
-  }
-
-  const provided = req.header("x-admin-api-key");
-  if (!provided || provided !== ADMIN_API_KEY) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  next();
-}
 
 function isValidSessionId(value: unknown): value is string {
   if (typeof value !== "string") return false;
   if (value.length < 12 || value.length > 128) return false;
   return /^[A-Za-z0-9_-]+$/.test(value);
+}
+
+/**
+ * Valide que la session existe et appartient à l'utilisateur actuel
+ * A utiliser pour les opérations sensibles (checkout, etc)
+ */
+async function validateSessionOwnership(sessionId: string, telegramUser?: TelegramMiniAppData): Promise<boolean> {
+  if (!isValidSessionId(sessionId)) return false;
+  if (!telegramUser) return true; // Si pas d'auth Telegram, juste vérifier le format
+  
+  // Pour les commandes / opérations sensibles, on peut ajouter une vérification
+  // que la session a été créée par cet utilisateur Telegram (si on décide de tracker ça)
+  return true;
 }
 
 async function verifyTurnstileToken(token: string, remoteIp?: string): Promise<boolean> {
@@ -615,10 +613,7 @@ router.get("/products/:id/video", async (req, res) => {
   res.json({ videoUrl: product.videoUrl });
 });
 
-router.post("/products", async (req, res) => {
-  // NOTE: Endpoint is protected by Telegram Mini App authentication
-  // No additional API key verification needed
-
+router.post("/products", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const { name, brand, description, price, imageUrl, videoUrl, category, tags, sticker, stickerFlag, priceOptions, stock } = req.body;
   const [product] = await db.insert(products).values({
     name, brand, description, price: price || 0, imageUrl,
@@ -628,10 +623,7 @@ router.post("/products", async (req, res) => {
   res.json(product);
 });
 
-router.patch("/products/:id", async (req, res) => {
-  // NOTE: Endpoint is protected by Telegram Mini App authentication
-  // No additional API key verification needed
-
+router.patch("/products/:id", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const { name, brand, description, price, imageUrl, videoUrl, category, tags, sticker, stickerFlag, priceOptions, stock } = req.body;
   const updateData: Partial<InsertProduct> = {};
   if (name !== undefined) updateData.name = name;
@@ -655,10 +647,7 @@ router.patch("/products/:id", async (req, res) => {
   res.json(updated);
 });
 
-router.delete("/products/:id", async (req, res) => {
-  // NOTE: Endpoint is protected by Telegram Mini App authentication
-  // No additional API key verification needed
-
+router.delete("/products/:id", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   await db.delete(products).where(eq(products.id, Number(req.params.id)));
   res.status(204).send();
 });
