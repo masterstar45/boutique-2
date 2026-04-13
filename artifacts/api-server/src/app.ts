@@ -75,7 +75,7 @@ app.use((req, res, next) => {
     );
     res.setHeader(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' data: https:; font-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.telegram.org"
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://telegram.org https://challenges.cloudflare.com; img-src 'self' data: https:; font-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.telegram.org https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com"
     );
   }
   
