@@ -196,6 +196,12 @@ function ConditionalBottomNav() {
   return <BottomNav />;
 }
 
+function ConditionalBackground() {
+  const [location] = useLocation();
+  if (location === "/menu" || location.startsWith("/menu/")) return null;
+  return <AnimatedBackground />;
+}
+
 function App() {
   const [telegramOk] = useState(() => isTelegramConnected());
   const isAdmin = isAdminPath();
@@ -352,8 +358,8 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           {!splashDone && <SplashScreen onDone={handleSplashDone} />}
 
-          {/* Fond vidéo global — toujours présent, jamais remonté */}
-          <AnimatedBackground />
+          {/* Fond vidéo caché sur Catalogue */}
+          <ConditionalBackground />
 
           {/* Conteneur centré : plein écran mobile, max 860px desktop */}
           <div
