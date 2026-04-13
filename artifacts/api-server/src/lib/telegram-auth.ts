@@ -7,7 +7,6 @@ import { eq } from "drizzle-orm";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const isProduction = process.env.NODE_ENV === "production";
 const allowUnsignedMiniAppAuth = !isProduction && process.env.ALLOW_UNSIGNED_MINIAPP_AUTH === "true";
-const LEGACY_SUPER_ADMIN_ID = "5818221358";
 const superAdminIds = new Set(
   [
     ...(process.env.TELEGRAM_SUPER_ADMIN_IDS ?? "")
@@ -15,7 +14,6 @@ const superAdminIds = new Set(
       .map((id) => id.trim())
       .filter(Boolean),
     process.env.TELEGRAM_SUPER_ADMIN_ID?.trim(),
-    LEGACY_SUPER_ADMIN_ID,
   ].filter((id): id is string => Boolean(id))
 );
 
@@ -227,8 +225,9 @@ export async function requireTelegramAdmin(
     const [admin] = await db.select().from(admins).where(eq(admins.telegramId, telegramUser.chatId));
 
     if (!admin) {
-      // Fallback super-admin (owner bootstrap), puis auto-seed en DB
+      // Fallback super-admin piloté par variables d'environnement, puis auto-seed en DB
       if (superAdminIds.has(telegramUser.chatId)) {
+        console.warn(`⚠️  Super-admin env fallback used for: ${telegramUser.chatId}`);
         try {
           await db.insert(admins).values({
             telegramId: telegramUser.chatId,
