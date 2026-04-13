@@ -195,18 +195,19 @@ function scheduleDailyStats() {
   }, 60 * 1000); // check every minute
 }
 
-runMigrations().then(() => {
-  app.listen(port, (err) => {
-    if (err) {
-      logger.error({ err }, "Error listening on port");
-      process.exit(1);
-    }
+app.listen(port, (err) => {
+  if (err) {
+    logger.error({ err }, "Error listening on port");
+    process.exit(1);
+  }
 
-    logger.info({ port }, "Server listening");
+  logger.info({ port }, "Server listening");
 
-    if (process.env.NODE_ENV === "production") {
-      setupWebhook().catch((e) => logger.error({ e }, "Webhook setup failed"));
-      scheduleDailyStats();
-    }
-  });
+  // Run migrations in background so startup stays fast for Railway healthchecks.
+  runMigrations().catch((e) => logger.error({ e }, "Background migrations failed"));
+
+  if (process.env.NODE_ENV === "production") {
+    setupWebhook().catch((e) => logger.error({ e }, "Webhook setup failed"));
+    scheduleDailyStats();
+  }
 });
