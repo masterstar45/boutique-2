@@ -14,7 +14,7 @@ import fs from "fs";
 import { randomUUID } from "crypto";
 import { objectStorageClient } from "../lib/objectStorage";
 import { requireTelegramAuth, requireTelegramAdmin, verifyTelegramWebhookSignature, type TelegramMiniAppData } from "../lib/telegram-auth";
-import { adminRateLimiter, uploadRateLimiter, broadcastRateLimiter } from "../lib/rate-limiting";
+import { adminRateLimiter, uploadRateLimiter, broadcastRateLimiter, cartRateLimiter, telegramMessageRateLimiter } from "../lib/rate-limiting";
 import { logAdminAction, extractDetailsFromRequest, ADMIN_ACTIONS } from "../lib/audit-logging";
 
 const router: IRouter = Router();
@@ -503,7 +503,7 @@ router.use("/gcs-media", async (req, res, next) => {
 
 // ─── Upload média /start vers Telegram ───────────────────────────────────────
 
-router.post("/admin/upload-start-media", upload.single("file"), async (req, res) => {
+router.post("/admin/upload-start-media", requireTelegramAuth, requireTelegramAdmin, uploadRateLimiter, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "Aucun fichier reçu" });
     const mimeType = req.file.mimetype;
@@ -761,20 +761,37 @@ router.post("/cart", cartRateLimiter, async (req, res) => {
   } catch {}
 });
 
-router.patch("/cart/:id", async (req, res) => {
+router.patch("/cart/:id", requireTelegramAuth, async (req, res) => {
   const id = Number(req.params.id);
-  const { quantity, sessionId } = req.body;
+  const telegramUser = (req as any).telegramUser as TelegramMiniAppData;
+  const { quantity, sessionId, chatId } = req.body;
   if (!isValidSessionId(sessionId) || typeof quantity !== "number") {
     res.status(400).json({ message: "sessionId and quantity required" });
     return;
   }
-  await db.update(cartItems).set({ quantity }).where(eq(cartItems.id, id));
+
+  if (chatId !== telegramUser.chatId) {
+    res.status(403).json({ message: "Forbidden" });
+    return;
+  }
+
+  await db.update(cartItems)
+    .set({ quantity })
+    .where(and(eq(cartItems.id, id), eq(cartItems.sessionId, sessionId)));
   res.json({ success: true });
 });
 
-router.delete("/cart/session/:sessionId", async (req, res) => {
+router.delete("/cart/session/:sessionId", requireTelegramAuth, async (req, res) => {
+  const telegramUser = (req as any).telegramUser as TelegramMiniAppData;
+  const chatId = typeof req.query.chatId === "string" ? req.query.chatId : undefined;
+
   if (!isValidSessionId(req.params.sessionId)) {
     res.status(400).json({ message: "Invalid sessionId" });
+    return;
+  }
+
+  if (!chatId || chatId !== telegramUser.chatId) {
+    res.status(403).json({ message: "Forbidden" });
     return;
   }
 
@@ -782,8 +799,23 @@ router.delete("/cart/session/:sessionId", async (req, res) => {
   res.status(204).send();
 });
 
-router.delete("/cart/:id", async (req, res) => {
-  await db.delete(cartItems).where(eq(cartItems.id, Number(req.params.id)));
+router.delete("/cart/:id", requireTelegramAuth, async (req, res) => {
+  const telegramUser = (req as any).telegramUser as TelegramMiniAppData;
+  const sessionId = typeof req.query.sessionId === "string" ? req.query.sessionId : undefined;
+  const chatId = typeof req.query.chatId === "string" ? req.query.chatId : undefined;
+
+  if (!sessionId || !isValidSessionId(sessionId)) {
+    res.status(400).json({ message: "sessionId is required" });
+    return;
+  }
+
+  if (!chatId || chatId !== telegramUser.chatId) {
+    res.status(403).json({ message: "Forbidden" });
+    return;
+  }
+
+  await db.delete(cartItems)
+    .where(and(eq(cartItems.id, Number(req.params.id)), eq(cartItems.sessionId, sessionId)));
   res.status(204).send();
 });
 
