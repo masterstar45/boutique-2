@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
 import { ArrowLeft, Minus, Plus, ShoppingBag, Check, Star, Play } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,6 +16,7 @@ export default function ProductDetail() {
   const productId = Number(params?.id);
   const { sessionId, chatId } = useSession();
   const queryClient = useQueryClient();
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const [selectedOption, setSelectedOption] = useState<{ price: number; weight: string } | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -28,6 +29,23 @@ export default function ProductDetail() {
     { category: product?.category },
     { query: { enabled: !!product?.category } }
   );
+
+  // Force video playback when showVideo changes
+  useEffect(() => {
+    if (showVideo && videoRef.current) {
+      // Reset and play
+      videoRef.current.currentTime = 0;
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // Autoplay failed, try again after a short delay
+          setTimeout(() => {
+            videoRef.current?.play().catch(e => console.warn("Video play failed:", e));
+          }, 100);
+        });
+      }
+    }
+  }, [showVideo]);
 
   const addToCartMutation = useAddToCart({
     mutation: {
@@ -129,6 +147,7 @@ export default function ProductDetail() {
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: "4/5", maxHeight: "72vh" }}>
         {showVideo && product.videoUrl ? (
           <video
+            ref={videoRef}
             src={product.videoUrl}
             autoPlay loop muted playsInline
             className="w-full h-full object-cover"
