@@ -795,21 +795,40 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
 
     const xhr = new XMLHttpRequest();
 
+    // Timeout après 120 secondes (Cloudinary peut être lent)
+    const timeoutId = setTimeout(() => {
+      console.warn("Video upload timeout - aborting request");
+      xhr.abort();
+      alert("Upload vidéo dépassé le temps limite (120s). Vérifiez votre connexion et réessayez.");
+      setVideoLoading(false);
+      setVideoProgress(0);
+      if (videoRef.current) videoRef.current.value = "";
+    }, 120000);
+
     // Progression de l'envoi vers notre serveur (0→100%)
     xhr.upload.onprogress = (ev) => {
       if (ev.lengthComputable) {
-        setVideoProgress(Math.round((ev.loaded / ev.total) * 100));
+        const percent = Math.round((ev.loaded / ev.total) * 100);
+        console.log(`📹 Upload progress: ${percent}%`);
+        setVideoProgress(percent);
       }
     };
 
     xhr.onload = () => {
+      clearTimeout(timeoutId);
+      console.log(`📹 Server response: ${xhr.status} - ${xhr.responseText}`);
       try {
         const data = JSON.parse(xhr.responseText);
-        if (xhr.status >= 400) throw new Error(data?.message || "Upload échoué");
+        if (xhr.status >= 400) {
+          throw new Error(data?.message || `Erreur serveur ${xhr.status}`);
+        }
         const url: string = data.url;
+        if (!url) throw new Error("Pas d'URL reçue du serveur");
         const fullUrl = url.startsWith("http") ? url : `${import.meta.env.BASE_URL.replace(/\/$/, "")}${url}`;
+        console.log(`📹 Video uploaded successfully: ${fullUrl}`);
         set("videoUrl", fullUrl);
       } catch (err: any) {
+        console.error("📹 Video upload error:", err);
         alert("Échec de l'import vidéo : " + (err?.message || "erreur inconnue"));
       } finally {
         setVideoLoading(false);
@@ -819,14 +838,27 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
     };
 
     xhr.onerror = () => {
+      clearTimeout(timeoutId);
+      console.error("📹 Network error during upload");
       alert("Erreur réseau lors de l'upload vidéo");
       setVideoLoading(false);
       setVideoProgress(0);
       if (videoRef.current) videoRef.current.value = "";
     };
 
+    xhr.onabort = () => {
+      clearTimeout(timeoutId);
+      console.warn("📹 Upload aborted");
+      setVideoLoading(false);
+      setVideoProgress(0);
+      if (videoRef.current) videoRef.current.value = "";
+    };
+
     // Passer en mode "traitement CDN" dès que l'envoi est terminé (progress → 101)
-    xhr.upload.onloadend = () => setVideoProgress(101);
+    xhr.upload.onloadend = () => {
+      console.log("📹 Upload to server complete, waiting for CDN processing...");
+      setVideoProgress(101);
+    };
 
     xhr.open("POST", `${API}/upload`);
     xhr.send(formData);
