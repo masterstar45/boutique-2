@@ -164,11 +164,24 @@ export default function Admin() {
   const { data: reviews, refetch: refetchReviews } = useGetPendingReviews({ query: { enabled: tab === "reviews" } as any });
   const { data: promos, refetch: refetchPromos } = useListPromoCodes({ query: { enabled: tab === "promos" } as any });
 
+  const extractErrorMessage = (err: any): string => {
+    const fromBody = err?.response?.data?.error || err?.response?.data?.message;
+    if (fromBody) return String(fromBody);
+    if (err?.message) return String(err.message);
+    return "Erreur inconnue";
+  };
+
+  const handleMutationError = (context: string) => (err: any) => {
+    const message = extractErrorMessage(err);
+    console.error(`${context} failed:`, err);
+    alert(`${context} impossible: ${message}`);
+  };
+
   const { mutate: updateStatus } = useUpdateOrderStatus({ mutation: { onSuccess: () => { refetchOrders(); refetchStats(); fetchEnrichedOrders(); } } });
   const { mutate: deleteOrder } = useDeleteOrder({ mutation: { onSuccess: () => { refetchOrders(); refetchStats(); fetchEnrichedOrders(); } } });
-  const { mutate: deleteProduct } = useDeleteProduct({ mutation: { onSuccess: () => { refetchProducts(); refetchStats(); } } });
-  const { mutate: createProduct } = useCreateProduct({ mutation: { onSuccess: () => { refetchProducts(); refetchStats(); setShowProductForm(false); setEditProduct(null); } } });
-  const { mutate: updateProduct } = useUpdateProduct({ mutation: { onSuccess: () => { refetchProducts(); setShowProductForm(false); setEditProduct(null); } } });
+  const { mutate: deleteProduct } = useDeleteProduct({ mutation: { onSuccess: () => { refetchProducts(); refetchStats(); }, onError: handleMutationError("Suppression du produit") } });
+  const { mutate: createProduct } = useCreateProduct({ mutation: { onSuccess: () => { refetchProducts(); refetchStats(); setShowProductForm(false); setEditProduct(null); }, onError: handleMutationError("Création du produit") } });
+  const { mutate: updateProduct } = useUpdateProduct({ mutation: { onSuccess: () => { refetchProducts(); setShowProductForm(false); setEditProduct(null); }, onError: handleMutationError("Mise à jour du produit") } });
   const { mutate: approveReview } = useApproveReview({ mutation: { onSuccess: () => refetchReviews() } });
   const { mutate: deleteReview } = useDeleteReview({ mutation: { onSuccess: () => refetchReviews() } });
   const { mutate: createPromo } = useCreatePromoCode({ mutation: { onSuccess: () => refetchPromos() } });
