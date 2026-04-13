@@ -550,7 +550,7 @@ router.post("/admin/upload-start-media", upload.single("file"), async (req, res)
 
 // ─── Supprimer le média /start ────────────────────────────────────────────────
 
-router.delete("/admin/start-media", async (_req, res) => {
+router.delete("/admin/start-media", requireTelegramAuth, requireTelegramAdmin, async (_req, res) => {
   try {
     await db.insert(botSettings).values({ key: "start_photo_url", value: "" })
       .onConflictDoUpdate({ target: botSettings.key, set: { value: "" } });
@@ -881,13 +881,13 @@ router.get("/orders/my/:chatId", async (req, res) => {
   res.json(result);
 });
 
-router.delete("/admin/orders/:orderCode", async (req, res) => {
+router.delete("/admin/orders/:orderCode", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   await db.delete(orders).where(eq(orders.orderCode, req.params.orderCode));
   res.status(204).send();
 });
 
 // Save admin notes on an order (lazy-add column if missing)
-router.patch("/admin/orders/:orderCode/notes", async (req, res) => {
+router.patch("/admin/orders/:orderCode/notes", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const doUpdate = async () =>
     db.execute(sql`UPDATE orders SET notes = ${req.body.notes ?? null} WHERE order_code = ${req.params.orderCode}`);
   try {
@@ -906,7 +906,7 @@ router.patch("/admin/orders/:orderCode/notes", async (req, res) => {
 });
 
 // ─── Admin: enriched order list (with user info) ──────────────────────────────
-router.get("/admin/orders/enriched", async (req, res) => {
+router.get("/admin/orders/enriched", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 100);
     const offset = Number(req.query.offset) || 0;
@@ -934,7 +934,7 @@ router.get("/admin/orders/enriched", async (req, res) => {
 });
 
 // ─── Admin: bot users list ────────────────────────────────────────────────────
-router.get("/admin/bot-users", async (req, res) => {
+router.get("/admin/bot-users", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   try {
     const search = req.query.search as string | undefined;
     const limit = Math.min(Number(req.query.limit) || 50, 200);
@@ -959,7 +959,7 @@ router.get("/admin/bot-users", async (req, res) => {
 });
 
 // Orders for a specific user
-router.get("/admin/user-orders/:chatId", async (req, res) => {
+router.get("/admin/user-orders/:chatId", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   try {
     const result = await db.select().from(orders)
       .where(eq(orders.chatId, req.params.chatId))
@@ -971,7 +971,7 @@ router.get("/admin/user-orders/:chatId", async (req, res) => {
 });
 
 // Send a Telegram message from admin bot to any chatId
-router.post("/admin/send-telegram", async (req, res) => {
+router.post("/admin/send-telegram", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const { chatId, text } = req.body;
   if (!chatId || !text) return res.status(400).json({ error: "chatId and text required" });
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -992,7 +992,7 @@ router.post("/admin/send-telegram", async (req, res) => {
 
 // ─── Admin: Stats report & broadcast ─────────────────────────────────────────
 
-router.post("/admin/notify-stats", async (req, res) => {
+router.post("/admin/notify-stats", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   try {
     const date = (req.body?.date) as string | undefined;
     await sendDailyStatsToAdmin(date);
@@ -1003,7 +1003,7 @@ router.post("/admin/notify-stats", async (req, res) => {
 });
 
 // ── Test notification (diagnostic Railway) ──────────────────────────────────
-router.post("/admin/test-notification", async (req, res) => {
+router.post("/admin/test-notification", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
     return res.status(500).json({ ok: false, error: "TELEGRAM_BOT_TOKEN non configuré sur ce serveur" });
@@ -1028,7 +1028,7 @@ router.post("/admin/test-notification", async (req, res) => {
   }
 });
 
-router.post("/admin/broadcast", async (req, res) => {
+router.post("/admin/broadcast", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const { text, onlyUnlocked } = req.body;
   if (!text) return res.status(400).json({ error: "text required" });
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -1121,18 +1121,18 @@ router.post("/promo/validate", async (req, res) => {
   res.json(promo);
 });
 
-router.get("/admin/promo-codes", async (req, res) => {
+router.get("/admin/promo-codes", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const result = await db.select().from(promoCodes).orderBy(desc(promoCodes.id));
   res.json(result);
 });
 
-router.post("/admin/promo-codes", async (req, res) => {
+router.post("/admin/promo-codes", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const { code, discountPercent, active } = req.body;
   const [promo] = await db.insert(promoCodes).values({ code: code.toUpperCase(), discountPercent, active: active !== false }).returning();
   res.json(promo);
 });
 
-router.delete("/admin/promo-codes/:id", async (req, res) => {
+router.delete("/admin/promo-codes/:id", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   await db.delete(promoCodes).where(eq(promoCodes.id, Number(req.params.id)));
   res.status(204).send();
 });
@@ -1225,7 +1225,7 @@ router.get("/user-photo/:chatId", async (req, res) => {
   }
 });
 
-router.get("/admin/stats", async (req, res) => {
+router.get("/admin/stats", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const [totalOrdersResult] = await db.select({ count: count() }).from(orders);
   const [pendingOrdersResult] = await db.select({ count: count() }).from(orders).where(eq(orders.status, "pending"));
   const [totalUsersResult] = await db.select({ count: count() }).from(botUsers);
@@ -1244,7 +1244,7 @@ router.get("/admin/stats", async (req, res) => {
 });
 
 // Remet à zéro le revenu journalier d'aujourd'hui
-router.post("/admin/reset-daily-revenue", async (req, res) => {
+router.post("/admin/reset-daily-revenue", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const today = new Date().toISOString().split("T")[0];
   await db.insert(dailyStats)
     .values({ date: today, orderCount: 0, revenue: 0 })
@@ -1309,7 +1309,7 @@ async function rawInsertButton(label: string, url: string, emoji: string | null,
 }
 
 
-router.get("/admin/client-buttons", async (_req, res) => {
+router.get("/admin/client-buttons", requireTelegramAuth, requireTelegramAdmin, async (_req, res) => {
   await clientButtonsReady;
   try {
     const rows = await rawSelectButtons();
@@ -1320,7 +1320,7 @@ router.get("/admin/client-buttons", async (_req, res) => {
   }
 });
 
-router.post("/admin/client-buttons", async (req, res) => {
+router.post("/admin/client-buttons", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   await clientButtonsReady;
   try {
     const { label, url, emoji, position, fullWidth } = req.body;
@@ -1336,7 +1336,7 @@ router.post("/admin/client-buttons", async (req, res) => {
   }
 });
 
-router.patch("/admin/client-buttons/:id", async (req, res) => {
+router.patch("/admin/client-buttons/:id", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   await clientButtonsReady;
   try {
     const id = Number(req.params.id);
@@ -1360,14 +1360,14 @@ router.patch("/admin/client-buttons/:id", async (req, res) => {
 
 // ─── Bot Settings ─────────────────────────────────────────────────────────────
 
-router.get("/admin/bot-settings", async (_req, res) => {
+router.get("/admin/bot-settings", requireTelegramAuth, requireTelegramAdmin, async (_req, res) => {
   const rows = await db.select().from(botSettings);
   const settings: Record<string, string> = {};
   rows.forEach(r => { settings[r.key] = r.value; });
   res.json(settings);
 });
 
-router.post("/admin/bot-settings", async (req, res) => {
+router.post("/admin/bot-settings", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const { key, value } = req.body;
   if (!key) return res.status(400).json({ error: "key required" });
   await db.insert(botSettings).values({ key, value: value ?? "" })
@@ -1375,7 +1375,7 @@ router.post("/admin/bot-settings", async (req, res) => {
   res.json({ ok: true });
 });
 
-router.delete("/admin/client-buttons/:id", async (req, res) => {
+router.delete("/admin/client-buttons/:id", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   await db.delete(clientButtons).where(eq(clientButtons.id, Number(req.params.id)));
   res.json({ ok: true });
 });
@@ -1405,12 +1405,12 @@ router.delete("/admin/client-buttons/:id", async (req, res) => {
   } catch {}
 })();
 
-router.get("/admin/livreurs", async (_req, res) => {
+router.get("/admin/livreurs", requireTelegramAuth, requireTelegramAdmin, async (_req, res) => {
   const rows = await db.select().from(livreurs).orderBy(desc(livreurs.id));
   res.json(rows);
 });
 
-router.post("/admin/livreurs", async (req, res) => {
+router.post("/admin/livreurs", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const { name, username, chatId } = req.body;
   if (!name || !chatId) return res.status(400).json({ error: "name et chatId requis" });
   const [existing] = await db.select().from(livreurs).where(eq(livreurs.chatId, chatId));
@@ -1425,7 +1425,7 @@ router.post("/admin/livreurs", async (req, res) => {
   res.json(row);
 });
 
-router.patch("/admin/livreurs/:id/toggle", async (req, res) => {
+router.patch("/admin/livreurs/:id/toggle", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const id = Number(req.params.id);
   const [row] = await db.select().from(livreurs).where(eq(livreurs.id, id));
   if (!row) return res.status(404).json({ error: "Livreur introuvable" });
@@ -1433,13 +1433,13 @@ router.patch("/admin/livreurs/:id/toggle", async (req, res) => {
   res.json(updated);
 });
 
-router.delete("/admin/livreurs/:id", async (req, res) => {
+router.delete("/admin/livreurs/:id", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   await db.delete(livreurs).where(eq(livreurs.id, Number(req.params.id)));
   res.json({ ok: true });
 });
 
 // Ping de test vers un livreur
-router.post("/admin/livreurs/:id/ping", async (req, res) => {
+router.post("/admin/livreurs/:id/ping", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return res.status(500).json({ error: "Token manquant" });
   const [livreur] = await db.select().from(livreurs).where(eq(livreurs.id, Number(req.params.id)));
@@ -1463,14 +1463,14 @@ router.post("/admin/livreurs/:id/ping", async (req, res) => {
 });
 
 // Assigner un livreur à une commande
-router.patch("/admin/orders/:orderCode/livreur", async (req, res) => {
+router.patch("/admin/orders/:orderCode/livreur", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const { livreurId } = req.body;  // null pour désassigner
   await db.execute(sql`UPDATE orders SET livreur_id = ${livreurId ?? null} WHERE order_code = ${req.params.orderCode}`);
   res.json({ ok: true });
 });
 
 // Transmettre la commande au livreur via Telegram
-router.post("/admin/orders/:orderCode/transmit-livreur", async (req, res) => {
+router.post("/admin/orders/:orderCode/transmit-livreur", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return res.status(500).json({ error: "Token manquant" });
 
@@ -1556,12 +1556,12 @@ router.get("/is-admin/:chatId", async (req, res) => {
   res.json({ isAdmin: !!row });
 });
 
-router.get("/admin/admins", async (_req, res) => {
+router.get("/admin/admins", requireTelegramAuth, requireTelegramAdmin, async (_req, res) => {
   const rows = await db.select().from(admins).orderBy(desc(admins.id));
   res.json(rows);
 });
 
-router.post("/admin/admins", async (req, res) => {
+router.post("/admin/admins", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const { telegramId, name, addedBy } = req.body;
   if (!telegramId) return res.status(400).json({ error: "telegramId required" });
   const [existing] = await db.select().from(admins).where(eq(admins.telegramId, telegramId));
@@ -1570,7 +1570,7 @@ router.post("/admin/admins", async (req, res) => {
   res.json(row);
 });
 
-router.delete("/admin/admins/:id", async (req, res) => {
+router.delete("/admin/admins/:id", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   await db.delete(admins).where(eq(admins.id, Number(req.params.id)));
   res.json({ ok: true });
 });
