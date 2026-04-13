@@ -14,6 +14,8 @@ import fs from "fs";
 import { randomUUID } from "crypto";
 import { objectStorageClient } from "../lib/objectStorage";
 import { requireTelegramAuth, requireTelegramAdmin, verifyTelegramWebhookSignature, type TelegramMiniAppData } from "../lib/telegram-auth";
+import { adminRateLimiter, uploadRateLimiter, broadcastRateLimiter } from "../lib/rate-limiting";
+import { logAdminAction, extractDetailsFromRequest, ADMIN_ACTIONS } from "../lib/audit-logging";
 
 const router: IRouter = Router();
 
@@ -613,17 +615,33 @@ router.get("/products/:id/video", async (req, res) => {
   res.json({ videoUrl: product.videoUrl });
 });
 
-router.post("/products", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
+router.post("/products", requireTelegramAuth, requireTelegramAdmin, adminRateLimiter, async (req, res) => {
   const { name, brand, description, price, imageUrl, videoUrl, category, tags, sticker, stickerFlag, priceOptions, stock } = req.body;
-  const [product] = await db.insert(products).values({
-    name, brand, description, price: price || 0, imageUrl,
-    videoUrl, category, tags: tags || [], sticker, stickerFlag,
-    priceOptions: priceOptions || [], stock,
-  }).returning();
-  res.json(product);
+  
+  try {
+    const [product] = await db.insert(products).values({
+      name, brand, description, price: price || 0, imageUrl,
+      videoUrl, category, tags: tags || [], sticker, stickerFlag,
+      priceOptions: priceOptions || [], stock,
+    }).returning();
+    
+    logAdminAction(req, ADMIN_ACTIONS.PRODUCT_CREATE, {
+      status: 201,
+      details: { productId: product.id, name: product.name },
+    });
+    
+    res.status(201).json(product);
+  } catch (err: any) {
+    logAdminAction(req, ADMIN_ACTIONS.PRODUCT_CREATE, {
+      status: 500,
+      error: err.message,
+    });
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.patch("/products/:id", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
+router.patch("/products/:id", requireTelegramAuth, requireTelegramAdmin, adminRateLimiter, async (req, res) => {
+  const productId = Number(req.params.id);
   const { name, brand, description, price, imageUrl, videoUrl, category, tags, sticker, stickerFlag, priceOptions, stock } = req.body;
   const updateData: Partial<InsertProduct> = {};
   if (name !== undefined) updateData.name = name;
@@ -639,17 +657,53 @@ router.patch("/products/:id", requireTelegramAuth, requireTelegramAdmin, async (
   if (priceOptions !== undefined) updateData.priceOptions = priceOptions;
   if (stock !== undefined) updateData.stock = stock;
 
-  const [updated] = await db.update(products).set(updateData).where(eq(products.id, Number(req.params.id))).returning();
-  if (!updated) {
-    res.status(404).json({ message: "Product not found" });
-    return;
+  try {
+    const [updated] = await db.update(products).set(updateData).where(eq(products.id, productId)).returning();
+    if (!updated) {
+      logAdminAction(req, ADMIN_ACTIONS.PRODUCT_UPDATE, {
+        status: 404,
+        error: "Product not found",
+      });
+      res.status(404).json({ message: "Product not found" });
+      return;
+    }
+    
+    logAdminAction(req, ADMIN_ACTIONS.PRODUCT_UPDATE, {
+      status: 200,
+      details: { productId, name: updated.name },
+    });
+    res.json(updated);
+  } catch (err: any) {
+    logAdminAction(req, ADMIN_ACTIONS.PRODUCT_UPDATE, {
+      status: 500,
+      error: err.message,
+    });
+    res.status(500).json({ error: err.message });
   }
-  res.json(updated);
 });
 
-router.delete("/products/:id", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
-  await db.delete(products).where(eq(products.id, Number(req.params.id)));
-  res.status(204).send();
+router.delete("/products/:id", requireTelegramAuth, requireTelegramAdmin, adminRateLimiter, async (req, res) => {
+  const productId = Number(req.params.id);
+  
+  try {
+    // Récupérer le produit avant suppression pour l'audit
+    const [product] = await db.select().from(products).where(eq(products.id, productId));
+    
+    await db.delete(products).where(eq(products.id, productId));
+    
+    logAdminAction(req, ADMIN_ACTIONS.PRODUCT_DELETE, {
+      status: 204,
+      details: { productId, name: product?.name },
+    });
+    
+    res.status(204).send();
+  } catch (err: any) {
+    logAdminAction(req, ADMIN_ACTIONS.PRODUCT_DELETE, {
+      status: 500,
+      error: err.message,
+    });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Cart ─────────────────────────────────────────────────────────────────────
@@ -1028,7 +1082,7 @@ router.post("/admin/test-notification", requireTelegramAuth, requireTelegramAdmi
   }
 });
 
-router.post("/admin/broadcast", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
+router.post("/admin/broadcast", requireTelegramAuth, requireTelegramAdmin, broadcastRateLimiter, async (req, res) => {
   const { text, onlyUnlocked } = req.body;
   if (!text) return res.status(400).json({ error: "text required" });
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -1059,6 +1113,12 @@ router.post("/admin/broadcast", requireTelegramAuth, requireTelegramAdmin, async
     } catch { failed++; }
     await new Promise(resolve => setTimeout(resolve, 50)); // rate limit
   }
+  
+  logAdminAction(req, ADMIN_ACTIONS.BROADCAST_SEND, {
+    status: 200,
+    details: { sent, failed, total: users.length, onlyUnlocked },
+  });
+  
   res.json({ ok: true, sent, failed, total: users.length });
 });
 

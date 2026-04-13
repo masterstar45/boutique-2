@@ -25,6 +25,16 @@ const inferredOrigins = [
 
 const allowedOrigins = new Set<string>([...configuredOrigins, ...inferredOrigins]);
 
+// Log les origines configurées
+if (allowedOrigins.size > 0) {
+  logger.info(
+    { origins: Array.from(allowedOrigins) },
+    "✅ CORS origins configured"
+  );
+} else {
+  logger.warn("⚠️  No CORS origins configured - requests without Origin will be rejected in production");
+}
+
 const ipRateState = new Map<string, { count: number; windowStart: number }>();
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 120;
@@ -71,11 +81,34 @@ app.use((req, res, next) => {
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (!isProduction || allowedOrigins.size === 0 || allowedOrigins.has(origin.replace(/\/+$/, ""))) {
+    // Requests sans Origin header (ex: same-origin ou certaines requêtes server)
+    if (!origin) {
       return callback(null, true);
     }
-    callback(new Error("Origin not allowed"));
+
+    const normalizedOrigin = origin.replace(/\/+$/, "");
+
+    // Vérifier si l'origine est allowée
+    if (isProduction && allowedOrigins.size > 0) {
+      // En production STRICTE: vérifier la liste
+      if (allowedOrigins.has(normalizedOrigin)) {
+        return callback(null, true);
+      }
+      // Origin non autorisée - rejeter silencieusement
+      logger.warn(
+        { origin: normalizedOrigin, ip: (this as any).ip },
+        "❌ CORS origin rejected"
+      );
+      return callback(new Error("Origin not allowed"));
+    }
+
+    // En développement: accepter tout
+    if (!isProduction) {
+      return callback(null, true);
+    }
+
+    // En production sans CORS_ORIGINS configurées: rejeter
+    callback(new Error("CORS not configured"));
   },
 }));
 
