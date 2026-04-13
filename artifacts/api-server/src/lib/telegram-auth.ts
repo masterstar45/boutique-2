@@ -1,4 +1,4 @@
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import type { Request, Response, NextFunction } from "express";
 import { db } from "@workspace/db";
 import { admins } from "@workspace/db";
@@ -21,8 +21,11 @@ export function verifyTelegramWebhookSignature(body: string, signature: string |
     hmac.update(body);
     const computedSignature = hmac.digest("hex");
     
-    // Compare timing-safe
-    return computedSignature === signature;
+    // Timing-safe comparison to prevent timing attacks
+    return timingSafeEqual(
+      Buffer.from(computedSignature),
+      Buffer.from(signature)
+    );
   } catch (e) {
     console.error("❌ Webhook signature error:", e);
     return false;

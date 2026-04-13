@@ -640,20 +640,26 @@ router.post("/products", requireTelegramAuth, requireTelegramAdmin, adminRateLim
 
 router.patch("/products/:id", requireTelegramAuth, requireTelegramAdmin, adminRateLimiter, async (req, res) => {
   const productId = Number(req.params.id);
-  const { name, brand, description, price, imageUrl, videoUrl, category, tags, sticker, stickerFlag, priceOptions, stock } = req.body;
+  
+  // Whitelist of editable product fields
+  const PRODUCT_EDITABLE_FIELDS = [
+    'name', 'brand', 'description', 'price', 'imageUrl', 'videoUrl',
+    'category', 'tags', 'sticker', 'stickerFlag', 'priceOptions', 'stock'
+  ] as const;
+  
   const updateData: Partial<InsertProduct> = {};
-  if (name !== undefined) updateData.name = name;
-  if (brand !== undefined) updateData.brand = brand;
-  if (description !== undefined) updateData.description = description;
-  if (price !== undefined) updateData.price = price;
-  if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
-  if (videoUrl !== undefined) updateData.videoUrl = videoUrl;
-  if (category !== undefined) updateData.category = category;
-  if (tags !== undefined) updateData.tags = tags;
-  if (sticker !== undefined) updateData.sticker = sticker;
-  if (stickerFlag !== undefined) updateData.stickerFlag = stickerFlag;
-  if (priceOptions !== undefined) updateData.priceOptions = priceOptions;
-  if (stock !== undefined) updateData.stock = stock;
+  
+  // Only allow whitelisted fields
+  for (const field of PRODUCT_EDITABLE_FIELDS) {
+    if (field in req.body && req.body[field] !== undefined) {
+      (updateData as any)[field] = req.body[field];
+    }
+  }
+  
+  if (Object.keys(updateData).length === 0) {
+    res.status(400).json({ error: "No valid fields to update" });
+    return;
+  }
 
   try {
     const [updated] = await db.update(products).set(updateData).where(eq(products.id, productId)).returning();
@@ -722,7 +728,7 @@ router.get("/cart/:sessionId", async (req, res) => {
   res.json(result.filter((r) => r.product));
 });
 
-router.post("/cart", async (req, res) => {
+router.post("/cart", cartRateLimiter, async (req, res) => {
   const { sessionId, productId, quantity, selectedPrice, selectedWeight, chatId } = req.body;
   if (!isValidSessionId(sessionId) || !productId) {
     res.status(400).json({ message: "sessionId and productId are required" });
@@ -894,51 +900,73 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
-router.get("/orders", async (req, res) => {
-  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
+router.get("/orders", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
+  try {
+    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const offset = Number(req.query.offset) || 0;
+
+    let query = db.select().from(orders).orderBy(desc(orders.id)).limit(limit).offset(offset).$dynamic();
+    if (status) query = query.where(eq(orders.status, status));
+
+    const [result, totalResult] = await Promise.all([
+      query,
+      db.select({ count: count() }).from(orders),
+    ]);
+
+    logAdminAction(req, ADMIN_ACTIONS.ORDER_VIEW, {
+      status: 200,
+      details: { limit, offset, status },
+    });
+
+    res.json({ orders: result, total: totalResult[0]?.count || 0 });
+  } catch (err: any) {
+    logAdminAction(req, ADMIN_ACTIONS.ORDER_VIEW, {
+      status: 500,
+      error: err.message,
+    });
+    res.status(500).json({ error: err.message });
   }
-
-  const status = typeof req.query.status === "string" ? req.query.status : undefined;
-  const limit = Number(req.query.limit) || 50;
-  const offset = Number(req.query.offset) || 0;
-
-  let query = db.select().from(orders).orderBy(desc(orders.id)).limit(limit).offset(offset).$dynamic();
-  if (status) query = query.where(eq(orders.status, status));
-
-  const [result, totalResult] = await Promise.all([
-    query,
-    db.select({ count: count() }).from(orders),
-  ]);
-
-  res.json({ orders: result, total: totalResult[0]?.count || 0 });
 });
 
-router.patch("/orders/:orderCode/status", async (req, res) => {
-  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
+router.patch("/orders/:orderCode/status", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const { orderCode } = req.params;
+    
+    if (!status) {
+      res.status(400).json({ error: "status is required" });
+      return;
+    }
+
+    await db.update(orders).set({ status }).where(eq(orders.orderCode, orderCode));
+
+    const STATUS_LABELS: Record<string, string> = {
+      pending: "⏳ En attente",
+      confirmed: "✅ Confirmée",
+      preparing: "👨‍🍳 En préparation",
+      ready: "🏁 Prête",
+      delivering: "🚚 En livraison",
+      delivered: "📦 Livrée",
+      cancelled: "❌ Annulée",
+    };
+    const label = STATUS_LABELS[status] || status;
+    
+    logAdminAction(req, ADMIN_ACTIONS.ORDER_UPDATE_STATUS, {
+      status: 200,
+      details: { orderCode, newStatus: status },
+    });
+    
+    notifyAdmin(`📋 Commande <b>${orderCode}</b>\nStatut mis à jour → <b>${label}</b>`).catch(() => {});
+
+    res.json({ success: true });
+  } catch (err: any) {
+    logAdminAction(req, ADMIN_ACTIONS.ORDER_UPDATE_STATUS, {
+      status: 500,
+      error: err.message,
+    });
+    res.status(500).json({ error: err.message });
   }
-
-  const { status } = req.body;
-  const { orderCode } = req.params;
-  await db.update(orders).set({ status }).where(eq(orders.orderCode, orderCode));
-
-  // Notify admin of status change
-  const STATUS_LABELS: Record<string, string> = {
-    pending: "⏳ En attente",
-    confirmed: "✅ Confirmée",
-    preparing: "👨‍🍳 En préparation",
-    ready: "🏁 Prête",
-    delivering: "🚚 En livraison",
-    delivered: "📦 Livrée",
-    cancelled: "❌ Annulée",
-  };
-  const label = STATUS_LABELS[status] || status;
-  notifyAdmin(`📋 Commande <b>${orderCode}</b>\nStatut mis à jour → <b>${label}</b>`).catch(() => {});
-
-  res.json({ success: true });
 });
 
 router.get("/orders/my/:chatId", requireTelegramAuth, async (req, res) => {
@@ -1042,14 +1070,24 @@ router.get("/admin/user-orders/:chatId", requireTelegramAuth, requireTelegramAdm
     const result = await db.select().from(orders)
       .where(eq(orders.chatId, req.params.chatId))
       .orderBy(desc(orders.id)).limit(20);
+    
+    logAdminAction(req, "admin_view_user_orders", {
+      status: 200,
+      details: { targetChatId: req.params.chatId, orderCount: result.length },
+    });
+    
     res.json(result);
   } catch (err: any) {
+    logAdminAction(req, "admin_view_user_orders", {
+      status: 500,
+      error: err.message,
+    });
     res.status(500).json({ error: err.message });
   }
 });
 
 // Send a Telegram message from admin bot to any chatId
-router.post("/admin/send-telegram", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
+router.post("/admin/send-telegram", requireTelegramAuth, requireTelegramAdmin, telegramMessageRateLimiter, async (req, res) => {
   const { chatId, text } = req.body;
   if (!chatId || !text) return res.status(400).json({ error: "chatId and text required" });
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -1153,14 +1191,13 @@ router.get("/reviews", async (req, res) => {
   res.json(result);
 });
 
-router.get("/reviews/pending", async (req, res) => {
-  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
+router.get("/reviews/pending", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
+  try {
+    const result = await db.select().from(reviews).where(eq(reviews.approved, false)).orderBy(desc(reviews.id));
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
-
-  const result = await db.select().from(reviews).where(eq(reviews.approved, false)).orderBy(desc(reviews.id));
-  res.json(result);
 });
 
 router.post("/reviews", async (req, res) => {
@@ -1173,36 +1210,58 @@ router.post("/reviews", async (req, res) => {
   res.json(review);
 });
 
-router.post("/reviews/:id/approve", async (req, res) => {
-  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
+router.post("/reviews/:id/approve", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
+  try {
+    await db.update(reviews).set({ approved: true }).where(eq(reviews.id, Number(req.params.id)));
+    
+    logAdminAction(req, ADMIN_ACTIONS.REVIEW_APPROVE, {
+      status: 200,
+      details: { reviewId: req.params.id },
+    });
+    
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
-
-  await db.update(reviews).set({ approved: true }).where(eq(reviews.id, Number(req.params.id)));
-  res.json({ success: true });
 });
 
-router.delete("/reviews/:id", async (req, res) => {
-  if (!ADMIN_API_KEY || req.header("x-admin-api-key") !== ADMIN_API_KEY) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
+router.delete("/reviews/:id", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
+  try {
+    await db.delete(reviews).where(eq(reviews.id, Number(req.params.id)));
+    
+    logAdminAction(req, ADMIN_ACTIONS.REVIEW_DELETE, {
+      status: 204,
+      details: { reviewId: req.params.id },
+    });
+    
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
-
-  await db.delete(reviews).where(eq(reviews.id, Number(req.params.id)));
-  res.status(204).send();
 });
 
 // ─── Promo codes ──────────────────────────────────────────────────────────────
 
 router.post("/promo/validate", async (req, res) => {
   const { code } = req.body;
+  
+  if (!code || typeof code !== 'string') {
+    res.status(400).json({ message: "Code promo invalide" });
+    return;
+  }
+  
   const [promo] = await db.select().from(promoCodes).where(and(eq(promoCodes.code, code.toUpperCase()), eq(promoCodes.active, true)));
   if (!promo) {
     res.status(404).json({ message: "Code promo invalide ou expiré" });
     return;
   }
-  res.json(promo);
+  
+  res.json({
+    id: promo.id,
+    code: promo.code,
+    discountPercent: promo.discountPercent,
+    active: promo.active,
+  });
 });
 
 router.get("/admin/promo-codes", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {

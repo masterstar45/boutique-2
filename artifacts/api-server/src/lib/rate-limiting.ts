@@ -101,3 +101,29 @@ export const broadcastRateLimiter = createRateLimiter(
     return telegramUser?.chatId || req.ip || "unknown";
   }
 );
+
+/**
+ * Rate limiter pour l'ajout au panier
+ * Max 20 items par minute
+ */
+export const cartRateLimiter = createRateLimiter(
+  60 * 1000, // 1 minute
+  20, // max 20 items
+  (req) => {
+    const telegramUser = (req as any).telegramUser;
+    return telegramUser?.chatId || req.ip || "unknown";
+  }
+);
+
+/**
+ * Rate limiter pour les messages Telegram
+ * Max 20 messages par heure
+ */
+export const telegramMessageRateLimiter = createRateLimiter(
+  60 * 60 * 1000, // 1 heure
+  20, // max 20 messages
+  (req) => {
+    const telegramUser = (req as any).telegramUser;
+    return telegramUser?.chatId || req.ip || "unknown";
+  }
+);
