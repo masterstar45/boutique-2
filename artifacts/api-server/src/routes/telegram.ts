@@ -62,7 +62,7 @@ async function sendVideo(chatId: string | number, videoId: string, caption: stri
 
 function buildKeyboard(buttons: typeof clientButtons.$inferSelect[]): any[][] {
   if (buttons.length === 0) {
-    return [[{ text: "🛒 Accéder à la Boutique", web_app: { url: BASE_URL } }]];
+    return [[{ text: "🛒 Accéder à la Boutique", url: BASE_URL }]];
   }
   const keyboard: any[][] = [];
   let currentRow: any[] = [];
@@ -341,7 +341,7 @@ router.post("/telegram/webhook", async (req, res) => {
       }
     } catch (err) {
       console.error("Erreur envoi /start:", err);
-      await sendMessage(chatId, defaultMsg, { reply_markup: { inline_keyboard: [[{ text: "🛒 Accéder à la Boutique", web_app: { url: BASE_URL } }]] } });
+      await sendMessage(chatId, defaultMsg, { reply_markup: { inline_keyboard: [[{ text: "🛒 Accéder à la Boutique", url: BASE_URL }]] } });
     }
     return;
   }
