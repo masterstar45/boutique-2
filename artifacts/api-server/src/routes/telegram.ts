@@ -17,41 +17,47 @@ let lastWebhookRepairAttempt = 0;
 
 async function sendMessage(chatId: string | number, text: string, extra: object = {}) {
   if (!BOT_TOKEN) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...extra }),
-    });
-  } catch (err) {
-    console.error("Telegram send error:", err);
+  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...extra }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    console.error("Telegram sendMessage API error:", { status: res.status, data });
+    throw new Error(`Telegram sendMessage failed ${res.status}`);
   }
+  return data;
 }
 
 async function sendPhoto(chatId: string | number, photoUrl: string, caption: string, extra: object = {}) {
   if (!BOT_TOKEN) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption, parse_mode: "HTML", ...extra }),
-    });
-  } catch (err) {
-    console.error("Telegram sendPhoto error:", err);
+  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption, parse_mode: "HTML", ...extra }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.ok) {
+    console.error("Telegram sendPhoto API error:", { status: res.status, data });
+    throw new Error(`Telegram sendPhoto failed ${res.status}`);
   }
+  return data;
 }
 
 async function sendVideo(chatId: string | number, videoId: string, caption: string, extra: object = {}) {
   if (!BOT_TOKEN) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, video: videoId, caption, parse_mode: "HTML", ...extra }),
-    });
-  } catch (err) {
-    console.error("Telegram sendVideo error:", err);
+  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, video: videoId, caption, parse_mode: "HTML", ...extra }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.ok) {
+    console.error("Telegram sendVideo API error:", { status: res.status, data });
+    throw new Error(`Telegram sendVideo failed ${res.status}`);
   }
+  return data;
 }
 
 function buildKeyboard(buttons: typeof clientButtons.$inferSelect[]): any[][] {
@@ -176,6 +182,13 @@ router.post("/telegram/webhook", async (req, res) => {
   res.sendStatus(200);
 
   const update = req.body;
+  console.log("Telegram webhook received:", {
+    payloadType: update?.callback_query ? "callback_query" : update?.message ? "message" : "unknown",
+    messageText: update?.message?.text,
+    chatId: update?.message?.chat?.id ?? update?.callback_query?.message?.chat?.id ?? update?.callback_query?.from?.id,
+    fromId: update?.message?.from?.id ?? update?.callback_query?.from?.id,
+    username: update?.message?.from?.username ?? update?.callback_query?.from?.username,
+  });
 
   // ── Callback query (bouton inline livreur "Terminer") ─────────────────────
   const callbackQuery = update?.callback_query;
@@ -224,11 +237,19 @@ router.post("/telegram/webhook", async (req, res) => {
   }
 
   const message = update?.message;
-  if (!message || !message.text) return;
+  if (!message || !message.text) {
+    console.log("Telegram webhook ignored: no text message", {
+      messageExists: !!message,
+      text: message?.text,
+      updateType: update?.callback_query ? "callback_query" : "message",
+    });
+    return;
+  }
 
   const chatId = message.chat.id;
   const text = (message.text as string).trim();
   const from = message.from ?? {};
+  console.log("Telegram message received", { chatId, text, fromId: from.id, username: from.username });
   const username = from.username ? `@${from.username}` : from.first_name ?? "Utilisateur";
   const userId = from.id ?? chatId;
   const messageDate = message.date ? formatDate(message.date) : "";
@@ -307,6 +328,7 @@ router.post("/telegram/webhook", async (req, res) => {
     const keyboard = buildKeyboard(dbButtons);
 
     const mediaType = settings["start_media_type"] || "photo";
+    console.log("Handling /start", { chatId, userId, firstName, photoUrl, mediaType, hasCustomMessage: !!customMessage, buttonsCount: keyboard.length });
     try {
       if (photoUrl) {
         if (mediaType === "video") {
