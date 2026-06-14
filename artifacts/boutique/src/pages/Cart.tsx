@@ -133,6 +133,8 @@ export default function Cart() {
       } catch {
         if (!canceled) {
           setTurnstileError("Impossible de charger Cloudflare Turnstile.");
+          // Ne pas bloquer le bouton indéfiniment si le script ne charge pas
+          setTurnstileReady(true);
         }
       }
     };
@@ -625,6 +627,31 @@ export default function Cart() {
                 </div>
               </div>
 
+              {/* Vérification Cloudflare – AVANT le bouton pour que l'utilisateur la voie */}
+              {turnstileRequired && (
+                <div className="glass-panel p-4 rounded-[1.5rem]">
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Vérification Cloudflare</p>
+                  <div ref={turnstileContainerRef} className="min-h-[65px]" />
+                  {turnstileError && <p className="text-xs text-red-400 mt-2">{turnstileError}</p>}
+                </div>
+              )}
+
+              {/* Indicateur des champs manquants */}
+              {!detailsValid && (
+                <div className="rounded-xl px-4 py-2.5 text-xs flex flex-col gap-1"
+                  style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.18)", color: "rgba(239,100,100,0.85)" }}>
+                  <span className="font-semibold uppercase tracking-wider text-[10px] mb-0.5">Encore requis :</span>
+                  {deliveryMode === "livraison" && !address.trim() && <span>• Adresse de livraison</span>}
+                  {!phone.trim() && <span>• Numéro de téléphone</span>}
+                  {!timeSlot && <span>• Créneau horaire</span>}
+                </div>
+              )}
+              {detailsValid && turnstileRequired && !turnstileToken && turnstileReady && (
+                <p className="text-xs text-center" style={{ color: "rgba(239,100,100,0.8)" }}>
+                  ⬆ Complète la vérification Cloudflare ci-dessus
+                </p>
+              )}
+
               <button
                 disabled={!detailsValid || checkoutMut.isPending || (turnstileRequired && (!turnstileReady || !turnstileToken))}
                 onClick={handleSendOrder}
@@ -635,14 +662,6 @@ export default function Cart() {
                   <><Send className="w-5 h-5" /> Envoyer la commande</>
                 )}
               </button>
-
-              {turnstileRequired && (
-                <div className="glass-panel p-4 rounded-[1.5rem]">
-                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Vérification Cloudflare</p>
-                  <div ref={turnstileContainerRef} className="min-h-[65px]" />
-                  {turnstileError && <p className="text-xs text-red-400 mt-2">{turnstileError}</p>}
-                </div>
-              )}
             </motion.div>
           )}
 

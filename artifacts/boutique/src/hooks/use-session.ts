@@ -21,14 +21,26 @@ export function useSession() {
   const [username, setUsername] = useState<string>("");
 
   useEffect(() => {
-    let sid = localStorage.getItem("cart_session_id");
-    if (!sid) {
-      sid = generateSessionId();
+    const cid = localStorage.getItem("telegram_chat_id");
+
+    // Quand l'utilisateur est authentifié, on dérive le sessionId de son chatId
+    // afin que deux utilisateurs sur le même appareil n'aient pas le même panier
+    let sid: string;
+    if (cid) {
+      sid = `session_tg_${cid}`;
       localStorage.setItem("cart_session_id", sid);
+    } else {
+      const stored = localStorage.getItem("cart_session_id");
+      // Ne pas réutiliser un session lié à un autre compte
+      if (!stored || stored.startsWith("session_tg_")) {
+        sid = generateSessionId();
+        localStorage.setItem("cart_session_id", sid);
+      } else {
+        sid = stored;
+      }
     }
     setSessionId(sid);
 
-    const cid = localStorage.getItem("telegram_chat_id");
     if (cid) setChatId(cid);
 
     const uname = localStorage.getItem("telegram_username");
