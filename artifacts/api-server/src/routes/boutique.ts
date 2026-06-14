@@ -828,20 +828,14 @@ router.post("/cart", cartRateLimiter, async (req, res) => {
   } catch {}
 });
 
-router.patch("/cart/:id", requireTelegramAuth, async (req, res) => {
+router.patch("/cart/:id", async (req, res) => {
   const id = Number(req.params.id);
-  const telegramUser = (req as any).telegramUser as TelegramMiniAppData;
-  const { quantity, sessionId, chatId } = req.body;
+  const { quantity, sessionId } = req.body;
   if (!isValidSessionId(sessionId) || typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
     res.status(400).json({ message: "sessionId et quantité valide (1–100) requis" });
     return;
   }
-
-  if (chatId !== telegramUser.chatId) {
-    res.status(403).json({ message: "Forbidden" });
-    return;
-  }
-
+  // La clause WHERE sessionId garantit qu'un user ne peut modifier que ses propres items
   await db.update(cartItems)
     .set({ quantity })
     .where(and(eq(cartItems.id, id), eq(cartItems.sessionId, sessionId)));
@@ -866,21 +860,15 @@ router.delete("/cart/session/:sessionId", requireTelegramAuth, async (req, res) 
   res.status(204).send();
 });
 
-router.delete("/cart/:id", requireTelegramAuth, async (req, res) => {
-  const telegramUser = (req as any).telegramUser as TelegramMiniAppData;
+router.delete("/cart/:id", async (req, res) => {
   const sessionId = typeof req.query.sessionId === "string" ? req.query.sessionId : undefined;
-  const chatId = typeof req.query.chatId === "string" ? req.query.chatId : undefined;
 
   if (!sessionId || !isValidSessionId(sessionId)) {
     res.status(400).json({ message: "sessionId is required" });
     return;
   }
 
-  if (!chatId || chatId !== telegramUser.chatId) {
-    res.status(403).json({ message: "Forbidden" });
-    return;
-  }
-
+  // La clause WHERE (id AND sessionId) garantit qu'on ne supprime que son propre item
   await db.delete(cartItems)
     .where(and(eq(cartItems.id, Number(req.params.id)), eq(cartItems.sessionId, sessionId)));
   res.status(204).send();

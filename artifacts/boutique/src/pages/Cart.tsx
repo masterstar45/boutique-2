@@ -4,8 +4,8 @@ import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, ChevronLeft, Send, MapPin
 import { TopBar } from "@/components/TopBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "@/hooks/use-session";
-import { useGetCart, useUpdateCartItem, useRemoveFromCart, useCheckout, getGetCartQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useGetCart, useUpdateCartItem, useCheckout, getGetCartQueryKey } from "@workspace/api-client-react";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 
 const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
@@ -88,7 +88,7 @@ export default function Cart() {
   const [deliveryMode, setDeliveryMode] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
-  const [timeSlot, setTimeSlot] = useState("");
+  const [timeSlot, setTimeSlot] = useState("matin");
   const [meetupSlot, setMeetupSlot] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileReady, setTurnstileReady] = useState(!TURNSTILE_SITE_KEY);
@@ -186,8 +186,13 @@ export default function Cart() {
   const updateItem = useUpdateCartItem({
     mutation: { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCartQueryKey(sessionId) }) }
   });
-  const removeItem = useRemoveFromCart({
-    mutation: { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCartQueryKey(sessionId) }) }
+  // Le hook généré n'envoie pas sessionId — on utilise un fetch direct
+  const removeItem = useMutation({
+    mutationFn: async ({ id }: { id: number }) => {
+      const res = await fetch(`${API}/cart/${id}?sessionId=${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 204) throw new Error("Suppression échouée");
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCartQueryKey(sessionId) }),
   });
   const checkoutMut = useCheckout({
     mutation: {
