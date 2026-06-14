@@ -78,7 +78,7 @@ async function verifyTurnstileToken(token: string, remoteIp?: string): Promise<b
 const ADMIN_CHAT_ID = process.env.TELEGRAM_SUPER_ADMIN_ID || process.env.TELEGRAM_ADMIN_CHAT_ID || "";
 
 // URL du panel admin (Mini App Telegram)
-const ADMIN_PANEL_URL = (process.env.MINI_APP_URL || "https://boutique-2-production.up.railway.app/boutique") + "/admin";
+const ADMIN_PANEL_URL = (process.env.MINI_APP_URL || process.env.APP_URL || "") + "/admin";
 
 const ADMIN_PANEL_BUTTON = {
   reply_markup: {

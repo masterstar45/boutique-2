@@ -12,7 +12,7 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
   ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-  : process.env.APP_URL ?? "https://boutique-2-production.up.railway.app";
+  : process.env.APP_URL ?? "";
 let lastWebhookRepairAttempt = 0;
 
 async function sendMessage(chatId: string | number, text: string, extra: object = {}) {

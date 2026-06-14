@@ -1079,7 +1079,7 @@ function ProductFormModal({ product, onClose, onCreate, onUpdate }: {
 
 // ─── Bot Start Tab ────────────────────────────────────────────────────────────
 
-const BOT_URL = `https://boutique-2-production.up.railway.app`;
+const BOT_URL = (import.meta.env.VITE_APP_URL || window.location.origin).replace(/\/+$/, "");
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
