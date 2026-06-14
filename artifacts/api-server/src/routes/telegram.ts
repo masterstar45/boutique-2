@@ -323,12 +323,16 @@ router.post("/telegram/webhook", async (req, res) => {
         .from(clientButtons)
         .where(eq(clientButtons.active, true))
         .orderBy(asc(clientButtons.position));
-    } catch { /* fall through, buildKeyboard handles empty array */ }
+      console.log("✅ Fetched buttons from DB:", { count: dbButtons.length, buttons: dbButtons.map(b => ({ id: b.id, label: b.label, active: b.active, position: b.position })) });
+    } catch (err) {
+      console.error("❌ Error fetching buttons from DB:", err);
+      /* fall through, buildKeyboard handles empty array */
+    }
 
     const keyboard = buildKeyboard(dbButtons);
 
     const mediaType = settings["start_media_type"] || "photo";
-    console.log("Handling /start", { chatId, userId, firstName, photoUrl, mediaType, hasCustomMessage: !!customMessage, buttonsCount: keyboard.length });
+    console.log("Handling /start", { chatId, userId, firstName, photoUrl, mediaType, hasCustomMessage: !!customMessage, buttonsFetched: dbButtons.length, keyboardRows: keyboard.length, keyboard });
     try {
       if (photoUrl) {
         if (mediaType === "video") {

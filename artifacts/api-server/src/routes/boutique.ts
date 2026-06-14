@@ -1566,9 +1566,10 @@ router.get("/admin/client-buttons", requireTelegramAuth, requireTelegramAdmin, a
   await clientButtonsReady;
   try {
     const rows = await rawSelectButtons();
+    console.log("✅ GET /admin/client-buttons:", { count: rows.length, buttons: rows.map(r => ({ id: r.id, label: r.label, active: r.active, position: r.position })) });
     res.json(rows);
   } catch (err: any) {
-    console.error("GET client-buttons error:", err?.message, err?.cause?.message);
+    console.error("❌ GET client-buttons error:", err?.message, err?.cause?.message);
     res.json([]);
   }
 });
@@ -1577,14 +1578,17 @@ router.post("/admin/client-buttons", requireTelegramAuth, requireTelegramAdmin, 
   await clientButtonsReady;
   try {
     const { label, url, emoji, position, fullWidth } = req.body;
+    console.log("📌 POST /admin/client-buttons request:", { label, url, emoji, position, fullWidth });
     if (!label || !url) return res.status(400).json({ error: "label and url required" });
     const maxRes = await db.execute(sql`SELECT COALESCE(MAX(position), -1) + 1 AS next FROM client_buttons;`);
     const nextPos = Number((maxRes.rows[0] as any).next ?? 0);
+    console.log("📌 Inserting button:", { label, url, emoji, calculatedPosition: position ?? nextPos, fullWidth });
     const row = await rawInsertButton(label, url, emoji || null, position ?? nextPos, fullWidth !== false);
+    console.log("✅ Button created successfully:", { id: row?.id, label: row?.label, active: row?.active, position: row?.position });
     res.json(row);
   } catch (err: any) {
     const pg = err?.cause?.message || err?.cause?.code || "";
-    console.error("POST client-buttons error:", err?.message, pg);
+    console.error("❌ POST client-buttons error:", err?.message, pg);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -1594,6 +1598,7 @@ router.patch("/admin/client-buttons/:id", requireTelegramAuth, requireTelegramAd
   try {
     const id = Number(req.params.id);
     const { label, url, emoji, active, position, fullWidth } = req.body;
+    console.log("🔄 PATCH /admin/client-buttons/:id:", { id, update: { label, url, emoji, active, position, fullWidth } });
     // Build update via drizzle for type safety
     const update: Record<string, any> = {};
     if (label !== undefined) update.label = label;
@@ -1603,10 +1608,11 @@ router.patch("/admin/client-buttons/:id", requireTelegramAuth, requireTelegramAd
     if (position !== undefined) update.position = position;
     if (fullWidth !== undefined) update.fullWidth = fullWidth;
     const [row] = await db.update(clientButtons).set(update).where(eq(clientButtons.id, id)).returning();
+    console.log("✅ Button updated:", { id: row?.id, label: row?.label, active: row?.active, position: row?.position });
     res.json(row);
   } catch (err: any) {
     const pg = err?.cause?.message || err?.cause?.code || "";
-    console.error("PATCH client-buttons error:", err?.message, pg);
+    console.error("❌ PATCH client-buttons error:", err?.message, pg);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
