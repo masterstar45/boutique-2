@@ -60,6 +60,17 @@ async function sendVideo(chatId: string | number, videoId: string, caption: stri
   return data;
 }
 
+function detectMediaTypeFromFileId(fileId: string): "photo" | "video" {
+  // Telegram file_id format hints:
+  // Photos typically start with: AgAC, BAACAgQ, BAACAgIAAxkD, etc.
+  // But we can't be 100% sure, so default to photo for safety
+  // Videos would need specific prefixes
+  if (!fileId) return "photo";
+  if (fileId.includes("video") || fileId.includes("mov")) return "video";
+  // Default to photo - safer fallback
+  return "photo";
+}
+
 function buildKeyboard(buttons: typeof clientButtons.$inferSelect[]): any[][] {
   if (buttons.length === 0) {
     return [[{ text: "🛒 Accéder à la Boutique", web_app: { url: BASE_URL } }]];
@@ -331,14 +342,40 @@ router.post("/telegram/webhook", async (req, res) => {
 
     const keyboard = buildKeyboard(dbButtons);
 
-    const mediaType = settings["start_media_type"] || "photo";
+    // Detect actual media type from file_id or URL
+    let mediaType = settings["start_media_type"] || "photo";
+    const detectedMediaType = photoUrl ? detectMediaTypeFromFileId(photoUrl) : "photo";
+    // Use detected type if stored type conflicts with file_id format
+    if (photoUrl && mediaType !== detectedMediaType) {
+      console.warn(`⚠️ Media type mismatch: stored="${mediaType}" but detected="${detectedMediaType}" from file_id. Using detected type.`);
+      mediaType = detectedMediaType;
+    }
+
     console.log("Handling /start", { chatId, userId, firstName, photoUrl, mediaType, hasCustomMessage: !!customMessage, buttonsFetched: dbButtons.length, keyboardRows: keyboard.length, keyboard });
     try {
       if (photoUrl) {
-        if (mediaType === "video") {
-          await sendVideo(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
-        } else {
-          await sendPhoto(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+        try {
+          if (mediaType === "video") {
+            await sendVideo(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+          } else {
+            await sendPhoto(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+          }
+        } catch (mediaErr: any) {
+          // Fallback: if media send fails with "wrong file_id", try the other type
+          const errMsg = mediaErr?.message || "";
+          if (errMsg.includes("wrong file_id") || errMsg.includes("file identifier")) {
+            console.warn(`⚠️ Media send failed (${mediaType}), trying fallback type...`);
+            if (mediaType === "video") {
+              // Try photo instead
+              await sendPhoto(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+            } else {
+              // Try video instead
+              await sendVideo(chatId, photoUrl, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+            }
+          } else {
+            // Other error, rethrow
+            throw mediaErr;
+          }
         }
       } else {
         await sendMessage(chatId, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
