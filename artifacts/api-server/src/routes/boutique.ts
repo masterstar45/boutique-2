@@ -649,9 +649,24 @@ router.get("/products/:id/video", async (req, res) => {
   res.json({ videoUrl: product.videoUrl });
 });
 
+function isValidMediaUrl(url: string | undefined | null): boolean {
+  if (!url) return true; // optionnel
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 router.post("/products", requireTelegramAuth, requireTelegramAdmin, adminRateLimiter, async (req, res) => {
   const { name, brand, description, price, imageUrl, videoUrl, category, tags, sticker, stickerFlag, priceOptions, stock } = req.body;
-  
+
+  if (!isValidMediaUrl(imageUrl) || !isValidMediaUrl(videoUrl)) {
+    res.status(400).json({ error: "URL d'image ou de vidéo invalide" });
+    return;
+  }
+
   try {
     const [product] = await db.insert(products).values({
       name, brand, description, price: price || 0, imageUrl,
@@ -683,8 +698,13 @@ router.patch("/products/:id", requireTelegramAuth, requireTelegramAdmin, adminRa
     'category', 'tags', 'sticker', 'stickerFlag', 'priceOptions', 'stock'
   ] as const;
   
+  if (!isValidMediaUrl(req.body.imageUrl) || !isValidMediaUrl(req.body.videoUrl)) {
+    res.status(400).json({ error: "URL d'image ou de vidéo invalide" });
+    return;
+  }
+
   const updateData: Partial<InsertProduct> = {};
-  
+
   // Only allow whitelisted fields
   for (const field of PRODUCT_EDITABLE_FIELDS) {
     if (field in req.body && req.body[field] !== undefined) {
@@ -932,6 +952,27 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
       return { ...item, product };
     })
   );
+
+  // Vérifier le stock (si "Rupture" ou "rupture" → rejeter)
+  for (const item of itemsWithProducts) {
+    const stockStr = item.product?.stock?.toLowerCase() ?? "";
+    if (stockStr.includes("rupture") || stockStr === "0" || stockStr === "out of stock") {
+      res.status(400).json({ message: `Produit "${item.product?.name}" est en rupture de stock` });
+      return;
+    }
+  }
+
+  // Vérifier et incrémenter le code promo si utilisé
+  if (promoCode) {
+    const [promo] = await db.select().from(promoCodes).where(and(eq(promoCodes.code, String(promoCode).toUpperCase()), eq(promoCodes.active, true)));
+    if (promo) {
+      if (promo.usageLimit !== null && promo.usageLimit !== undefined && promo.usageCount >= promo.usageLimit) {
+        res.status(410).json({ message: "Ce code promo a atteint sa limite d'utilisation" });
+        return;
+      }
+      await db.update(promoCodes).set({ usageCount: promo.usageCount + 1 }).where(eq(promoCodes.id, promo.id));
+    }
+  }
 
   const orderCode = `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
   const orderData = JSON.stringify({ items: itemsWithProducts, deliveryAddress, promoCode, pointsToRedeem: sanitizedPointsToRedeem, notes: notes || null });
@@ -1426,6 +1467,12 @@ router.post("/promo/validate", promoValidateRateLimiter, async (req, res) => {
   const [promo] = await db.select().from(promoCodes).where(and(eq(promoCodes.code, code.toUpperCase()), eq(promoCodes.active, true)));
   if (!promo) {
     res.status(404).json({ message: "Code promo invalide ou expiré" });
+    return;
+  }
+
+  // Vérifier la limite d'usage
+  if (promo.usageLimit !== null && promo.usageLimit !== undefined && promo.usageCount >= promo.usageLimit) {
+    res.status(410).json({ message: "Ce code promo a atteint sa limite d'utilisation" });
     return;
   }
 
