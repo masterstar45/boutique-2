@@ -92,6 +92,19 @@ function verifyTelegramInitData(initData: string): TelegramMiniAppData | null {
       return null;
     }
 
+    // Vérifier que auth_date n'est pas expiré (max 24h)
+    const authDate = params.get("auth_date");
+    if (!authDate) {
+      console.warn("⚠️  Missing auth_date in Telegram initData");
+      return null;
+    }
+    const authTimestamp = parseInt(authDate, 10);
+    const now = Math.floor(Date.now() / 1000);
+    if (now - authTimestamp > 86400) {
+      console.warn(`⚠️  Telegram initData expired: age=${now - authTimestamp}s`);
+      return null;
+    }
+
     const userRaw = params.get("user");
     if (!userRaw) {
       console.warn("⚠️  Missing user payload in initData");

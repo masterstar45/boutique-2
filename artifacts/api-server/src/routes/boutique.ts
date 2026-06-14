@@ -75,7 +75,7 @@ async function verifyTurnstileToken(token: string, remoteIp?: string): Promise<b
 
 // ─── Admin Telegram Notification ──────────────────────────────────────────────
 
-const ADMIN_CHAT_ID = "5818221358";
+const ADMIN_CHAT_ID = process.env.TELEGRAM_SUPER_ADMIN_ID || process.env.TELEGRAM_ADMIN_CHAT_ID || "";
 
 // URL du panel admin (Mini App Telegram)
 const ADMIN_PANEL_URL = (process.env.MINI_APP_URL || "https://boutique-2-production.up.railway.app/boutique") + "/admin";
@@ -225,6 +225,16 @@ const memUpload = multer({
 const tgFilePathCache = new Map<string, { filePath: string; cachedAt: number }>();
 const TG_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 heures
 
+// Nettoyage périodique du cache pour éviter les fuites mémoire
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of tgFilePathCache.entries()) {
+    if (now - value.cachedAt > TG_CACHE_TTL) tgFilePathCache.delete(key);
+  }
+}, TG_CACHE_TTL);
+
+const TELEGRAM_FILE_ID_REGEX = /^[A-Za-z0-9_\-]{10,200}$/;
+
 async function getTelegramFilePath(fileId: string, botToken: string): Promise<string> {
   const cached = tgFilePathCache.get(fileId);
   if (cached && Date.now() - cached.cachedAt < TG_CACHE_TTL) return cached.filePath;
@@ -243,10 +253,20 @@ async function getTelegramFilePath(fileId: string, botToken: string): Promise<st
 router.get("/telegram-video/:fileId", async (req, res) => {
   try {
     const { fileId } = req.params;
+
+    if (!TELEGRAM_FILE_ID_REGEX.test(fileId)) {
+      res.status(400).json({ message: "fileId invalide" });
+      return;
+    }
+
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
     if (!BOT_TOKEN) { res.status(500).json({ message: "Bot token manquant" }); return; }
 
     const filePath = await getTelegramFilePath(fileId, BOT_TOKEN);
+    if (!filePath || filePath.includes("..") || /^\//.test(filePath)) {
+      res.status(400).json({ message: "Chemin de fichier invalide" });
+      return;
+    }
     const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
 
     // Transmet le header Range si le client veut un segment (seek vidéo)
@@ -314,7 +334,7 @@ router.post("/upload", requireTelegramAuth, uploadRateLimiter, (req, res, next) 
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
     if (!BOT_TOKEN) { res.status(500).json({ message: "Bot token manquant" }); return; }
 
-    const ADMIN_CHAT_ID_ENV = "5818221358";
+    const ADMIN_CHAT_ID_ENV = process.env.TELEGRAM_SUPER_ADMIN_ID || process.env.TELEGRAM_ADMIN_CHAT_ID || "";
     const ext = path.extname(req.file.originalname).toLowerCase() || ".mp4";
     const filename = `product-${Date.now()}${ext}`;
     const buffer = req.file.buffer;
@@ -510,7 +530,7 @@ router.post("/admin/upload-start-media", requireTelegramAuth, requireTelegramAdm
     const isVideo = mimeType.startsWith("video/");
     const tgMethod = isVideo ? "sendVideo" : "sendPhoto";
     const tgField = isVideo ? "video" : "photo";
-    const ADMIN_CHAT_ID = "5818221358";
+    const ADMIN_CHAT_ID = process.env.TELEGRAM_SUPER_ADMIN_ID || process.env.TELEGRAM_ADMIN_CHAT_ID || "";
 
     const fileBuffer = fs.readFileSync(req.file.path);
     const formData = new FormData();
@@ -747,11 +767,45 @@ router.post("/cart", cartRateLimiter, async (req, res) => {
     res.status(400).json({ message: "sessionId and productId are required" });
     return;
   }
+
+  const parsedQty = Math.floor(Number(quantity));
+  if (!parsedQty || parsedQty < 1 || parsedQty > 100) {
+    res.status(400).json({ message: "Quantité invalide (1–100)" });
+    return;
+  }
+
+  const [product] = await db.select().from(products).where(eq(products.id, Number(productId)));
+  if (!product) {
+    res.status(404).json({ message: "Produit introuvable" });
+    return;
+  }
+
+  let validatedPrice: number | null = null;
+  if (selectedPrice !== undefined && selectedPrice !== null && selectedPrice !== "") {
+    const priceNum = Number(selectedPrice);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      res.status(400).json({ message: "Prix invalide" });
+      return;
+    }
+    // Vérifier que le prix correspond à une option valide du produit
+    const basePrice = (product.price || 0) / 100;
+    const priceOptions: number[] = Array.isArray((product as any).priceOptions)
+      ? (product as any).priceOptions.map((o: any) => Number(o.price)).filter((p: number) => !isNaN(p))
+      : [];
+    const allValidPrices = [...priceOptions, basePrice];
+    const isValidPrice = allValidPrices.some(p => Math.abs(p - priceNum) < 0.01);
+    if (!isValidPrice) {
+      res.status(400).json({ message: "Prix invalide pour ce produit" });
+      return;
+    }
+    validatedPrice = priceNum;
+  }
+
   const [item] = await db.insert(cartItems).values({
     sessionId,
     productId: Number(productId),
-    quantity: Number(quantity) || 1,
-    selectedPrice: selectedPrice ? Number(selectedPrice) : null,
+    quantity: parsedQty,
+    selectedPrice: validatedPrice,
     selectedWeight: selectedWeight || null,
   }).returning();
   res.json(item);
@@ -778,8 +832,8 @@ router.patch("/cart/:id", requireTelegramAuth, async (req, res) => {
   const id = Number(req.params.id);
   const telegramUser = (req as any).telegramUser as TelegramMiniAppData;
   const { quantity, sessionId, chatId } = req.body;
-  if (!isValidSessionId(sessionId) || typeof quantity !== "number") {
-    res.status(400).json({ message: "sessionId and quantity required" });
+  if (!isValidSessionId(sessionId) || typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
+    res.status(400).json({ message: "sessionId et quantité valide (1–100) requis" });
     return;
   }
 
@@ -939,7 +993,7 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
   res.json(order);
   } catch (err: any) {
     console.error("Checkout error:", err);
-    res.status(500).json({ message: err?.message || "Erreur serveur lors du checkout" });
+    res.status(500).json({ message: "Erreur interne du serveur" });
   }
 });
 
@@ -979,8 +1033,11 @@ router.patch("/orders/:orderCode/status", requireTelegramAuth, requireTelegramAd
     const { status } = req.body;
     const { orderCode } = req.params;
     
-    if (!status) {
-      res.status(400).json({ error: "status is required" });
+    const VALID_STATUSES = ["pending", "confirmed", "preparing", "ready", "delivering", "delivered", "cancelled"] as const;
+    type OrderStatus = typeof VALID_STATUSES[number];
+
+    if (!status || !VALID_STATUSES.includes(status as OrderStatus)) {
+      res.status(400).json({ error: `Statut invalide. Valeurs acceptées : ${VALID_STATUSES.join(", ")}` });
       return;
     }
 
@@ -1010,7 +1067,7 @@ router.patch("/orders/:orderCode/status", requireTelegramAuth, requireTelegramAd
       status: 500,
       error: err.message,
     });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Erreur interne du serveur" });
   }
 });
 
@@ -1189,9 +1246,17 @@ router.post("/admin/test-notification", requireTelegramAuth, requireTelegramAdmi
   }
 });
 
+// N'autoriser que les balises HTML Telegram légitimes dans les broadcasts
+function sanitizeTelegramHtml(input: string): string {
+  return input
+    .replace(/<(?!\/?(?:b|strong|i|em|u|s|strike|del|code|pre|tg-spoiler)(?:\s[^>]*)?>|a\s+href="https?:\/\/[^"<>]*"[^>]*>|\/a>)[^>]*>/gi, "")
+    .slice(0, 4096);
+}
+
 router.post("/admin/broadcast", requireTelegramAuth, requireTelegramAdmin, broadcastRateLimiter, async (req, res) => {
   const { text, onlyUnlocked } = req.body;
-  if (!text) return res.status(400).json({ error: "text required" });
+  if (!text || typeof text !== "string") return res.status(400).json({ error: "text required" });
+  const sanitizedText = sanitizeTelegramHtml(text);
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return res.status(500).json({ error: "Bot token not configured" });
 
@@ -1213,7 +1278,7 @@ router.post("/admin/broadcast", requireTelegramAuth, requireTelegramAdmin, broad
       const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: u.chatId, text, parse_mode: "HTML" }),
+        body: JSON.stringify({ chat_id: u.chatId, text: sanitizedText, parse_mode: "HTML" }),
       });
       const data = await r.json() as any;
       if (data.ok) sent++; else failed++;
@@ -1806,11 +1871,16 @@ router.post("/admin/orders/:orderCode/transmit-livreur", requireTelegramAuth, re
 
 // ─── Admin List Management ────────────────────────────────────────────────────
 
-const SUPER_ADMIN = "5818221358";
-
-router.get("/is-admin/:chatId", async (req, res) => {
+router.get("/is-admin/:chatId", requireTelegramAuth, async (req, res) => {
+  const telegramUser = (req as any).telegramUser as TelegramMiniAppData;
   const { chatId } = req.params;
-  if (chatId === SUPER_ADMIN) return res.json({ isAdmin: true });
+  // Only allow a user to check their own admin status
+  if (telegramUser.chatId !== chatId) {
+    res.json({ isAdmin: false });
+    return;
+  }
+  const superAdminId = process.env.TELEGRAM_SUPER_ADMIN_ID || process.env.TELEGRAM_ADMIN_CHAT_ID || "";
+  if (superAdminId && chatId === superAdminId) return res.json({ isAdmin: true });
   const [row] = await db.select().from(admins).where(eq(admins.telegramId, chatId));
   res.json({ isAdmin: !!row });
 });

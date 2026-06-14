@@ -75,7 +75,7 @@ app.use((req, res, next) => {
     );
     res.setHeader(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://telegram.org https://challenges.cloudflare.com; img-src 'self' data: https:; font-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.telegram.org https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com"
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://telegram.org https://challenges.cloudflare.com; img-src 'self' data: https:; media-src 'self' https://res.cloudinary.com https://api.telegram.org blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.telegram.org https://challenges.cloudflare.com https://res.cloudinary.com; frame-src 'self' https://challenges.cloudflare.com"
     );
   }
   
@@ -84,9 +84,9 @@ app.use((req, res, next) => {
 
 app.use(cors({
   origin(origin, callback) {
-    // Requests sans Origin header (ex: same-origin ou certaines requêtes server)
+    // Requêtes sans Origin (webhooks Telegram, scripts serveur) — autorisées sans credentials
     if (!origin) {
-      return callback(null, true);
+      return callback(null, isProduction ? false : true);
     }
 
     const normalizedOrigin = origin.replace(/\/+$/, "");
