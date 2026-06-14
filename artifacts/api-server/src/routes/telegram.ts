@@ -63,14 +63,13 @@ async function sendVideo(chatId: string | number, videoId: string, caption: stri
 }
 
 function detectMediaTypeFromFileId(fileId: string): "photo" | "video" {
-  // Telegram file_id format hints are not reliable across all files.
-  // Use this only when no explicit media type is stored in settings.
+  // Telegram file_ids are opaque — type cannot be detected from the string.
+  // The stored start_media_type DB setting is the only reliable source.
   if (!fileId) return "photo";
-  if (fileId.includes("video") || fileId.includes("mov")) return "video";
   return "photo";
 }
 
-function buildKeyboard(buttons: typeof clientButtons.$inferSelect[]): any[][] {
+function buildKeyboard(buttons: any[]): any[][] {
   if (buttons.length === 0) {
     return [[{ text: "🛒 Accéder à la Boutique", web_app: { url: BASE_URL } }]];
   }
@@ -80,7 +79,9 @@ function buildKeyboard(buttons: typeof clientButtons.$inferSelect[]): any[][] {
     const btnText = btn.emoji ? `${btn.emoji} ${btn.label}` : btn.label;
     const isWebApp = btn.url.startsWith(BASE_URL) || btn.url.includes("railway.app") || btn.url.includes("replit.dev");
     const tgBtn = isWebApp ? { text: btnText, web_app: { url: btn.url } } : { text: btnText, url: btn.url };
-    if (btn.fullWidth) {
+    // Support both camelCase (Drizzle) and snake_case (raw SQL) column names
+    const isFullWidth = btn.fullWidth ?? btn.full_width ?? true;
+    if (isFullWidth) {
       if (currentRow.length > 0) { keyboard.push(currentRow); currentRow = []; }
       keyboard.push([tgBtn]);
     } else {
@@ -325,14 +326,18 @@ router.post("/telegram/webhook", async (req, res) => {
       ? customMessage.replace("{username}", firstName).replace("{id}", String(userId))
       : defaultMsg;
 
-    // Fetch buttons (safe — full_width column may not exist on fresh deploy)
+    // Fetch buttons — use raw SQL to avoid issues if full_width column
+    // does not exist yet on a fresh deploy (Drizzle ORM would throw).
     let dbButtons: any[] = [];
     try {
-      dbButtons = await db
-        .select()
-        .from(clientButtons)
-        .where(eq(clientButtons.active, true))
-        .orderBy(asc(clientButtons.position));
+      const res = await db.execute(sql`
+        SELECT id, label, url, emoji, active, position,
+               COALESCE(full_width, TRUE) AS full_width
+        FROM client_buttons
+        WHERE active = TRUE
+        ORDER BY position ASC;
+      `);
+      dbButtons = res.rows as any[];
       console.log("✅ Fetched buttons from DB:", { count: dbButtons.length, buttons: dbButtons.map(b => ({ id: b.id, label: b.label, active: b.active, position: b.position })) });
     } catch (err) {
       console.error("❌ Error fetching buttons from DB:", err);
