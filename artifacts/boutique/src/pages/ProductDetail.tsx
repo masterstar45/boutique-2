@@ -10,6 +10,12 @@ import { ProductCard } from "@/components/ProductCard";
 const GOLD = "rgba(201,160,76,";
 const GOLD_GRAD = "linear-gradient(135deg, #c9a04c 0%, #f0d070 45%, #d4a843 100%)";
 
+function haptic(type: "light" | "medium" | "success" = "light") {
+  const tg = (window as any).Telegram?.WebApp;
+  if (type === "success") tg?.HapticFeedback?.notificationOccurred("success");
+  else tg?.HapticFeedback?.impactOccurred(type);
+}
+
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:id");
   const [, navigate] = useLocation();
@@ -29,6 +35,16 @@ export default function ProductDetail() {
     { category: product?.category },
     { query: { enabled: !!product?.category } }
   );
+
+  // BackButton natif Telegram
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (!tg?.BackButton) return;
+    tg.BackButton.show();
+    const handler = () => navigate("/menu");
+    tg.BackButton.onClick(handler);
+    return () => { tg.BackButton.offClick(handler); tg.BackButton.hide(); };
+  }, [navigate]);
 
   // Force video playback when showVideo changes
   useEffect(() => {
@@ -51,6 +67,7 @@ export default function ProductDetail() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetCartQueryKey(sessionId) });
+        haptic("success");
         setAddedOk(true);
         setTimeout(() => {
           setShowModal(false);
@@ -63,6 +80,7 @@ export default function ProductDetail() {
   });
 
   const handleOptionClick = (option: { price: number; weight: string }) => {
+    haptic("light");
     setSelectedOption(option);
     setQuantity(1);
     setShowModal(true);
@@ -70,8 +88,10 @@ export default function ProductDetail() {
 
   const handleAddDirect = () => {
     if (!product || !sessionId) return;
+    haptic("medium");
+    // Ne pas envoyer selectedPrice : le backend utilise le prix de la DB
     addToCartMutation.mutate({
-      data: { productId: product.id, sessionId, quantity: 1, selectedPrice: product.price, chatId } as any
+      data: { productId: product.id, sessionId, quantity: 1, chatId } as any
     });
     setAddedOk(true);
     setTimeout(() => setAddedOk(false), 2000);
@@ -79,6 +99,7 @@ export default function ProductDetail() {
 
   const handleConfirm = () => {
     if (!product || !selectedOption || !sessionId) return;
+    haptic("medium");
     addToCartMutation.mutate({
       data: {
         productId: product.id,
@@ -418,7 +439,7 @@ export default function ProductDetail() {
                   <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: `${GOLD}0.45)` }}>Quantité</p>
                   <div className="flex items-center gap-8">
                     <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      onClick={() => { haptic("light"); setQuantity(Math.max(1, quantity - 1)); }}
                       disabled={quantity <= 1}
                       className="w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-30"
                       style={{
@@ -434,7 +455,7 @@ export default function ProductDetail() {
                     </span>
 
                     <button
-                      onClick={() => setQuantity(quantity + 1)}
+                      onClick={() => { haptic("light"); setQuantity(quantity + 1); }}
                       className="w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-90"
                       style={{
                         background: `${GOLD}0.06)`,

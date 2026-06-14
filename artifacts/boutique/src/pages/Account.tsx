@@ -3,8 +3,8 @@ import { Link } from "wouter";
 import { useSession } from "@/hooks/use-session";
 import { useGetMyOrders } from "@workspace/api-client-react";
 import {
-  User, Package, KeyRound, Save, Shield, Settings,
-  ChevronRight, Clock, CheckCircle, XCircle, Truck,
+  User, Package, Shield, Settings,
+  ChevronRight, Clock, CheckCircle, XCircle, Truck, ChefHat, Zap,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -17,11 +17,14 @@ const GOLD_GRAD = "linear-gradient(135deg, #c9a04c 0%, #f0d070 45%, #d4a843 100%
 
 // ── Statut commande ────────────────────────────────────────────────────────────
 const STATUS_META: Record<string, { label: string; color: string; bg: string; Icon: typeof Clock }> = {
-  pending:   { label: "En attente",  color: "#f59e0b", bg: "rgba(245,158,11,0.12)",  Icon: Clock },
-  confirmed: { label: "Confirmée",   color: "#10b981", bg: "rgba(16,185,129,0.12)",  Icon: CheckCircle },
-  delivered: { label: "Livrée",      color: "#c9a04c", bg: "rgba(201,160,76,0.12)",  Icon: Truck },
-  completed: { label: "Terminée",    color: "#10b981", bg: "rgba(16,185,129,0.12)",  Icon: CheckCircle },
-  cancelled: { label: "Annulée",     color: "#ef4444", bg: "rgba(239,68,68,0.12)",   Icon: XCircle },
+  pending:    { label: "En attente",     color: "#f59e0b", bg: "rgba(245,158,11,0.12)",  Icon: Clock },
+  confirmed:  { label: "Confirmée",      color: "#10b981", bg: "rgba(16,185,129,0.12)",  Icon: CheckCircle },
+  preparing:  { label: "En préparation", color: "#8b5cf6", bg: "rgba(139,92,246,0.12)", Icon: ChefHat },
+  ready:      { label: "Prête",          color: "#06b6d4", bg: "rgba(6,182,212,0.12)",  Icon: Zap },
+  delivering: { label: "En livraison",   color: "#3b82f6", bg: "rgba(59,130,246,0.12)", Icon: Truck },
+  delivered:  { label: "Livrée",         color: "#c9a04c", bg: "rgba(201,160,76,0.12)",  Icon: Truck },
+  completed:  { label: "Terminée",       color: "#10b981", bg: "rgba(16,185,129,0.12)",  Icon: CheckCircle },
+  cancelled:  { label: "Annulée",        color: "#ef4444", bg: "rgba(239,68,68,0.12)",   Icon: XCircle },
 };
 
 function statusMeta(status: string) {
@@ -37,8 +40,7 @@ type TabId = typeof TABS[number]["id"];
 
 // ── Composant principal ────────────────────────────────────────────────────────
 export default function Account() {
-  const { chatId, username, saveChatId } = useSession();
-  const [inputChatId, setInputChatId] = useState(chatId);
+  const { chatId, username } = useSession();
   const [isAdmin, setIsAdmin] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState(false);
@@ -60,39 +62,24 @@ export default function Account() {
       .catch(() => {});
   }, [chatId]);
 
-  const { data: orders } = useGetMyOrders(chatId, { query: { enabled: !!chatId } });
-
-  const handleSave = () => { if (inputChatId.trim()) saveChatId(inputChatId.trim()); };
+  const { data: orders } = useGetMyOrders(chatId, {
+    query: { enabled: !!chatId, refetchInterval: 30000 },
+  });
 
   // ── Pas connecté ─────────────────────────────────────────────────────────────
   if (!chatId) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 pb-nav">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 pb-nav text-center">
         <div className="w-24 h-24 rounded-full flex items-center justify-center mb-8"
           style={{ background: "rgba(201,160,76,0.08)", border: "1px solid rgba(201,160,76,0.2)", boxShadow: "0 0 30px -8px rgba(201,160,76,0.3)" }}>
-          <KeyRound className="w-10 h-10" style={{ color: `${GOLD}0.8)` }} />
+          <svg viewBox="0 0 24 24" fill="white" className="w-10 h-10" style={{ opacity: 0.8 }}>
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z" />
+          </svg>
         </div>
-        <h1 className="text-3xl font-black font-display mb-2 text-center">Connexion</h1>
-        <p className="text-muted-foreground text-center mb-8 text-sm max-w-xs">
-          Entrez votre ID Telegram pour retrouver votre historique et vos points.
+        <h1 className="text-2xl font-black font-display mb-2">Ouvre depuis Telegram</h1>
+        <p className="text-sm max-w-xs" style={{ color: `${GOLD}0.55)` }}>
+          Cette app doit être ouverte depuis le bot Telegram pour identifier ton compte.
         </p>
-        <div className="w-full max-w-sm space-y-4">
-          <input
-            type="text"
-            value={inputChatId}
-            onChange={(e) => setInputChatId(e.target.value)}
-            placeholder="Votre Telegram Chat ID"
-            className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-center focus:outline-none focus:border-primary transition-all text-lg font-bold"
-          />
-          <button
-            onClick={handleSave}
-            disabled={!inputChatId.trim()}
-            className="w-full font-black text-lg py-4 rounded-2xl disabled:opacity-50 active:scale-95 transition-transform flex items-center justify-center gap-2"
-            style={{ background: GOLD_GRAD, color: "#080603" }}
-          >
-            <Save className="w-5 h-5" /> Connecter
-          </button>
-        </div>
       </div>
     );
   }

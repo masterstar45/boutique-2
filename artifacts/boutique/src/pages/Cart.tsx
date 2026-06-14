@@ -10,6 +10,12 @@ import { useQueryClient } from "@tanstack/react-query";
 const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
+function haptic(type: "light" | "medium" | "success" | "error" = "light") {
+  const tg = (window as any).Telegram?.WebApp;
+  if (type === "success" || type === "error") tg?.HapticFeedback?.notificationOccurred(type);
+  else tg?.HapticFeedback?.impactOccurred(type);
+}
+
 type TurnstileApi = {
   render: (container: string | HTMLElement, params: Record<string, unknown>) => string;
   reset: (widgetId?: string) => void;
@@ -63,6 +69,22 @@ export default function Cart() {
   const queryClient = useQueryClient();
 
   const [step, setStep] = useState<"cart" | "delivery" | "details" | "confirmed">("cart");
+
+  // BackButton natif Telegram — retour selon l'étape courante
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (!tg?.BackButton) return;
+    if (step === "confirmed") { tg.BackButton.hide(); return; }
+    tg.BackButton.show();
+    const handler = () => {
+      haptic("light");
+      if (step === "details") setStep("delivery");
+      else if (step === "delivery") setStep("cart");
+      else navigate("/menu");
+    };
+    tg.BackButton.onClick(handler);
+    return () => { tg.BackButton.offClick(handler); tg.BackButton.hide(); };
+  }, [step, navigate]);
   const [deliveryMode, setDeliveryMode] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
@@ -169,9 +191,11 @@ export default function Cart() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetCartQueryKey(sessionId) });
+        haptic("success");
         setStep("confirmed");
       },
       onError: (err: any) => {
+        haptic("error");
         const msg = err?.response?.data?.message || err?.message || "Erreur inconnue";
         alert("❌ Commande non envoyée : " + msg);
       }
@@ -297,15 +321,15 @@ export default function Cart() {
                     <p className="text-xs font-bold text-primary mt-1">{item.selectedWeight} • {item.selectedPrice}€</p>
                     <div className="flex items-center gap-4 mt-3">
                       <div className="flex items-center bg-black/40 rounded-full p-1 border border-white/5">
-                        <button onClick={() => updateItem.mutate({ id: item.id, data: { quantity: Math.max(1, item.quantity - 1), sessionId } })} className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center active:scale-90">
+                        <button onClick={() => { haptic("light"); updateItem.mutate({ id: item.id, data: { quantity: Math.max(1, item.quantity - 1), sessionId } }); }} className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center active:scale-90">
                           <Minus className="w-3.5 h-3.5" />
                         </button>
                         <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
-                        <button onClick={() => updateItem.mutate({ id: item.id, data: { quantity: item.quantity + 1, sessionId } })} className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center active:scale-90">
+                        <button onClick={() => { haptic("light"); updateItem.mutate({ id: item.id, data: { quantity: item.quantity + 1, sessionId } }); }} className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center active:scale-90">
                           <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <button onClick={() => removeItem.mutate({ id: item.id })} className="p-2 text-destructive/80 hover:text-destructive transition-colors ml-auto active:scale-90">
+                      <button onClick={() => { haptic("medium"); removeItem.mutate({ id: item.id }); }} className="p-2 text-destructive/80 hover:text-destructive transition-colors ml-auto active:scale-90">
                         <Trash2 className="w-5 h-5" />
                       </button>
                     </div>
