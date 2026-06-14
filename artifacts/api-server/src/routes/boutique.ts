@@ -662,6 +662,15 @@ function isValidMediaUrl(url: string | undefined | null): boolean {
 router.post("/products", requireTelegramAuth, requireTelegramAdmin, adminRateLimiter, async (req, res) => {
   const { name, brand, description, price, imageUrl, videoUrl, category, tags, sticker, stickerFlag, priceOptions, stock } = req.body;
 
+  if (!name || typeof name !== "string" || name.trim().length === 0 || name.length > 200) {
+    res.status(400).json({ error: "name requis (1-200 caractères)" }); return;
+  }
+  if (!brand || typeof brand !== "string" || brand.trim().length === 0 || brand.length > 100) {
+    res.status(400).json({ error: "brand requis (1-100 caractères)" }); return;
+  }
+  if (!description || typeof description !== "string" || description.trim().length === 0 || description.length > 2000) {
+    res.status(400).json({ error: "description requise (1-2000 caractères)" }); return;
+  }
   if (!isValidMediaUrl(imageUrl) || !isValidMediaUrl(videoUrl)) {
     res.status(400).json({ error: "URL d'image ou de vidéo invalide" });
     return;
@@ -1050,7 +1059,7 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     (deliveryAddress ? `📍 ${deliveryAddress}\n` : "") +
     `\n<b>Articles :</b>\n${articleList}\n\n` +
     `💶 <b>Total : ${(totalRevenue / 100).toFixed(2)} €</b>` +
-    (notes ? `\n\n📝 <b>Note :</b> ${notes}` : ""),
+    (notes ? `\n\n📝 <b>Note :</b> ${sanitizeTelegramHtml(String(notes).slice(0, 500))}` : ""),
     {
       reply_markup: {
         inline_keyboard: [[
@@ -1236,7 +1245,7 @@ router.patch("/admin/orders/:orderCode/notes", requireTelegramAuth, requireTeleg
 router.get("/admin/orders/enriched", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Number(req.query.offset) || 0;
+    const offset = Math.min(Number(req.query.offset) || 0, 10000);
     const status = req.query.status as string | undefined;
 
     let q = db.select().from(orders).orderBy(desc(orders.id)).limit(limit).offset(offset).$dynamic();
@@ -1440,13 +1449,24 @@ router.get("/reviews/pending", requireTelegramAuth, requireTelegramAdmin, async 
   }
 });
 
-router.post("/reviews", async (req, res) => {
+router.post("/reviews", createRateLimiter(60 * 1000, 2), async (req, res) => {
   const { chatId, username, firstName, text: reviewText } = req.body;
-  if (!chatId || !reviewText) {
+  if (!chatId || !reviewText || typeof reviewText !== "string") {
     res.status(400).json({ message: "chatId and text are required" });
     return;
   }
-  const [review] = await db.insert(reviews).values({ chatId, username, firstName, text: reviewText, approved: false }).returning();
+  const sanitizedText = reviewText.trim().slice(0, 500);
+  if (sanitizedText.length < 5) {
+    res.status(400).json({ message: "Avis trop court (minimum 5 caractères)" });
+    return;
+  }
+  const [review] = await db.insert(reviews).values({
+    chatId: String(chatId).slice(0, 50),
+    username: username ? String(username).slice(0, 100) : null,
+    firstName: firstName ? String(firstName).slice(0, 100) : null,
+    text: sanitizedText,
+    approved: false,
+  }).returning();
   res.json(review);
 });
 
@@ -1517,7 +1537,14 @@ router.get("/admin/promo-codes", requireTelegramAuth, requireTelegramAdmin, asyn
 
 router.post("/admin/promo-codes", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const { code, discountPercent, active } = req.body;
-  const [promo] = await db.insert(promoCodes).values({ code: code.toUpperCase(), discountPercent, active: active !== false }).returning();
+  if (!code || typeof code !== "string" || code.trim().length === 0 || code.length > 50) {
+    return res.status(400).json({ error: "code requis (1-50 caractères)" });
+  }
+  const percent = Number(discountPercent);
+  if (isNaN(percent) || percent < 1 || percent > 100) {
+    return res.status(400).json({ error: "discountPercent doit être entre 1 et 100" });
+  }
+  const [promo] = await db.insert(promoCodes).values({ code: code.trim().toUpperCase(), discountPercent: percent, active: active !== false }).returning();
   res.json(promo);
 });
 
@@ -1642,8 +1669,13 @@ router.delete("/favorites/:chatId/:productId", requireTelegramAuth, async (req, 
 const userPhotoRateLimiter = createRateLimiter(60 * 1000, 15);
 
 // Photo de profil Telegram — proxy serveur (cache 1h, ne pas exposer le token)
-router.get("/user-photo/:chatId", userPhotoRateLimiter, async (req, res) => {
+router.get("/user-photo/:chatId", requireTelegramAuth, userPhotoRateLimiter, async (req, res) => {
   const { chatId } = req.params;
+  const telegramUser = (req as any).telegramUser;
+  // Seul l'utilisateur peut voir sa propre photo — les admins peuvent voir toutes
+  if (telegramUser.chatId !== chatId && !telegramUser.isAdmin) {
+    res.status(403).end(); return;
+  }
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) { res.status(500).end(); return; }
 
@@ -1833,9 +1865,13 @@ router.get("/admin/bot-settings", requireTelegramAuth, requireTelegramAdmin, asy
 
 router.post("/admin/bot-settings", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   const { key, value } = req.body;
-  if (!key) return res.status(400).json({ error: "key required" });
-  await db.insert(botSettings).values({ key, value: value ?? "" })
-    .onConflictDoUpdate({ target: botSettings.key, set: { value: value ?? "" } });
+  const ALLOWED_KEYS = ["start_photo_url", "start_message", "start_media_type"];
+  if (!key || !ALLOWED_KEYS.includes(String(key))) {
+    return res.status(400).json({ error: `Clé invalide. Clés autorisées : ${ALLOWED_KEYS.join(", ")}` });
+  }
+  const safeValue = String(value ?? "").slice(0, 4096);
+  await db.insert(botSettings).values({ key: String(key), value: safeValue })
+    .onConflictDoUpdate({ target: botSettings.key, set: { value: safeValue } });
   res.json({ ok: true });
 });
 
@@ -1951,8 +1987,8 @@ router.post("/admin/orders/:orderCode/transmit-livreur", requireTelegramAuth, re
   const { livreurId } = req.body;
   if (!livreurId) return res.status(400).json({ error: "livreurId requis" });
 
-  const [livreur] = await db.select().from(livreurs).where(eq(livreurs.id, Number(livreurId)));
-  if (!livreur) return res.status(404).json({ error: "Livreur introuvable" });
+  const [livreur] = await db.select().from(livreurs).where(and(eq(livreurs.id, Number(livreurId)), eq(livreurs.isActive, true)));
+  if (!livreur) return res.status(404).json({ error: "Livreur introuvable ou inactif" });
 
   // Récupère la commande
   const [order] = await db.select().from(orders).where(eq(orders.orderCode, transmitOrderCode));
