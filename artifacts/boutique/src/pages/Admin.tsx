@@ -64,7 +64,43 @@ export default function Admin() {
   const [editProduct, setEditProduct] = useState<any>(null);
   const [resetRevenueConfirm, setResetRevenueConfirm] = useState(false);
   const [resetRevenueLoading, setResetRevenueLoading] = useState(false);
+  const [lastOrderCount, setLastOrderCount] = useState<number | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const qc = useQueryClient();
+
+  // Polling nouvelles commandes — alerte sonore
+  useEffect(() => {
+    if (tab !== "dashboard" && tab !== "orders") return;
+    const checkNewOrders = async () => {
+      try {
+        const r = await fetch(`${API}/admin/orders/count`);
+        if (!r.ok) return;
+        const { count } = await r.json();
+        if (lastOrderCount !== null && count > lastOrderCount && soundEnabled) {
+          // Jouer un son de notification
+          try {
+            const ctx = new AudioContext();
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+            oscillator.frequency.setValueAtTime(660, ctx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.4);
+          } catch {}
+          // Vibration si dispo
+          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        }
+        setLastOrderCount(count);
+      } catch {}
+    };
+    checkNewOrders();
+    const interval = setInterval(checkNewOrders, 15000);
+    return () => clearInterval(interval);
+  }, [tab, lastOrderCount, soundEnabled]);
 
   // ── Enriched orders (with user info) ──
   const [enrichedOrders, setEnrichedOrders] = useState<any[]>([]);
@@ -197,9 +233,18 @@ export default function Admin() {
           </div>
           <span className="font-black text-base gradient-plug">Admin Panel</span>
         </div>
-        <a href="/" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-white">
-          <ShoppingBag className="w-4 h-4" /> Boutique
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSoundEnabled(v => !v)}
+            className={`p-2 rounded-lg active:scale-95 transition-all text-xs flex items-center gap-1 font-bold ${soundEnabled ? "bg-primary/20 text-primary" : "bg-white/5 text-muted-foreground"}`}
+            title={soundEnabled ? "Alertes sonores activées" : "Alertes sonores désactivées"}
+          >
+            {soundEnabled ? <BellRing className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+          </button>
+          <a href="/" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 active:scale-95 transition-all flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-white">
+            <ShoppingBag className="w-4 h-4" /> Boutique
+          </a>
+        </div>
       </header>
 
       {/* Tabs — grille compacte 4+3 */}

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useSession } from "@/hooks/use-session";
-import { useGetMyOrders } from "@workspace/api-client-react";
+import { useGetMyOrders, useAddToCart } from "@workspace/api-client-react";
+import { useMutation } from "@tanstack/react-query";
 import {
   User, Package, Shield, Settings,
   ChevronRight, Clock, CheckCircle, XCircle, Truck, ChefHat, Zap,
@@ -220,6 +221,32 @@ function OrderCard({ order }: { order: any }) {
   const [open, setOpen] = useState(false);
   const sm = statusMeta(order.status);
   const StatusIcon = sm.Icon;
+  const { sessionId, chatId } = useSession();
+  const addToCart = useAddToCart();
+
+  const reorderMutation = useMutation({
+    mutationFn: async () => {
+      const parsed = (() => { try { return JSON.parse(order.orderData); } catch { return null; } })();
+      if (!parsed?.items?.length) return;
+      for (const item of parsed.items) {
+        await addToCart.mutateAsync({
+          data: {
+            productId: item.product?.id || item.productId,
+            sessionId,
+            quantity: item.quantity,
+            selectedPrice: item.selectedPrice,
+            selectedWeight: item.selectedWeight,
+            chatId,
+          } as any
+        });
+      }
+    },
+    onSuccess: () => {
+      const tg = (window as any).Telegram?.WebApp;
+      tg?.HapticFeedback?.notificationOccurred("success");
+      window.location.href = "/cart";
+    }
+  });
 
   let items: any[] = [];
   let total = 0;
@@ -318,6 +345,16 @@ function OrderCard({ order }: { order: any }) {
                     {total.toFixed(0)} €
                   </span>
                 </div>
+              )}
+              {order.status !== "cancelled" && (
+                <button
+                  onClick={() => reorderMutation.mutate()}
+                  disabled={reorderMutation.isPending}
+                  className="mt-3 w-full py-2.5 rounded-xl text-xs font-bold active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  style={{ background: "rgba(201,160,76,0.08)", border: "1px solid rgba(201,160,76,0.2)", color: "rgba(201,160,76,0.9)" }}
+                >
+                  {reorderMutation.isPending ? "Ajout en cours…" : "🔄 Commander à nouveau"}
+                </button>
               )}
             </div>
           </motion.div>

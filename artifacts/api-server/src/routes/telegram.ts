@@ -210,6 +210,47 @@ router.post("/telegram/webhook", async (req, res) => {
     const messageId = callbackQuery.message?.message_id as number | undefined;
     const originalText = callbackQuery.message?.text ?? "";
 
+    if (callbackData.startsWith("status:")) {
+      const parts = callbackData.split(":");
+      const orderCode = parts[1];
+      const newStatus = parts[2];
+      const VALID = ["confirmed","preparing","ready","delivering","delivered","cancelled"];
+      if (orderCode && VALID.includes(newStatus)) {
+        try {
+          await db.update(orders).set({ status: newStatus }).where(eq(orders.orderCode, orderCode));
+          const STATUS_LABELS: Record<string,string> = {
+            confirmed: "✅ Confirmée", preparing: "👨‍🍳 En préparation", ready: "🏁 Prête",
+            delivering: "🚚 En livraison", delivered: "📦 Livrée", cancelled: "❌ Annulée",
+          };
+          await answerCallbackQuery(callbackId, `Commande ${STATUS_LABELS[newStatus] || newStatus}`, true);
+          // Notifier le client
+          const [order] = await db.select({ chatId: orders.chatId }).from(orders).where(eq(orders.orderCode, orderCode));
+          if (order?.chatId) {
+            const CLIENT_MESSAGES: Record<string,string> = {
+              confirmed:  `✅ Ta commande <b>#${orderCode}</b> est confirmée !`,
+              preparing:  `👨‍🍳 Ta commande <b>#${orderCode}</b> est en préparation.`,
+              ready:      `🏁 Ta commande <b>#${orderCode}</b> est prête !`,
+              delivering: `🚚 Ta commande <b>#${orderCode}</b> est en route !`,
+              delivered:  `📦 Ta commande <b>#${orderCode}</b> a été livrée. Merci ! 🙏`,
+              cancelled:  `❌ Ta commande <b>#${orderCode}</b> a été annulée.`,
+            };
+            const msg = CLIENT_MESSAGES[newStatus];
+            if (msg) await sendMessage(order.chatId, msg);
+          }
+          // Modifier le message pour enlever les boutons
+          if (messageId) {
+            await editMessageText(msgChatId, messageId,
+              (originalText || "") + `\n\n→ Statut mis à jour : <b>${STATUS_LABELS[newStatus]}</b>`,
+              { reply_markup: { inline_keyboard: [] } }
+            );
+          }
+        } catch (err) {
+          await answerCallbackQuery(callbackId, "Erreur lors de la mise à jour", false);
+        }
+      }
+      return;
+    }
+
     if (callbackData.startsWith("deliver:")) {
       const orderCode = callbackData.slice("deliver:".length);
       try {

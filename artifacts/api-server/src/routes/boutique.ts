@@ -879,7 +879,7 @@ router.delete("/cart/:id", async (req, res) => {
 router.post("/checkout", requireTelegramAuth, async (req, res) => {
   try {
   const telegramUser = (req as any).telegramUser;
-  const { sessionId, chatId, deliveryType, deliveryAddress, promoCode, pointsToRedeem, turnstileToken } = req.body;
+  const { sessionId, chatId, deliveryType, deliveryAddress, promoCode, pointsToRedeem, turnstileToken, notes } = req.body;
   
   // Verify chatId belongs to authenticated user (BOLA fix)
   if (chatId !== telegramUser.chatId) {
@@ -924,7 +924,7 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
   );
 
   const orderCode = `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-  const orderData = JSON.stringify({ items: itemsWithProducts, deliveryAddress, promoCode, pointsToRedeem });
+  const orderData = JSON.stringify({ items: itemsWithProducts, deliveryAddress, promoCode, pointsToRedeem, notes: notes || null });
 
   const [order] = await db.insert(orders).values({
     orderCode,
@@ -975,7 +975,16 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     `${delivLabel}\n` +
     (deliveryAddress ? `📍 ${deliveryAddress}\n` : "") +
     `\n<b>Articles :</b>\n${articleList}\n\n` +
-    `💶 <b>Total : ${(totalRevenue / 100).toFixed(2)} €</b>`
+    `💶 <b>Total : ${(totalRevenue / 100).toFixed(2)} €</b>` +
+    (notes ? `\n\n📝 <b>Note :</b> ${notes}` : ""),
+    {
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "✅ Confirmer", callback_data: `status:${orderCode}:confirmed` },
+          { text: "❌ Annuler", callback_data: `status:${orderCode}:cancelled` },
+        ]]
+      }
+    }
   ).catch(() => {});
 
   res.json(order);
@@ -1048,6 +1057,32 @@ router.patch("/orders/:orderCode/status", requireTelegramAuth, requireTelegramAd
     });
     
     notifyAdmin(`📋 Commande <b>${orderCode}</b>\nStatut mis à jour → <b>${label}</b>`).catch(() => {});
+
+    // Notifier le client
+    try {
+      const [order] = await db.select({ chatId: orders.chatId }).from(orders).where(eq(orders.orderCode, orderCode));
+      if (order?.chatId) {
+        const CLIENT_MESSAGES: Record<string, string> = {
+          confirmed:  `✅ Ta commande <b>#${orderCode}</b> est confirmée ! On s'en occupe.`,
+          preparing:  `👨‍🍳 Ta commande <b>#${orderCode}</b> est en préparation.`,
+          ready:      `🏁 Ta commande <b>#${orderCode}</b> est prête !`,
+          delivering: `🚚 Ta commande <b>#${orderCode}</b> est en route vers toi !`,
+          delivered:  `📦 Ta commande <b>#${orderCode}</b> a été livrée. Merci ! 🙏`,
+          cancelled:  `❌ Ta commande <b>#${orderCode}</b> a été annulée. Contacte-nous si besoin.`,
+        };
+        const clientMsg = CLIENT_MESSAGES[status];
+        if (clientMsg) {
+          const token = process.env.TELEGRAM_BOT_TOKEN;
+          if (token) {
+            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: order.chatId, text: clientMsg, parse_mode: "HTML" }),
+            }).catch(() => {});
+          }
+        }
+      }
+    } catch {}
 
     res.json({ success: true });
   } catch (err: any) {
@@ -1126,6 +1161,16 @@ router.get("/admin/orders/enriched", requireTelegramAuth, requireTelegramAdmin, 
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Admin: orders count ─────────────────────────────────────────────────────
+router.get("/admin/orders/count", requireTelegramAuth, requireTelegramAdmin, async (_req, res) => {
+  try {
+    const result = await db.select({ count: count() }).from(orders);
+    res.json({ count: Number(result[0]?.count ?? 0) });
+  } catch {
+    res.json({ count: 0 });
   }
 });
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, ChevronLeft, Send, MapPin, Phone, Clock, ExternalLink, Tag, Check, X, Loader2 } from "lucide-react";
+import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, ChevronLeft, Send, MapPin, Phone, Clock, ExternalLink, Tag, Check, X, Loader2, MessageSquare } from "lucide-react";
 import { TopBar } from "@/components/TopBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "@/hooks/use-session";
@@ -86,10 +86,15 @@ export default function Cart() {
     return () => { tg.BackButton.offClick(handler); tg.BackButton.hide(); };
   }, [step, navigate]);
   const [deliveryMode, setDeliveryMode] = useState("");
-  const [address, setAddress] = useState("");
-  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState(() => localStorage.getItem("saved_address") || "");
+  const [phone, setPhone] = useState(() => localStorage.getItem("saved_phone") || "");
   const [timeSlot, setTimeSlot] = useState("matin");
+  const [notes, setNotes] = useState("");
   const [meetupSlot, setMeetupSlot] = useState("");
+
+  useEffect(() => { if (address.trim()) localStorage.setItem("saved_address", address.trim()); }, [address]);
+  useEffect(() => { if (phone.trim()) localStorage.setItem("saved_phone", phone.trim()); }, [phone]);
+
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileReady, setTurnstileReady] = useState(!TURNSTILE_SITE_KEY);
   const [turnstileError, setTurnstileError] = useState("");
@@ -269,7 +274,8 @@ export default function Cart() {
         deliveryAddress: deliveryMode === "livraison" ? address : `Relais - ${phone}`,
         promoCode: promoData?.code,
         turnstileToken,
-      }
+        notes: notes.trim() || undefined,
+      } as any
     });
   };
 
@@ -622,6 +628,22 @@ export default function Cart() {
                 </div>
               </div>
 
+              {/* Instructions spéciales */}
+              <div className="glass-panel p-5 rounded-[1.5rem]">
+                <div className="flex items-center gap-2 mb-3">
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                  <label className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Instructions (optionnel)</label>
+                </div>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Ex : Code d'entrée B42, appelle avant d'arriver..."
+                  rows={2}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm focus:outline-none focus:border-primary transition-all resize-none"
+                  maxLength={300}
+                />
+              </div>
+
               {/* Récap commande */}
               <div className="glass-panel p-4 rounded-[1.5rem] text-xs text-muted-foreground">
                 <p className="font-bold text-white/70 mb-2 uppercase tracking-wider text-[10px]">Récapitulatif</p>
@@ -731,9 +753,18 @@ export default function Cart() {
                 <h2 className="text-3xl font-black font-display" style={{ background: "linear-gradient(135deg, #c9a04c, #f0d070)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                   Commande envoyée !
                 </h2>
-                <p className="text-white/80 text-base leading-relaxed max-w-xs mx-auto">
-                  Un membre de notre équipe prend en charge votre commande, merci 🔌
-                </p>
+                <div className="space-y-2 text-white/80 text-sm leading-relaxed max-w-xs mx-auto">
+                  <p>Ta commande a bien été reçue 🔌</p>
+                  {timeSlot && (() => {
+                    const slot = TIME_SLOTS.find(s => s.id === timeSlot);
+                    return slot ? (
+                      <p className="text-xs" style={{ color: "rgba(201,160,76,0.8)" }}>
+                        {slot.emoji} Créneau : <strong>{slot.label}</strong> ({slot.hours})
+                      </p>
+                    ) : null;
+                  })()}
+                  <p className="text-xs text-white/50">Tu recevras un message Telegram dès que ta commande est confirmée.</p>
+                </div>
               </motion.div>
 
               {/* Bouton fermer */}
