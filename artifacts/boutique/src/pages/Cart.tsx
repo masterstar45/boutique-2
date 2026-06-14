@@ -93,6 +93,7 @@ export default function Cart() {
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileReady, setTurnstileReady] = useState(!TURNSTILE_SITE_KEY);
   const [turnstileError, setTurnstileError] = useState("");
+  const [turnstileBypassed, setTurnstileBypassed] = useState(false);
   const turnstileContainerRef = useRef<HTMLDivElement | null>(null);
   const turnstileWidgetIdRef = useRef<string | null>(null);
 
@@ -105,10 +106,23 @@ export default function Cart() {
 
     let canceled = false;
 
+    // Si Turnstile n'est pas prêt après 5s, on bypasse pour ne pas bloquer la commande
+    const fallbackTimer = setTimeout(() => {
+      if (!canceled && !turnstileWidgetIdRef.current) {
+        setTurnstileBypassed(true);
+        setTurnstileReady(true);
+      }
+    }, 5000);
+
     const mountTurnstile = async () => {
       try {
         await loadTurnstileScript();
         if (canceled || !window.turnstile || !turnstileContainerRef.current || turnstileWidgetIdRef.current) {
+          if (!canceled && !turnstileWidgetIdRef.current) {
+            // Script chargé mais widget impossible à monter
+            setTurnstileBypassed(true);
+            setTurnstileReady(true);
+          }
           return;
         }
 
@@ -120,7 +134,8 @@ export default function Cart() {
           },
           "error-callback": () => {
             setTurnstileToken("");
-            setTurnstileError("Vérification Cloudflare impossible. Réessaie.");
+            // Échec de validation Cloudflare → bypass pour ne pas bloquer le client
+            setTurnstileBypassed(true);
           },
           "expired-callback": () => {
             setTurnstileToken("");
@@ -132,8 +147,7 @@ export default function Cart() {
         setTurnstileReady(true);
       } catch {
         if (!canceled) {
-          setTurnstileError("Impossible de charger Cloudflare Turnstile.");
-          // Ne pas bloquer le bouton indéfiniment si le script ne charge pas
+          setTurnstileBypassed(true);
           setTurnstileReady(true);
         }
       }
@@ -143,6 +157,7 @@ export default function Cart() {
 
     return () => {
       canceled = true;
+      clearTimeout(fallbackTimer);
     };
   }, [step, turnstileRequired]);
 
@@ -651,14 +666,14 @@ export default function Cart() {
                   {!timeSlot && <span>• Créneau horaire</span>}
                 </div>
               )}
-              {detailsValid && turnstileRequired && !turnstileToken && turnstileReady && (
+              {detailsValid && turnstileRequired && !turnstileToken && turnstileReady && !turnstileBypassed && (
                 <p className="text-xs text-center" style={{ color: "rgba(239,100,100,0.8)" }}>
                   ⬆ Complète la vérification Cloudflare ci-dessus
                 </p>
               )}
 
               <button
-                disabled={!detailsValid || checkoutMut.isPending || (turnstileRequired && (!turnstileReady || !turnstileToken))}
+                disabled={!detailsValid || checkoutMut.isPending || (turnstileRequired && !turnstileBypassed && (!turnstileReady || !turnstileToken))}
                 onClick={handleSendOrder}
                 className="w-full h-16 rounded-2xl font-black text-lg flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform text-white"
                 style={{ background: "linear-gradient(135deg, hsl(270,90%,55%), hsl(200,90%,55%))" }}
