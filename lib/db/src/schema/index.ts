@@ -139,6 +139,7 @@ export const clientButtons = pgTable("client_buttons", {
   active: boolean("active").notNull().default(true),
   position: integer("position").notNull().default(0),
   fullWidth: boolean("full_width").notNull().default(true),
+  color: text("color").default("#54a0d5"),
 });
 
 export const botSettings = pgTable("bot_settings", {

@@ -1594,6 +1594,7 @@ async function setupClientButtons() {
     ["active",     "ALTER TABLE client_buttons ADD COLUMN active BOOLEAN NOT NULL DEFAULT TRUE;"],
     ["position",   "ALTER TABLE client_buttons ADD COLUMN position INTEGER NOT NULL DEFAULT 0;"],
     ["full_width", "ALTER TABLE client_buttons ADD COLUMN full_width BOOLEAN NOT NULL DEFAULT TRUE;"],
+    ["color",      "ALTER TABLE client_buttons ADD COLUMN color TEXT DEFAULT '#54a0d5';"],
   ];
   for (const [name, ddl] of migrations) {
     try {
@@ -1611,16 +1612,17 @@ const clientButtonsReady: Promise<void> = setupClientButtons();
 async function rawSelectButtons() {
   const res = await db.execute(sql`
     SELECT id, label, url, emoji, active, position,
-           COALESCE(full_width, TRUE) AS full_width
+           COALESCE(full_width, TRUE) AS full_width,
+           COALESCE(color, '#54a0d5') AS color
     FROM client_buttons ORDER BY position;
   `);
   return res.rows;
 }
 
-async function rawInsertButton(label: string, url: string, emoji: string | null, position: number, fullWidth: boolean) {
+async function rawInsertButton(label: string, url: string, emoji: string | null, position: number, fullWidth: boolean, color: string) {
   const res = await db.execute(sql`
-    INSERT INTO client_buttons (label, url, emoji, active, position, full_width)
-    VALUES (${label}, ${url}, ${emoji}, TRUE, ${position}, ${fullWidth})
+    INSERT INTO client_buttons (label, url, emoji, active, position, full_width, color)
+    VALUES (${label}, ${url}, ${emoji}, TRUE, ${position}, ${fullWidth}, ${color})
     RETURNING *;
   `);
   return res.rows[0];
@@ -1642,13 +1644,12 @@ router.get("/admin/client-buttons", requireTelegramAuth, requireTelegramAdmin, a
 router.post("/admin/client-buttons", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   await clientButtonsReady;
   try {
-    const { label, url, emoji, position, fullWidth } = req.body;
-    console.log("📌 POST /admin/client-buttons request:", { label, url, emoji, position, fullWidth });
+    const { label, url, emoji, position, fullWidth, color } = req.body;
+    console.log("📌 POST /admin/client-buttons request:", { label, url, emoji, position, fullWidth, color });
     if (!label || !url) return res.status(400).json({ error: "label and url required" });
     const maxRes = await db.execute(sql`SELECT COALESCE(MAX(position), -1) + 1 AS next FROM client_buttons;`);
     const nextPos = Number((maxRes.rows[0] as any).next ?? 0);
-    console.log("📌 Inserting button:", { label, url, emoji, calculatedPosition: position ?? nextPos, fullWidth });
-    const row = await rawInsertButton(label, url, emoji || null, position ?? nextPos, fullWidth !== false);
+    const row = await rawInsertButton(label, url, emoji || null, position ?? nextPos, fullWidth !== false, color || "#54a0d5");
     console.log("✅ Button created successfully:", { id: row?.id, label: row?.label, active: row?.active, position: row?.position });
     res.json(row);
   } catch (err: any) {
@@ -1662,8 +1663,8 @@ router.patch("/admin/client-buttons/:id", requireTelegramAuth, requireTelegramAd
   await clientButtonsReady;
   try {
     const id = Number(req.params.id);
-    const { label, url, emoji, active, position, fullWidth } = req.body;
-    console.log("🔄 PATCH /admin/client-buttons/:id:", { id, update: { label, url, emoji, active, position, fullWidth } });
+    const { label, url, emoji, active, position, fullWidth, color } = req.body;
+    console.log("🔄 PATCH /admin/client-buttons/:id:", { id, update: { label, url, emoji, active, position, fullWidth, color } });
     // Build update via drizzle for type safety
     const update: Record<string, any> = {};
     if (label !== undefined) update.label = label;
@@ -1672,6 +1673,7 @@ router.patch("/admin/client-buttons/:id", requireTelegramAuth, requireTelegramAd
     if (active !== undefined) update.active = active;
     if (position !== undefined) update.position = position;
     if (fullWidth !== undefined) update.fullWidth = fullWidth;
+    if (color !== undefined) update.color = color;
     const [row] = await db.update(clientButtons).set(update).where(eq(clientButtons.id, id)).returning();
     console.log("✅ Button updated:", { id: row?.id, label: row?.label, active: row?.active, position: row?.position });
     res.json(row);
