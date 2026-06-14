@@ -1104,22 +1104,10 @@ function BotStartTab() {
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState(BOT_URL);
   const [emoji, setEmoji] = useState("🛒");
-  const [color, setColor] = useState("#54a0d5");
   const [fullWidth, setFullWidth] = useState(true);
   const [loading, setLoading] = useState(false);
   const [addError, setAddError] = useState("");
   const [editId, setEditId] = useState<number | null>(null);
-
-  const BTN_COLORS = [
-    { hex: "#54a0d5", name: "Telegram" },
-    { hex: "#c9a04c", name: "Or" },
-    { hex: "#10b981", name: "Vert" },
-    { hex: "#f59e0b", name: "Ambre" },
-    { hex: "#ef4444", name: "Rouge" },
-    { hex: "#8b5cf6", name: "Violet" },
-    { hex: "#ec4899", name: "Rose" },
-    { hex: "#6b7280", name: "Gris" },
-  ];
 
   const fetchAll = () => {
     fetch(`${API}/admin/client-buttons`).then(r => r.json()).then(setButtons).catch(() => {});
@@ -1190,7 +1178,7 @@ function BotStartTab() {
       const res = await fetch(endpoint, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: label.trim(), url: url.trim(), emoji: emoji.trim() || null, fullWidth, color: color || "#54a0d5" }),
+        body: JSON.stringify({ label: label.trim(), url: url.trim(), emoji: emoji.trim() || null, fullWidth }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -1198,7 +1186,7 @@ function BotStartTab() {
         return;
       }
       setEditId(null);
-      setLabel(""); setUrl(BOT_URL); setEmoji("🛒"); setColor("#54a0d5"); setFullWidth(true);
+      setLabel(""); setUrl(BOT_URL); setEmoji("🛒"); setFullWidth(true);
       fetchAll();
     } catch {
       setAddError("Erreur réseau");
@@ -1221,12 +1209,12 @@ function BotStartTab() {
 
   const startEdit = (btn: any) => {
     setEditId(btn.id); setLabel(btn.label); setUrl(btn.url);
-    setEmoji(btn.emoji || ""); setColor(btn.color || "#54a0d5"); setFullWidth(btn.fullWidth !== false);
+    setEmoji(btn.emoji || ""); setFullWidth(btn.fullWidth !== false);
     setAddError("");
   };
 
   const cancelEdit = () => {
-    setEditId(null); setLabel(""); setUrl(BOT_URL); setEmoji("🛒"); setColor("#54a0d5"); setFullWidth(true); setAddError("");
+    setEditId(null); setLabel(""); setUrl(BOT_URL); setEmoji("🛒"); setFullWidth(true); setAddError("");
   };
 
   return (
@@ -1330,36 +1318,6 @@ function BotStartTab() {
           <input value={url} onChange={e => setUrl(e.target.value)} placeholder="URL"
             className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all font-mono" />
 
-          {/* Couleur */}
-          <div className="bg-black/20 rounded-xl px-4 py-3 space-y-2">
-            <p className="text-sm font-bold">Couleur du bouton</p>
-            <div className="flex gap-2 flex-wrap">
-              {BTN_COLORS.map(c => (
-                <button
-                  key={c.hex}
-                  type="button"
-                  title={c.name}
-                  onClick={() => setColor(c.hex)}
-                  className="w-9 h-9 rounded-xl transition-all active:scale-90 relative"
-                  style={{
-                    background: c.hex,
-                    boxShadow: color === c.hex ? `0 0 0 3px ${c.hex}55, 0 0 0 2px white` : "none",
-                    transform: color === c.hex ? "scale(1.15)" : "scale(1)",
-                  }}
-                >
-                  {color === c.hex && (
-                    <span className="absolute inset-0 flex items-center justify-center text-white text-sm font-black">✓</span>
-                  )}
-                </button>
-              ))}
-              {/* Couleur personnalisée */}
-              <label title="Couleur personnalisée" className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer border-2 border-dashed border-white/30 hover:border-white/60 transition-all active:scale-90 overflow-hidden relative">
-                <input type="color" value={color} onChange={e => setColor(e.target.value)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
-                <span className="text-[10px] font-bold text-white/50">+</span>
-              </label>
-            </div>
-          </div>
-
           {/* Largeur */}
           <div className="flex items-center justify-between bg-black/20 rounded-xl px-4 py-3">
             <div>
@@ -1373,9 +1331,9 @@ function BotStartTab() {
           <div className="bg-black/30 rounded-xl p-3">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Aperçu disposition</p>
             {fullWidth
-              ? <div className="rounded-lg py-2 text-center text-xs font-bold" style={{ background: `${color}22`, border: `1px solid ${color}44`, color }}>{emoji} {label || "Mon bouton"}</div>
+              ? <div className="bg-[#54a0d5]/20 border border-[#54a0d5]/30 rounded-lg py-2 text-center text-xs font-bold text-[#54a0d5]">{emoji} {label || "Mon bouton"}</div>
               : <div className="grid grid-cols-2 gap-1.5">
-                  <div className="rounded-lg py-2 text-center text-xs font-bold" style={{ background: `${color}22`, border: `1px solid ${color}44`, color }}>{emoji} {label || "Bouton"}</div>
+                  <div className="bg-[#54a0d5]/20 border border-[#54a0d5]/30 rounded-lg py-2 text-center text-xs font-bold text-[#54a0d5]">{emoji} {label || "Bouton"}</div>
                   <div className="bg-white/5 border border-white/10 rounded-lg py-2 text-center text-xs text-muted-foreground">autre bouton</div>
                 </div>
             }
@@ -1422,12 +1380,10 @@ function BotStartTab() {
         {buttons.map(btn => (
           <div key={btn.id} className={`glass-panel px-4 py-3 rounded-[1.5rem] mb-2 ${!btn.active ? "opacity-40" : ""}`}>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-lg" style={{ background: `${btn.color || "#54a0d5"}22`, border: `1px solid ${btn.color || "#54a0d5"}44` }}>
-                {btn.emoji || "🔘"}
-              </div>
+              <span className="text-xl w-8 text-center shrink-0">{btn.emoji || "🔘"}</span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="font-bold text-sm" style={{ color: btn.color || "#54a0d5" }}>{btn.label}</p>
+                  <p className="font-bold text-sm">{btn.label}</p>
                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${btn.fullWidth !== false ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}`}>
                     {btn.fullWidth !== false ? "↔ Large" : "½ Demi"}
                   </span>
