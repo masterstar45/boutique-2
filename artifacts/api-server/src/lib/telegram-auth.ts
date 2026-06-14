@@ -100,7 +100,7 @@ function verifyTelegramInitData(initData: string): TelegramMiniAppData | null {
     }
     const authTimestamp = parseInt(authDate, 10);
     const now = Math.floor(Date.now() / 1000);
-    if (now - authTimestamp > 86400) {
+    if (now - authTimestamp > 300) {
       console.warn(`⚠️  Telegram initData expired: age=${now - authTimestamp}s`);
       return null;
     }

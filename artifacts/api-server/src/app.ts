@@ -9,6 +9,10 @@ import { logger } from "./lib/logger";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === "production";
 
+if (!process.env.NODE_ENV) {
+  console.warn("⚠️  NODE_ENV is not set — running in development mode by default");
+}
+
 const configuredOrigins = (process.env.CORS_ORIGINS ?? "")
   .split(",")
   .map((origin) => origin.trim())

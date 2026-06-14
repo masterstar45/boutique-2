@@ -177,6 +177,12 @@ function formatDate(timestamp: number): string {
 }
 
 router.post("/telegram/webhook", async (req, res) => {
+  // ── Rejeter en production si le webhook n'est pas sécurisé ───────────────
+  if (!WEBHOOK_SECRET && process.env.NODE_ENV === "production") {
+    res.status(403).json({ error: "Webhook not secured" });
+    return;
+  }
+
   // ── Vérifier l'authenticité du webhook Telegram ───────────────────────────
   const secretTokenHeader = req.header("x-telegram-bot-api-secret-token");
   const customSignature = req.header("x-telegram-webhook-signature");
@@ -230,13 +236,40 @@ router.post("/telegram/webhook", async (req, res) => {
     const messageId = callbackQuery.message?.message_id as number | undefined;
     const originalText = callbackQuery.message?.text ?? "";
 
+    // Valider le format de callbackData
+    if (!callbackData || !/^(status|deliver):/.test(callbackData)) {
+      res.status(400).end();
+      return;
+    }
+
     if (callbackData.startsWith("status:")) {
       const parts = callbackData.split(":");
       const orderCode = parts[1];
       const newStatus = parts[2];
       const VALID = ["confirmed","preparing","ready","delivering","delivered","cancelled"];
+
+      // Transitions d'état valides
+      const VALID_TRANSITIONS: Record<string, string[]> = {
+        pending: ["confirmed", "cancelled"],
+        confirmed: ["preparing", "cancelled"],
+        preparing: ["ready"],
+        ready: ["delivering"],
+        delivering: ["delivered"],
+      };
+
       if (orderCode && VALID.includes(newStatus)) {
         try {
+          // Vérifier l'ordre actuel et valider la transition
+          const [currentOrder] = await db.select().from(orders).where(eq(orders.orderCode, orderCode));
+          if (!currentOrder) {
+            await answerCallbackQuery(callbackId, "❌ Commande introuvable");
+            return;
+          }
+          const allowed = VALID_TRANSITIONS[currentOrder.status] ?? [];
+          if (!allowed.includes(newStatus)) {
+            await answerCallbackQuery(callbackId, "❌ Transition invalide");
+            return;
+          }
           await db.update(orders).set({ status: newStatus }).where(eq(orders.orderCode, orderCode));
           const STATUS_LABELS: Record<string,string> = {
             confirmed: "✅ Confirmée", preparing: "👨‍🍳 En préparation", ready: "🏁 Prête",
@@ -325,6 +358,10 @@ router.post("/telegram/webhook", async (req, res) => {
   const userId = from.id ?? chatId;
   const messageDate = message.date ? formatDate(message.date) : "";
 
+  function escapeTelegramHtml(str: string): string {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
   if (text.startsWith("/start")) {
     const firstName = from.first_name ?? username;
 
@@ -382,8 +419,10 @@ router.post("/telegram/webhook", async (req, res) => {
       `🌐 Explorez notre menu et passez commande en quelques clics !\n\n` +
       `✨ <i>Simple, rapide et sécurisé</i>`;
 
+    const safeFirstName = escapeTelegramHtml(String(firstName));
+    const safeUserId = String(userId).replace(/[^0-9]/g, "");
     const welcomeText = customMessage
-      ? customMessage.replace("{username}", firstName).replace("{id}", String(userId))
+      ? customMessage.replace("{username}", safeFirstName).replace("{id}", safeUserId)
       : defaultMsg;
 
     // Fetch buttons (safe — full_width column may not exist on fresh deploy)

@@ -14,7 +14,10 @@ import fs from "fs";
 import { randomUUID } from "crypto";
 import { objectStorageClient } from "../lib/objectStorage";
 import { requireTelegramAuth, requireTelegramAdmin, verifyTelegramWebhookSignature, type TelegramMiniAppData } from "../lib/telegram-auth";
-import { adminRateLimiter, uploadRateLimiter, broadcastRateLimiter, cartRateLimiter, telegramMessageRateLimiter } from "../lib/rate-limiting";
+import { adminRateLimiter, uploadRateLimiter, broadcastRateLimiter, cartRateLimiter, telegramMessageRateLimiter, createRateLimiter } from "../lib/rate-limiting";
+
+const promoValidateRateLimiter = createRateLimiter(60 * 1000, 5);
+const productsRateLimiter = createRateLimiter(60 * 1000, 60);
 import { logAdminAction, extractDetailsFromRequest, ADMIN_ACTIONS } from "../lib/audit-logging";
 
 const router: IRouter = Router();
@@ -345,7 +348,7 @@ router.post("/upload", requireTelegramAuth, uploadRateLimiter, (req, res, next) 
     const CDN_SECRET  = process.env.CLOUDINARY_API_SECRET;
     const hasCloudinary = !!(CLOUD_NAME && CDN_KEY && CDN_SECRET);
     
-    console.log(`📹 Video upload config: Cloudinary=${hasCloudinary ? "✅ configured" : "❌ not configured"} (Cloud: ${CLOUD_NAME ? "yes" : "no"}, Key: ${CDN_KEY ? "yes" : "no"}, Secret: ${CDN_SECRET ? "yes" : "no"})`);
+    console.log(`📹 Video upload config: Cloudinary=${hasCloudinary ? "✅ configured" : "❌ not configured"}`);
 
 
     // ── Backup Telegram via sendDocument (pas de traitement vidéo = 5-10× plus rapide)
@@ -613,7 +616,7 @@ function stripVideoDataUrl(product: typeof products.$inferSelect) {
   return { ...product, videoUrl: videoUrlForList, hasVideo };
 }
 
-router.get("/products", async (req, res) => {
+router.get("/products", productsRateLimiter, async (req, res) => {
   const category = typeof req.query.category === "string" && req.query.category ? req.query.category : undefined;
   const search = typeof req.query.search === "string" && req.query.search ? req.query.search : undefined;
 
@@ -787,13 +790,17 @@ router.post("/cart", cartRateLimiter, async (req, res) => {
       res.status(400).json({ message: "Prix invalide" });
       return;
     }
+    if (priceNum > 99999) {
+      res.status(400).json({ message: "Prix invalide" });
+      return;
+    }
     // Vérifier que le prix correspond à une option valide du produit
     const basePrice = (product.price || 0) / 100;
     const priceOptions: number[] = Array.isArray((product as any).priceOptions)
       ? (product as any).priceOptions.map((o: any) => Number(o.price)).filter((p: number) => !isNaN(p))
       : [];
     const allValidPrices = [...priceOptions, basePrice];
-    const isValidPrice = allValidPrices.some(p => Math.abs(p - priceNum) < 0.01);
+    const isValidPrice = allValidPrices.some(p => Math.abs(p - priceNum) < 0.001);
     if (!isValidPrice) {
       res.status(400).json({ message: "Prix invalide pour ce produit" });
       return;
@@ -905,6 +912,14 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     }
   }
 
+  // Valider pointsToRedeem contre le solde réel en DB (ne jamais faire confiance au client)
+  let sanitizedPointsToRedeem = 0;
+  if (pointsToRedeem && Number(pointsToRedeem) > 0) {
+    const [loyalty] = await db.select().from(loyaltyBalances).where(eq(loyaltyBalances.chatId, chatId));
+    const realBalance = loyalty?.points ?? 0;
+    sanitizedPointsToRedeem = Math.min(Number(pointsToRedeem), realBalance);
+  }
+
   const cartItemsList = await db.select().from(cartItems).where(eq(cartItems.sessionId, sessionId));
   if (cartItemsList.length === 0) {
     res.status(400).json({ message: "Cart is empty" });
@@ -919,7 +934,7 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
   );
 
   const orderCode = `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-  const orderData = JSON.stringify({ items: itemsWithProducts, deliveryAddress, promoCode, pointsToRedeem, notes: notes || null });
+  const orderData = JSON.stringify({ items: itemsWithProducts, deliveryAddress, promoCode, pointsToRedeem: sanitizedPointsToRedeem, notes: notes || null });
 
   const [order] = await db.insert(orders).values({
     orderCode,
@@ -1024,6 +1039,10 @@ router.patch("/orders/:orderCode/status", requireTelegramAuth, requireTelegramAd
   try {
     const { status } = req.body;
     const { orderCode } = req.params;
+    if (!orderCode || !/^ORD-\d+-[A-Z0-9]{4}$/.test(orderCode)) {
+      res.status(400).json({ error: "Format de commande invalide" });
+      return;
+    }
     
     const VALID_STATUSES = ["pending", "confirmed", "preparing", "ready", "delivering", "delivered", "cancelled"] as const;
     type OrderStatus = typeof VALID_STATUSES[number];
@@ -1091,7 +1110,13 @@ router.patch("/orders/:orderCode/status", requireTelegramAuth, requireTelegramAd
 
 router.get("/orders/my/:chatId", requireTelegramAuth, async (req, res) => {
   const telegramUser = (req as any).telegramUser;
-  
+
+  // Vérifier que telegramUser existe
+  if (!telegramUser || !telegramUser.chatId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   // Verify requesting user owns this chatId (BOLA fix)
   if (telegramUser.chatId !== req.params.chatId) {
     logAdminAction(req, "unauthorized_access_attempt", {
@@ -1108,12 +1133,22 @@ router.get("/orders/my/:chatId", requireTelegramAuth, async (req, res) => {
 });
 
 router.delete("/admin/orders/:orderCode", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
-  await db.delete(orders).where(eq(orders.orderCode, req.params.orderCode));
+  const { orderCode } = req.params;
+  if (!orderCode || !/^ORD-\d+-[A-Z0-9]{4}$/.test(orderCode)) {
+    res.status(400).json({ error: "Format de commande invalide" });
+    return;
+  }
+  await db.delete(orders).where(eq(orders.orderCode, orderCode));
   res.status(204).send();
 });
 
 // Save admin notes on an order (lazy-add column if missing)
 router.patch("/admin/orders/:orderCode/notes", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
+  const { orderCode } = req.params;
+  if (!orderCode || !/^ORD-\d+-[A-Z0-9]{4}$/.test(orderCode)) {
+    res.status(400).json({ error: "Format de commande invalide" });
+    return;
+  }
   const doUpdate = async () =>
     db.execute(sql`UPDATE orders SET notes = ${req.body.notes ?? null} WHERE order_code = ${req.params.orderCode}`);
   try {
@@ -1380,7 +1415,7 @@ router.delete("/reviews/:id", requireTelegramAuth, requireTelegramAdmin, async (
 
 // ─── Promo codes ──────────────────────────────────────────────────────────────
 
-router.post("/promo/validate", async (req, res) => {
+router.post("/promo/validate", promoValidateRateLimiter, async (req, res) => {
   const { code } = req.body;
   
   if (!code || typeof code !== 'string') {
@@ -1393,7 +1428,7 @@ router.post("/promo/validate", async (req, res) => {
     res.status(404).json({ message: "Code promo invalide ou expiré" });
     return;
   }
-  
+
   res.json({
     id: promo.id,
     code: promo.code,
@@ -1818,8 +1853,13 @@ router.post("/admin/livreurs/:id/ping", requireTelegramAuth, requireTelegramAdmi
 
 // Assigner un livreur à une commande
 router.patch("/admin/orders/:orderCode/livreur", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
+  const { orderCode } = req.params;
+  if (!orderCode || !/^ORD-\d+-[A-Z0-9]{4}$/.test(orderCode)) {
+    res.status(400).json({ error: "Format de commande invalide" });
+    return;
+  }
   const { livreurId } = req.body;  // null pour désassigner
-  await db.execute(sql`UPDATE orders SET livreur_id = ${livreurId ?? null} WHERE order_code = ${req.params.orderCode}`);
+  await db.execute(sql`UPDATE orders SET livreur_id = ${livreurId ?? null} WHERE order_code = ${orderCode}`);
   res.json({ ok: true });
 });
 
@@ -1828,6 +1868,11 @@ router.post("/admin/orders/:orderCode/transmit-livreur", requireTelegramAuth, re
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return res.status(500).json({ error: "Token manquant" });
 
+  const { orderCode: transmitOrderCode } = req.params;
+  if (!transmitOrderCode || !/^ORD-\d+-[A-Z0-9]{4}$/.test(transmitOrderCode)) {
+    return res.status(400).json({ error: "Format de commande invalide" });
+  }
+
   const { livreurId } = req.body;
   if (!livreurId) return res.status(400).json({ error: "livreurId requis" });
 
@@ -1835,7 +1880,7 @@ router.post("/admin/orders/:orderCode/transmit-livreur", requireTelegramAuth, re
   if (!livreur) return res.status(404).json({ error: "Livreur introuvable" });
 
   // Récupère la commande
-  const [order] = await db.select().from(orders).where(eq(orders.orderCode, req.params.orderCode));
+  const [order] = await db.select().from(orders).where(eq(orders.orderCode, transmitOrderCode));
   if (!order) return res.status(404).json({ error: "Commande introuvable" });
 
   let parsed: any = {};
@@ -1892,7 +1937,7 @@ router.post("/admin/orders/:orderCode/transmit-livreur", requireTelegramAuth, re
     if (!tgData.ok) return res.status(400).json({ error: tgData.description || "Erreur Telegram" });
 
     // Assigne le livreur à la commande
-    await db.execute(sql`UPDATE orders SET livreur_id = ${livreurId} WHERE order_code = ${req.params.orderCode}`);
+    await db.execute(sql`UPDATE orders SET livreur_id = ${livreurId} WHERE order_code = ${transmitOrderCode}`);
     res.json({ ok: true });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
