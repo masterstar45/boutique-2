@@ -261,7 +261,7 @@ export default function Cart() {
   };
 
   const handleSendOrder = () => {
-    if (turnstileRequired && !turnstileToken) {
+    if (turnstileRequired && !turnstileBypassed && !turnstileToken) {
       setTurnstileError("Valide le contrôle Cloudflare avant d'envoyer.");
       return;
     }
@@ -669,8 +669,8 @@ export default function Cart() {
                 </div>
               </div>
 
-              {/* Vérification Cloudflare – AVANT le bouton pour que l'utilisateur la voie */}
-              {turnstileRequired && (
+              {/* Vérification Cloudflare — masquée si bypassée (widget vide) */}
+              {turnstileRequired && !turnstileBypassed && (
                 <div className="glass-panel p-4 rounded-[1.5rem]">
                   <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Vérification Cloudflare</p>
                   <div ref={turnstileContainerRef} className="min-h-[65px]" />
