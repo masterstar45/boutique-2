@@ -275,16 +275,24 @@ function App() {
 
     /* ── Extraction chatId / username dès l'ouverture (avant splash) ──
        Critique quand l'app s'ouvre directement sur /admin via un bouton notif.
-       La SplashScreen est skippée dans ce cas, donc on doit sauvegarder ici. */
-    const user = tg.initDataUnsafe?.user;
-    if (user?.id) {
-      const existingId = localStorage.getItem("telegram_chat_id");
-      if (!existingId) {
-        localStorage.setItem("telegram_chat_id", String(user.id));
-        if (user.username || user.first_name) {
-          localStorage.setItem("telegram_username", user.username || user.first_name || "");
+       La SplashScreen est skippée dans ce cas, donc on doit sauvegarder ici.
+       On lit depuis initData signé (pas initDataUnsafe modifiable en DevTools). */
+    const initData: string = tg.initData || "";
+    if (initData.length > 0) {
+      try {
+        const params = new URLSearchParams(initData);
+        const userRaw = params.get("user");
+        const user = userRaw ? JSON.parse(userRaw) : null;
+        if (user?.id) {
+          const existingId = localStorage.getItem("telegram_chat_id");
+          if (!existingId) {
+            localStorage.setItem("telegram_chat_id", String(user.id));
+            if (user.username || user.first_name) {
+              localStorage.setItem("telegram_username", user.username || user.first_name || "");
+            }
+          }
         }
-      }
+      } catch {}
     }
 
     /* ── Safe areas Telegram → CSS variables ── */

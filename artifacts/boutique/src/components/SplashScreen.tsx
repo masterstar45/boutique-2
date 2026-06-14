@@ -25,14 +25,20 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
       tgWebApp.setHeaderColor("#080603");
       tgWebApp.setBackgroundColor("#080603");
       if (typeof tgWebApp.setBottomBarColor === "function") tgWebApp.setBottomBarColor("#080603");
-      const user = tgWebApp.initDataUnsafe?.user;
-      if (user) {
-        const id = String(user.id);
-        const uname = user.username || user.first_name || "";
-        saveChatId(id);
-        saveUsername(uname);
-        setUsername(uname);
-        return;
+      // Lire depuis initData signé (pas initDataUnsafe qui est modifiable en console)
+      const initData: string = tgWebApp.initData || "";
+      if (initData.length > 0) {
+        try {
+          const params = new URLSearchParams(initData);
+          const userRaw = params.get("user");
+          const user = userRaw ? JSON.parse(userRaw) : null;
+          if (user?.id) {
+            saveChatId(String(user.id));
+            saveUsername(user.username || user.first_name || "");
+            setUsername(user.username || user.first_name || "");
+            return;
+          }
+        } catch {}
       }
     }
     const params = new URLSearchParams(window.location.search);
