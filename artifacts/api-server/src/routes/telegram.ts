@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { orders, loyaltyBalances, clientButtons, botSettings, botUsers } from "@workspace/db/schema";
+import { orders, loyaltyBalances, clientButtons, botSettings, botUsers, admins } from "@workspace/db/schema";
 import { eq, desc, asc, sql } from "drizzle-orm";
 import { verifyTelegramWebhookSignature } from "../lib/telegram-auth";
 
@@ -14,6 +14,26 @@ const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
   ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
   : process.env.APP_URL ?? "";
 let lastWebhookRepairAttempt = 0;
+
+// Envoie à tous les admins (super admin + admins ajoutés dans le panel)
+async function notifyAllAdmins(text: string, extra: object = {}) {
+  if (!BOT_TOKEN) return;
+  let adminIds: string[] = ADMIN_CHAT_ID ? [ADMIN_CHAT_ID] : [];
+  try {
+    const rows = await db.select({ telegramId: admins.telegramId }).from(admins);
+    const dbIds = rows.map(r => r.telegramId).filter(Boolean) as string[];
+    adminIds = [...new Set([...adminIds, ...dbIds])];
+  } catch {}
+  await Promise.allSettled(
+    adminIds.map(chatId =>
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...extra }),
+      })
+    )
+  );
+}
 
 async function sendMessage(chatId: string | number, text: string, extra: object = {}) {
   if (!BOT_TOKEN) return;
@@ -268,11 +288,11 @@ router.post("/telegram/webhook", async (req, res) => {
           );
         }
 
-        // Notifie l'admin
+        // Notifie tous les admins
         const livreurName = from.first_name
           ? `${from.first_name}${from.username ? ` (@${from.username})` : ""}`
           : from.username ? `@${from.username}` : "Livreur";
-        await sendMessage(ADMIN_CHAT_ID,
+        await notifyAllAdmins(
           `🎉 <b>Commande livrée !</b>\n\n` +
           `📦 <b>#${orderCode}</b> a été marquée comme livrée.\n` +
           `🛵 Livreur : ${livreurName}`
@@ -342,7 +362,7 @@ router.post("/telegram/webhook", async (req, res) => {
         `🆔 ID Telegram : <code>${userId}</code>\n` +
         `📅 Il vient de démarrer le bot.\n\n` +
         `<i>Retrouvez-le dans le panel → Clients</i>`;
-      sendMessage(ADMIN_CHAT_ID, adminMsg).catch(() => {});
+      notifyAllAdmins(adminMsg).catch(() => {});
     }
 
     // Fetch bot settings (safe — table may not exist yet on fresh deploy)
