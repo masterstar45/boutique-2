@@ -34,15 +34,17 @@ const TABS = [
 const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  pending:   { label: "En attente",  color: "text-amber-400 bg-amber-400/10 border-amber-400/20",   icon: Clock },
-  confirmed: { label: "Confirmée",   color: "text-blue-400 bg-blue-400/10 border-blue-400/20",     icon: CheckCircle },
-  shipped:   { label: "Expédiée",    color: "text-purple-400 bg-purple-400/10 border-purple-400/20", icon: Truck },
-  delivered: { label: "Livrée",      color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20", icon: CheckCircle },
-  cancelled: { label: "Annulée",     color: "text-red-400 bg-red-400/10 border-red-400/20",         icon: X },
+  pending:    { label: "En attente",     color: "text-amber-400 bg-amber-400/10 border-amber-400/20",    icon: Clock },
+  confirmed:  { label: "Confirmée",      color: "text-blue-400 bg-blue-400/10 border-blue-400/20",      icon: CheckCircle },
+  preparing:  { label: "En préparation", color: "text-purple-400 bg-purple-400/10 border-purple-400/20", icon: Clock },
+  ready:      { label: "Prête",          color: "text-cyan-400 bg-cyan-400/10 border-cyan-400/20",       icon: CheckCircle },
+  delivering: { label: "En livraison",   color: "text-indigo-400 bg-indigo-400/10 border-indigo-400/20", icon: Truck },
+  delivered:  { label: "Livrée",         color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20", icon: CheckCircle },
+  cancelled:  { label: "Annulée",        color: "text-red-400 bg-red-400/10 border-red-400/20",          icon: X },
 };
 
 const STATUS_NEXT: Record<string, string> = {
-  pending: "confirmed", confirmed: "shipped", shipped: "delivered",
+  pending: "confirmed", confirmed: "preparing", preparing: "ready", ready: "delivering", delivering: "delivered",
 };
 
 const CATEGORIES = ["Fleurs", "Résines", "Vapes", "Huiles", "Comestibles", "Accessoires"];
