@@ -153,9 +153,9 @@ app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use("/api", router);
 
 if (process.env.NODE_ENV === "production") {
-  const staticPath = path.resolve(__dirname, "../../boutique/dist");
+  const staticPath = path.resolve(__dirname, "../../boutique/dist/public");
   app.use(express.static(staticPath));
-  app.get("/{*path}", (_req, res) => {
+  app.get("*", (_req, res) => {
     res.sendFile(path.join(staticPath, "index.html"));
   });
 }
