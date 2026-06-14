@@ -897,12 +897,7 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     return;
   }
 
-  if (TURNSTILE_SECRET_KEY) {
-    if (typeof turnstileToken !== "string" || !turnstileToken) {
-      res.status(400).json({ message: "Turnstile token is required" });
-      return;
-    }
-
+  if (TURNSTILE_SECRET_KEY && typeof turnstileToken === "string" && turnstileToken) {
     const isTurnstileValid = await verifyTurnstileToken(turnstileToken, req.ip || req.socket.remoteAddress || undefined);
     if (!isTurnstileValid) {
       res.status(403).json({ message: "Turnstile verification failed" });
