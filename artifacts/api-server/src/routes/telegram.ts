@@ -341,7 +341,7 @@ router.post("/telegram/webhook", async (req, res) => {
       }
     } catch (err) {
       console.error("Erreur envoi /start:", err);
-      await sendMessage(chatId, welcomeText, { reply_markup: { inline_keyboard: keyboard } });
+      await sendMessage(chatId, defaultMsg, { reply_markup: { inline_keyboard: [[{ text: "🛒 Accéder à la Boutique", web_app: { url: BASE_URL } }]] } }).catch(() => {});
     }
     return;
   }
