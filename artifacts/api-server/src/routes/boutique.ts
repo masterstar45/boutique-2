@@ -7,7 +7,7 @@ import {
   type InsertProduct, type InsertCartItem, type InsertOrder,
   type InsertReview, type InsertPromoCode, type InsertFavorite,
 } from "@workspace/db";
-import { eq, and, desc, ilike, or, sql, count, sum, gte, lte } from "drizzle-orm";
+import { eq, and, desc, ilike, or, sql, count, sum, gte, lte, lt } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -16,7 +16,7 @@ import { objectStorageClient } from "../lib/objectStorage";
 import { requireTelegramAuth, requireTelegramAdmin, verifyTelegramWebhookSignature, type TelegramMiniAppData } from "../lib/telegram-auth";
 import { adminRateLimiter, uploadRateLimiter, broadcastRateLimiter, cartRateLimiter, telegramMessageRateLimiter, createRateLimiter } from "../lib/rate-limiting";
 
-const promoValidateRateLimiter = createRateLimiter(60 * 1000, 5);
+const promoValidateRateLimiter = createRateLimiter(60 * 1000, 3);
 const productsRateLimiter = createRateLimiter(60 * 1000, 60);
 import { logAdminAction, extractDetailsFromRequest, ADMIN_ACTIONS } from "../lib/audit-logging";
 
@@ -932,12 +932,26 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     }
   }
 
-  // Valider pointsToRedeem contre le solde réel en DB (ne jamais faire confiance au client)
+  // Valider ET déduire les points de fidélité atomiquement (évite la race condition)
   let sanitizedPointsToRedeem = 0;
-  if (pointsToRedeem && Number(pointsToRedeem) > 0) {
+  if (pointsToRedeem && Number(pointsToRedeem) > 0 && chatId) {
     const [loyalty] = await db.select().from(loyaltyBalances).where(eq(loyaltyBalances.chatId, chatId));
     const realBalance = loyalty?.points ?? 0;
     sanitizedPointsToRedeem = Math.min(Number(pointsToRedeem), realBalance);
+    if (sanitizedPointsToRedeem > 0) {
+      // UPDATE atomique : soustrait et vérifie que le solde est suffisant en une seule requête
+      const deducted = await db.update(loyaltyBalances)
+        .set({ points: sql`${loyaltyBalances.points} - ${sanitizedPointsToRedeem}` })
+        .where(and(
+          eq(loyaltyBalances.chatId, chatId),
+          gte(loyaltyBalances.points, sanitizedPointsToRedeem)
+        ))
+        .returning();
+      if (deducted.length === 0) {
+        res.status(400).json({ message: "Points de fidélité insuffisants" });
+        return;
+      }
+    }
   }
 
   const cartItemsList = await db.select().from(cartItems).where(eq(cartItems.sessionId, sessionId));
@@ -962,15 +976,24 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     }
   }
 
-  // Vérifier et incrémenter le code promo si utilisé
+  // Vérifier et incrémenter le code promo atomiquement (évite la race condition)
   if (promoCode) {
     const [promo] = await db.select().from(promoCodes).where(and(eq(promoCodes.code, String(promoCode).toUpperCase()), eq(promoCodes.active, true)));
     if (promo) {
-      if (promo.usageLimit !== null && promo.usageLimit !== undefined && promo.usageCount >= promo.usageLimit) {
+      // UPDATE atomique : n'incrémente que si usageCount < usageLimit
+      const incremented = await db.update(promoCodes)
+        .set({ usageCount: sql`${promoCodes.usageCount} + 1` })
+        .where(and(
+          eq(promoCodes.id, promo.id),
+          promo.usageLimit !== null && promo.usageLimit !== undefined
+            ? lt(promoCodes.usageCount, promo.usageLimit)
+            : sql`true`
+        ))
+        .returning();
+      if (incremented.length === 0) {
         res.status(410).json({ message: "Ce code promo a atteint sa limite d'utilisation" });
         return;
       }
-      await db.update(promoCodes).set({ usageCount: promo.usageCount + 1 }).where(eq(promoCodes.id, promo.id));
     }
   }
 
@@ -1190,8 +1213,10 @@ router.patch("/admin/orders/:orderCode/notes", requireTelegramAuth, requireTeleg
     res.status(400).json({ error: "Format de commande invalide" });
     return;
   }
+  const rawNotes = req.body.notes ?? null;
+  const sanitizedNotes = rawNotes ? String(rawNotes).slice(0, 1000) : null;
   const doUpdate = async () =>
-    db.execute(sql`UPDATE orders SET notes = ${req.body.notes ?? null} WHERE order_code = ${req.params.orderCode}`);
+    db.execute(sql`UPDATE orders SET notes = ${sanitizedNotes} WHERE order_code = ${req.params.orderCode}`);
   try {
     await doUpdate();
     res.json({ ok: true });
@@ -1298,11 +1323,12 @@ router.post("/admin/send-telegram", requireTelegramAuth, requireTelegramAdmin, t
   if (!chatId || !text) return res.status(400).json({ error: "chatId and text required" });
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return res.status(500).json({ error: "Bot token not configured" });
+  const safeText = sanitizeTelegramHtml(String(text));
   try {
     const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+      body: JSON.stringify({ chat_id: chatId, text: safeText, parse_mode: "HTML" }),
     });
     const data = await r.json() as any;
     if (!data.ok) return res.status(400).json({ error: data.description });
@@ -1613,8 +1639,10 @@ router.delete("/favorites/:chatId/:productId", requireTelegramAuth, async (req, 
 
 // ─── Admin Stats ──────────────────────────────────────────────────────────────
 
+const userPhotoRateLimiter = createRateLimiter(60 * 1000, 15);
+
 // Photo de profil Telegram — proxy serveur (cache 1h, ne pas exposer le token)
-router.get("/user-photo/:chatId", async (req, res) => {
+router.get("/user-photo/:chatId", userPhotoRateLimiter, async (req, res) => {
   const { chatId } = req.params;
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) { res.status(500).end(); return; }
@@ -1643,7 +1671,7 @@ router.get("/user-photo/:chatId", async (req, res) => {
     if (!imgRes.ok) { res.status(404).end(); return; }
 
     res.setHeader("Content-Type", imgRes.headers.get("Content-Type") || "image/jpeg");
-    res.setHeader("Cache-Control", "public, max-age=7200, stale-while-revalidate=3600");
+    res.setHeader("Cache-Control", "private, max-age=3600");
     res.setHeader("X-Content-Type-Options", "nosniff");
 
     const buf = await imgRes.arrayBuffer();

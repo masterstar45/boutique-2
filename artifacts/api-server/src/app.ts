@@ -86,22 +86,26 @@ app.use((req, res, next) => {
   next();
 });
 
+const DEV_ALLOWED_ORIGINS = new Set([
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5173",
+]);
+
 app.use(cors({
   origin(origin, callback) {
-    // Requêtes sans Origin (webhooks Telegram, scripts serveur) — autorisées sans credentials
+    // Requêtes sans Origin (webhooks Telegram, scripts serveur)
     if (!origin) {
-      return callback(null, isProduction ? false : true);
+      return callback(null, false);
     }
 
     const normalizedOrigin = origin.replace(/\/+$/, "");
 
-    // Vérifier si l'origine est allowée
-    if (isProduction && allowedOrigins.size > 0) {
-      // En production STRICTE: vérifier la liste
-      if (allowedOrigins.has(normalizedOrigin)) {
+    if (isProduction) {
+      if (allowedOrigins.size > 0 && allowedOrigins.has(normalizedOrigin)) {
         return callback(null, true);
       }
-      // Origin non autorisée - rejeter silencieusement
       logger.warn(
         { origin: normalizedOrigin, ip: (this as any).ip },
         "❌ CORS origin rejected"
@@ -109,13 +113,11 @@ app.use(cors({
       return callback(new Error("Origin not allowed"));
     }
 
-    // En développement: accepter tout
-    if (!isProduction) {
+    // En développement : whitelist stricte (évite CSRF depuis domaines arbitraires)
+    if (DEV_ALLOWED_ORIGINS.has(normalizedOrigin)) {
       return callback(null, true);
     }
-
-    // En production sans CORS_ORIGINS configurées: rejeter
-    callback(new Error("CORS not configured"));
+    return callback(new Error("Origin not allowed"));
   },
 }));
 

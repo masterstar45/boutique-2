@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { orders, loyaltyBalances, clientButtons, botSettings, botUsers, admins } from "@workspace/db/schema";
-import { eq, desc, asc, sql } from "drizzle-orm";
+import { orders, loyaltyBalances, clientButtons, botSettings, botUsers, admins, livreurs } from "@workspace/db/schema";
+import { eq, desc, asc, sql, and } from "drizzle-orm";
 import { verifyTelegramWebhookSignature } from "../lib/telegram-auth";
 
 const ADMIN_CHAT_ID = process.env.TELEGRAM_SUPER_ADMIN_ID || process.env.TELEGRAM_ADMIN_CHAT_ID || "";
@@ -177,18 +177,11 @@ function formatDate(timestamp: number): string {
 }
 
 router.post("/telegram/webhook", async (req, res) => {
-  // ── Rejeter en production si le webhook n'est pas sécurisé ───────────────
-  if (!WEBHOOK_SECRET && process.env.NODE_ENV === "production") {
-    res.status(403).json({ error: "Webhook not secured" });
-    return;
-  }
-
-  // ── Vérifier l'authenticité du webhook Telegram ───────────────────────────
+  // ── Vérifier l'authenticité du webhook Telegram (TOUJOURS, même en dev) ──
   const secretTokenHeader = req.header("x-telegram-bot-api-secret-token");
   const customSignature = req.header("x-telegram-webhook-signature");
   const rawBody = (req as any).rawBody || JSON.stringify(req.body);
 
-  // Validation recommandée Telegram: secret token exact si configuré
   if (WEBHOOK_SECRET) {
     if (!secretTokenHeader || secretTokenHeader !== WEBHOOK_SECRET) {
       console.warn("❌ Invalid Telegram webhook secret token");
@@ -206,13 +199,18 @@ router.post("/telegram/webhook", async (req, res) => {
       return;
     }
   } else if (customSignature) {
-    // Fallback legacy: signature custom si présente
+    // Fallback: signature custom si présente
     const hasValidLegacySignature = verifyTelegramWebhookSignature(rawBody, customSignature);
     if (!hasValidLegacySignature) {
       console.warn("❌ Invalid legacy webhook signature");
       res.sendStatus(401);
       return;
     }
+  } else {
+    // Aucun secret configuré — rejeter systématiquement
+    console.warn("❌ Webhook received with no authentication configured");
+    res.sendStatus(401);
+    return;
   }
 
   res.sendStatus(200);
@@ -270,7 +268,15 @@ router.post("/telegram/webhook", async (req, res) => {
             await answerCallbackQuery(callbackId, "❌ Transition invalide");
             return;
           }
-          await db.update(orders).set({ status: newStatus }).where(eq(orders.orderCode, orderCode));
+          // UPDATE atomique : vérifie que le statut n'a pas changé entre la lecture et l'écriture
+          const updated = await db.update(orders)
+            .set({ status: newStatus })
+            .where(and(eq(orders.orderCode, orderCode), eq(orders.status, currentOrder.status)))
+            .returning();
+          if (updated.length === 0) {
+            await answerCallbackQuery(callbackId, "❌ Commande modifiée entre-temps, actualise.");
+            return;
+          }
           const STATUS_LABELS: Record<string,string> = {
             confirmed: "✅ Confirmée", preparing: "👨‍🍳 En préparation", ready: "🏁 Prête",
             delivering: "🚚 En livraison", delivered: "📦 Livrée", cancelled: "❌ Annulée",
@@ -307,8 +313,35 @@ router.post("/telegram/webhook", async (req, res) => {
     if (callbackData.startsWith("deliver:")) {
       const orderCode = callbackData.slice("deliver:".length);
       try {
-        // Marque la commande comme livrée
-        await db.execute(sql`UPDATE orders SET status = 'delivered' WHERE order_code = ${orderCode}`);
+        // Vérifier que le livreur qui confirme est bien celui assigné à la commande
+        const orderRows = await db.execute(sql`SELECT status, livreur_id FROM orders WHERE order_code = ${orderCode} LIMIT 1`);
+        const currentOrder = (orderRows as any).rows?.[0] ?? (orderRows as any)[0];
+        if (!currentOrder) {
+          await answerCallbackQuery(callbackId, "❌ Commande introuvable", true);
+          return;
+        }
+        if (currentOrder.status === "delivered") {
+          await answerCallbackQuery(callbackId, "✅ Déjà livrée.", true);
+          return;
+        }
+        // Si un livreur est assigné, vérifier que c'est bien lui
+        if (currentOrder.livreur_id) {
+          const [livreur] = await db.select().from(livreurs).where(eq(livreurs.id, Number(currentOrder.livreur_id)));
+          if (livreur && livreur.chatId && String(from.id) !== livreur.chatId) {
+            console.warn(`⚠️ Livraison refusée : ${from.id} a tenté de livrer ${orderCode} assigné à ${livreur.chatId}`);
+            await answerCallbackQuery(callbackId, "❌ Tu n'es pas le livreur assigné à cette commande.", true);
+            return;
+          }
+        }
+        // Marque la commande comme livrée (avec vérification atomique du statut)
+        const updated = await db.update(orders)
+          .set({ status: "delivered" })
+          .where(and(eq(orders.orderCode, orderCode), eq(orders.status, String(currentOrder.status))))
+          .returning();
+        if (updated.length === 0) {
+          await answerCallbackQuery(callbackId, "❌ Statut modifié entre-temps, actualise.", true);
+          return;
+        }
 
         // Toast de confirmation au livreur
         await answerCallbackQuery(callbackId, "✅ Livraison confirmée ! Merci.", true);
