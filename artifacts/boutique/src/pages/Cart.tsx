@@ -11,7 +11,7 @@ const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
 // ── Autocomplétion adresse — API Adresse data.gouv.fr (gratuite, sans clé) ──
-type AdresseSuggestion = { label: string; context: string };
+type AdresseSuggestion = { label: string; full: string; context: string };
 
 function useAddressAutocomplete() {
   const [suggestions, setSuggestions] = useState<AdresseSuggestion[]>([]);
@@ -30,10 +30,17 @@ function useAddressAutocomplete() {
         );
         const data = await res.json();
         setSuggestions(
-          (data.features ?? []).map((f: any) => ({
-            label: f.properties.label,
-            context: f.properties.context,
-          }))
+          (data.features ?? []).map((f: any) => {
+            const p = f.properties;
+            // Construire l'adresse complète depuis les champs individuels
+            const street = [p.housenumber, p.street || p.name].filter(Boolean).join(" ");
+            const full = [street, p.postcode, p.city].filter(Boolean).join(", ");
+            return {
+              label: p.label || full,  // affiché dans le dropdown
+              full,                    // inséré dans le champ à la sélection
+              context: p.context || "",
+            };
+          })
         );
       } catch {
         setSuggestions([]);
@@ -674,7 +681,7 @@ export default function Cart() {
                                 onPointerDown={() => {
                                   // onPointerDown se déclenche avant blur sur touch ET mouse
                                   addressSelectingRef.current = true;
-                                  setAddress(s.label);
+                                  setAddress(s.full);
                                   addressAutocomplete.clear();
                                   setTimeout(() => { addressSelectingRef.current = false; }, 100);
                                 }}
