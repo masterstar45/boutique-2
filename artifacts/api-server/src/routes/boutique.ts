@@ -2100,5 +2100,26 @@ router.delete("/admin/admins/:id", requireTelegramAuth, requireTelegramAdmin, as
   res.json({ ok: true });
 });
 
+// ── Proxy autocomplétion adresse — API Adresse data.gouv.fr ──────────────────
+const addressSearchRateLimiter = createRateLimiter(60 * 1000, 60);
+
+router.get("/address/autocomplete", addressSearchRateLimiter, async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  if (q.length < 3) { res.json({ features: [] }); return; }
+
+  try {
+    const url = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=5&autocomplete=1`;
+    const upstream = await fetch(url, {
+      headers: { "User-Agent": "SOS-Le-Plug-Bot/1.0" },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!upstream.ok) { res.json({ features: [] }); return; }
+    const data = await upstream.json();
+    res.json(data);
+  } catch {
+    res.json({ features: [] });
+  }
+});
+
 export default router;
 

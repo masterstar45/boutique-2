@@ -26,7 +26,7 @@ function useAddressAutocomplete() {
       setLoading(true);
       try {
         const res = await fetch(
-          `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5&autocomplete=1`
+          `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/address/autocomplete?q=${encodeURIComponent(query)}`
         );
         const data = await res.json();
         setSuggestions(
