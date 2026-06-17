@@ -222,12 +222,11 @@ router.post("/telegram/webhook", async (req, res) => {
   res.sendStatus(200);
 
   const update = req.body;
+  // Pas de contenu de message dans les logs (données personnelles / Railway logs publics)
   console.log("Telegram webhook received:", {
     payloadType: update?.callback_query ? "callback_query" : update?.message ? "message" : "unknown",
-    messageText: update?.message?.text,
     chatId: update?.message?.chat?.id ?? update?.callback_query?.message?.chat?.id ?? update?.callback_query?.from?.id,
-    fromId: update?.message?.from?.id ?? update?.callback_query?.from?.id,
-    username: update?.message?.from?.username ?? update?.callback_query?.from?.username,
+    isCommand: update?.message?.text?.startsWith("/") ?? false,
   });
 
   // ── Callback query (bouton inline livreur "Terminer") ─────────────────────
@@ -393,7 +392,8 @@ router.post("/telegram/webhook", async (req, res) => {
   const chatId = message.chat.id;
   const text = (message.text as string).trim();
   const from = message.from ?? {};
-  console.log("Telegram message received", { chatId, text, fromId: from.id, username: from.username });
+  // Ne pas logger le contenu des messages (données personnelles → logs Railway visibles)
+  console.log("Telegram message received", { chatId, fromId: from.id, command: text.startsWith("/") ? text.split(" ")[0] : "[message]" });
   const username = from.username ? `@${from.username}` : from.first_name ?? "Utilisateur";
   const userId = from.id ?? chatId;
   const messageDate = message.date ? formatDate(message.date) : "";
@@ -495,7 +495,7 @@ router.post("/telegram/webhook", async (req, res) => {
     }
     if (!mediaType) mediaType = "photo"; // Final safety default
 
-    console.log("Handling /start", { chatId, userId, firstName, photoUrl, mediaType, hasCustomMessage: !!customMessage, buttonsFetched: dbButtons.length, keyboardRows: keyboard.length, keyboard });
+    console.log("Handling /start", { chatId, mediaType, hasCustomMessage: !!customMessage, buttonsFetched: dbButtons.length, keyboardRows: keyboard.length });
     try {
       if (photoUrl) {
         try {
