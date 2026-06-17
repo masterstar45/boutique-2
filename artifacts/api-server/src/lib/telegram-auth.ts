@@ -14,6 +14,8 @@ const superAdminIds = new Set(
       .map((id) => id.trim())
       .filter(Boolean),
     process.env.TELEGRAM_SUPER_ADMIN_ID?.trim(),
+    // Fallback: accepte aussi TELEGRAM_ADMIN_CHAT_ID si les autres ne sont pas définis
+    process.env.TELEGRAM_ADMIN_CHAT_ID?.trim(),
   ].filter((id): id is string => Boolean(id))
 );
 
@@ -60,24 +62,32 @@ export interface TelegramMiniAppData {
 }
 
 // ─── Replay protection ────────────────────────────────────────────────────────
-// Cache des hashes déjà vus dans la fenêtre d'auth (300s).
-// Note: en multi-instance, utiliser Redis pour partager ce cache entre pods.
-const seenAuthHashes = new Map<string, number>(); // hash → timestamp d'expiration (ms)
+// Pour les Mini Apps Telegram, le même initData est réutilisé pendant toute la
+// session (5 min max). On ne peut donc pas rejeter les hashes déjà vus dans la
+// fenêtre de validité — seule la vérification auth_date < 300s suffit.
+// On garde uniquement un blocage des hashes EXPIRÉS pour éviter leur réutilisation
+// après la fenêtre de 5 min.
+const expiredHashes = new Set<string>();
 
 setInterval(() => {
-  const now = Date.now();
-  for (const [h, exp] of seenAuthHashes) {
-    if (now > exp) seenAuthHashes.delete(h);
-  }
-}, 60_000);
+  // Nettoyage périodique (mémoire bornée)
+  if (expiredHashes.size > 10_000) expiredHashes.clear();
+}, 300_000);
 
 function isReplayAttack(hash: string, authTimestamp: number): boolean {
-  const expiryMs = (authTimestamp + 300) * 1000;
-  if (seenAuthHashes.has(hash)) {
-    console.warn("⚠️  Telegram initData replay detected");
+  const expirySeconds = authTimestamp + 300;
+  const now = Math.floor(Date.now() / 1000);
+  if (now > expirySeconds) {
+    // Hash expiré — on le marque et on rejette
+    expiredHashes.add(hash);
+    console.warn("⚠️  Telegram initData expired at replay check");
     return true;
   }
-  seenAuthHashes.set(hash, expiryMs);
+  if (expiredHashes.has(hash)) {
+    // Hash précédemment expiré, réutilisé après coup
+    console.warn("⚠️  Telegram initData replay after expiry detected");
+    return true;
+  }
   return false;
 }
 

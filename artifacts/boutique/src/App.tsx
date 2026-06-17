@@ -65,6 +65,33 @@ function loadTurnstileScript(): Promise<void> {
   });
 }
 
+/**
+ * Injecte automatiquement le header x-telegram-init-data sur TOUS les appels
+ * fetch vers notre API (/api/*). Couvre les hooks TanStack Query ET les fetch()
+ * directs dans Admin.tsx sans toucher à chaque appel individuellement.
+ */
+function setupTelegramFetchInterceptor() {
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = function(input: RequestInfo | URL, init: RequestInit = {}) {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+    // N'injecter que sur nos routes API, pas sur CDN/Cloudflare/etc.
+    if (url.includes("/api/")) {
+      const initData = (window as any).Telegram?.WebApp?.initData;
+      if (initData) {
+        const existingHeaders = new Headers(init.headers || (input instanceof Request ? input.headers : {}));
+        if (!existingHeaders.has("x-telegram-init-data")) {
+          existingHeaders.set("x-telegram-init-data", initData);
+          init = { ...init, headers: existingHeaders };
+        }
+      }
+    }
+    return originalFetch(input, init);
+  };
+}
+
+// Appel immédiat — avant le premier render React
+setupTelegramFetchInterceptor();
+
 function isTelegramConnected(): boolean {
   const tg = (window as any).Telegram?.WebApp;
   if (tg?.initData && tg.initData.length > 0) return true;
