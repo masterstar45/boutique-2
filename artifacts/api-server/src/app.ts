@@ -43,6 +43,8 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 120;
 
 const app: Express = express();
+app.disable("x-powered-by"); // Ne pas exposer "Express" dans les headers de réponse
+app.disable("etag");         // Pas de ETag — évite la corrélation de contenu
 
 app.use(
   pinoHttp({

@@ -626,8 +626,8 @@ function stripVideoDataUrl(product: typeof products.$inferSelect) {
 }
 
 router.get("/products", productsRateLimiter, async (req, res) => {
-  const category = typeof req.query.category === "string" && req.query.category ? req.query.category : undefined;
-  const search = typeof req.query.search === "string" && req.query.search ? req.query.search : undefined;
+  const category = typeof req.query.category === "string" && req.query.category ? req.query.category.slice(0, 100) : undefined;
+  const search = typeof req.query.search === "string" && req.query.search ? req.query.search.slice(0, 100) : undefined;
 
   let query = db.select().from(products).$dynamic();
   const conditions = [];
@@ -963,9 +963,26 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     return;
   }
   
-  if (!isValidSessionId(sessionId) || !deliveryType) {
-    res.status(400).json({ message: "sessionId and deliveryType are required" });
+  const VALID_DELIVERY_TYPES = ["livraison", "meetup", "relais"] as const;
+  if (!isValidSessionId(sessionId)) {
+    res.status(400).json({ message: "sessionId invalide" });
     return;
+  }
+  if (!deliveryType || !VALID_DELIVERY_TYPES.includes(deliveryType as any)) {
+    res.status(400).json({ message: "deliveryType invalide (livraison | meetup | relais)" });
+    return;
+  }
+  if (deliveryAddress !== undefined && deliveryAddress !== null) {
+    if (typeof deliveryAddress !== "string" || deliveryAddress.length > 500) {
+      res.status(400).json({ message: "Adresse trop longue (500 caractères max)" });
+      return;
+    }
+  }
+  if (notes !== undefined && notes !== null) {
+    if (typeof notes !== "string" || notes.length > 1000) {
+      res.status(400).json({ message: "Notes trop longues (1000 caractères max)" });
+      return;
+    }
   }
 
   if (TURNSTILE_SECRET_KEY) {
@@ -1326,7 +1343,7 @@ router.get("/admin/orders/count", requireTelegramAuth, requireTelegramAdmin, asy
 // ─── Admin: bot users list ────────────────────────────────────────────────────
 router.get("/admin/bot-users", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   try {
-    const search = req.query.search as string | undefined;
+    const search = typeof req.query.search === "string" ? req.query.search.slice(0, 100) : undefined;
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const offset = Number(req.query.offset) || 0;
 
@@ -1549,7 +1566,7 @@ router.delete("/reviews/:id", requireTelegramAuth, requireTelegramAdmin, async (
 router.post("/promo/validate", promoValidateRateLimiter, async (req, res) => {
   const { code } = req.body;
   
-  if (!code || typeof code !== 'string') {
+  if (!code || typeof code !== 'string' || code.length > 50) {
     res.status(400).json({ message: "Code promo invalide" });
     return;
   }
@@ -2053,7 +2070,11 @@ router.post("/admin/orders/:orderCode/transmit-livreur", requireTelegramAuth, re
   let clientInfo = chatIdStr ? `ID: ${chatIdStr}` : "Anonyme";
   if (chatIdStr) {
     const [user] = await db.select().from(botUsers).where(eq(botUsers.chatId, chatIdStr));
-    if (user) clientInfo = `${user.firstName || ""}${user.username ? ` @${user.username}` : ""}`.trim() || clientInfo;
+    if (user) {
+      const safeName = escapeTelegramHtml(user.firstName || "");
+      const safeUsername = user.username ? ` @${escapeTelegramHtml(user.username)}` : "";
+      clientInfo = `${safeName}${safeUsername}`.trim() || clientInfo;
+    }
   }
 
   const msg = [

@@ -361,9 +361,10 @@ router.post("/telegram/webhook", async (req, res) => {
         }
 
         // Notifie tous les admins
+        const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const livreurName = from.first_name
-          ? `${from.first_name}${from.username ? ` (@${from.username})` : ""}`
-          : from.username ? `@${from.username}` : "Livreur";
+          ? `${esc(String(from.first_name))}${from.username ? ` (@${esc(String(from.username))})` : ""}`
+          : from.username ? `@${esc(String(from.username))}` : "Livreur";
         await notifyAllAdmins(
           `🎉 <b>Commande livrée !</b>\n\n` +
           `📦 <b>#${orderCode}</b> a été marquée comme livrée.\n` +
@@ -431,10 +432,11 @@ router.post("/telegram/webhook", async (req, res) => {
 
     // ── Notification admin si nouveau client ─────────────────────────────────
     if (isNewUser) {
+      const escFn = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       const adminMsg =
         `🆕 <b>Nouveau client !</b>\n\n` +
-        `👤 Prénom : <b>${from.first_name ?? "—"}</b>\n` +
-        `🔖 Username : ${from.username ? `@${from.username}` : "—"}\n` +
+        `👤 Prénom : <b>${from.first_name ? escFn(String(from.first_name)) : "—"}</b>\n` +
+        `🔖 Username : ${from.username ? `@${escFn(String(from.username))}` : "—"}\n` +
         `🆔 ID Telegram : <code>${userId}</code>\n` +
         `📅 Il vient de démarrer le bot.\n\n` +
         `<i>Retrouvez-le dans le panel → Clients</i>`;
@@ -530,8 +532,8 @@ router.post("/telegram/webhook", async (req, res) => {
     await sendMessage(
       chatId,
       `🪪 <b>Vos informations :</b>\n\n` +
-      `👤 Username : ${username}\n` +
-      `🆔 User ID : <code>${userId}</code>\n\n` +
+      `👤 Username : ${escapeTelegramHtml(String(username))}\n` +
+      `🆔 User ID : <code>${String(userId).replace(/[^0-9]/g, "")}</code>\n\n` +
       `Copiez votre User ID dans la page <b>Compte</b> de la boutique pour accéder à votre historique.`,
       {
         reply_markup: {
