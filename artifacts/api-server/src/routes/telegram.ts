@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { timingSafeEqual } from "crypto";
 import { db } from "@workspace/db";
 import { orders, loyaltyBalances, clientButtons, botSettings, botUsers, admins, livreurs } from "@workspace/db/schema";
 import { eq, desc, asc, sql, and } from "drizzle-orm";
@@ -185,7 +186,10 @@ router.post("/telegram/webhook", async (req, res) => {
   const rawBody = (req as any).rawBody || JSON.stringify(req.body);
 
   if (WEBHOOK_SECRET) {
-    if (!secretTokenHeader || secretTokenHeader !== WEBHOOK_SECRET) {
+    const secretValid = secretTokenHeader
+      ? timingSafeEqual(Buffer.from(secretTokenHeader), Buffer.from(WEBHOOK_SECRET))
+      : false;
+    if (!secretValid) {
       console.warn("❌ Invalid Telegram webhook secret token");
 
       // Self-heal: if Telegram webhook lost/changed secret, try to re-register it

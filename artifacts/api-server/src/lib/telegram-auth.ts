@@ -133,11 +133,13 @@ function verifyTelegramInitData(initData: string): TelegramMiniAppData | null {
     const authTimestamp = parseInt(authDate, 10);
     const now = Math.floor(Date.now() / 1000);
     if (now - authTimestamp > 300) {
+      // Marquer le hash expiré pour bloquer toute réutilisation future
+      expiredHashes.add(receivedHash);
       console.warn(`⚠️  Telegram initData expired: age=${now - authTimestamp}s`);
       return null;
     }
 
-    // Protection anti-replay : rejeter si ce hash a déjà été utilisé
+    // Protection anti-replay : rejeter si ce hash a déjà été marqué expiré
     if (isReplayAttack(receivedHash, authTimestamp)) {
       return null;
     }

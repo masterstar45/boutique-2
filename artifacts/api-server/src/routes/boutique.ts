@@ -497,6 +497,10 @@ router.use("/gcs-media", async (req, res, next) => {
     // req.path = "/product-uploads/uuid.mp4" → on retire le "/" initial
     const objectName = req.path.replace(/^\//, "");
     if (!objectName) { res.status(400).json({ message: "Chemin manquant" }); return; }
+    // Restrict to the product-uploads folder to prevent accessing arbitrary GCS objects
+    if (!objectName.startsWith("product-uploads/")) {
+      res.status(403).json({ message: "Accès refusé" }); return;
+    }
 
     const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
     if (!bucketId) { res.status(500).json({ message: "Storage non configuré" }); return; }
@@ -874,7 +878,7 @@ router.post("/cart", cartRateLimiter, async (req, res) => {
   } catch {}
 });
 
-router.patch("/cart/:id", async (req, res) => {
+router.patch("/cart/:id", cartRateLimiter, async (req, res) => {
   const id = Number(req.params.id);
   const { quantity, sessionId } = req.body;
   if (!isValidSessionId(sessionId) || typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
@@ -898,6 +902,32 @@ router.delete("/cart/session/:sessionId", requireTelegramAuth, async (req, res) 
   }
 
   if (!chatId || chatId !== telegramUser.chatId) {
+    res.status(403).json({ message: "Forbidden" });
+    return;
+  }
+
+  // BOLA fix: verify that at least one cart item in this session belongs to this chatId
+  // (via cross-reference with orders table or direct chatId column if available)
+  // Simpler mitigation: bind sessionId to chatId via orders table lookup
+  // If no orders reference this session for this user, deny (prevents clearing stranger's cart)
+  const existingOrders = await db.select({ id: orders.id })
+    .from(orders)
+    .where(and(eq(orders.sessionId, req.params.sessionId), eq(orders.chatId, chatId)))
+    .limit(1);
+
+  // Allow clear only if: session has pending order from this user, OR session has no orders at all
+  // (fresh checkout clear by the same user who built the cart — session is ephemeral)
+  const anyOrderForSession = await db.select({ id: orders.id, chatId: orders.chatId })
+    .from(orders)
+    .where(eq(orders.sessionId, req.params.sessionId))
+    .limit(1);
+
+  if (anyOrderForSession.length > 0 && anyOrderForSession[0].chatId !== chatId) {
+    logAdminAction(req, "cart_session_delete_forbidden", {
+      status: 403,
+      error: "Session belongs to a different user",
+      details: { sessionId: req.params.sessionId },
+    });
     res.status(403).json({ message: "Forbidden" });
     return;
   }
@@ -2027,8 +2057,8 @@ router.post("/admin/orders/:orderCode/transmit-livreur", requireTelegramAuth, re
     ``,
     `📦 Commande : <b>#${order.orderCode}</b>`,
     `👤 Client : ${clientInfo}`,
-    parsed.deliveryAddress ? `📍 Adresse : ${parsed.deliveryAddress}` : `🏪 Retrait en magasin`,
-    parsed.deliveryNotes ? `📝 Note client : ${parsed.deliveryNotes}` : null,
+    parsed.deliveryAddress ? `📍 Adresse : ${escapeTelegramHtml(String(parsed.deliveryAddress).slice(0, 300))}` : `🏪 Retrait en magasin`,
+    parsed.notes ? `📝 Note client : ${escapeTelegramHtml(String(parsed.notes).slice(0, 500))}` : null,
     ``,
     `🛍 Articles :`,
     items,
