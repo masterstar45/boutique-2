@@ -2074,11 +2074,11 @@ function AdminsTab() {
           <Shield className="w-4 h-4" /> Admins actifs
         </h2>
 
-        {/* Super admin toujours visible */}
+        {/* Super admin toujours visible — on affiche l'ID de l'utilisateur connecté */}
         <div className="glass-panel px-5 py-4 rounded-[1.5rem] mb-2 flex items-center justify-between border border-primary/20">
           <div>
             <p className="font-bold text-sm">Super Admin</p>
-            <p className="text-xs text-muted-foreground font-mono">5818221358</p>
+            {chatId && <p className="text-xs text-muted-foreground font-mono">{chatId}</p>}
           </div>
           <span className="text-xs font-bold px-3 py-1 rounded-full bg-primary/20 text-primary border border-primary/30">Principal</span>
         </div>

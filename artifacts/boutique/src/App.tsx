@@ -74,8 +74,10 @@ function setupTelegramFetchInterceptor() {
   const originalFetch = window.fetch.bind(window);
   window.fetch = function(input: RequestInfo | URL, init: RequestInit = {}) {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
-    // N'injecter que sur nos routes API, pas sur CDN/Cloudflare/etc.
-    if (url.includes("/api/")) {
+    // N'injecter que sur nos propres routes API (même origine ou chemin relatif /api/).
+    // url.includes("/api/") seul serait trop permissif (ex: https://evil.com/api/steal).
+    const isSameOrigin = url.startsWith("/api/") || url.startsWith(window.location.origin + "/api/");
+    if (isSameOrigin) {
       const initData = (window as any).Telegram?.WebApp?.initData;
       if (initData) {
         const existingHeaders = new Headers(init.headers || (input instanceof Request ? input.headers : {}));

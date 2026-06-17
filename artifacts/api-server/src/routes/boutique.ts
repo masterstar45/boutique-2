@@ -30,18 +30,6 @@ function isValidSessionId(value: unknown): value is string {
   return /^[A-Za-z0-9_-]+$/.test(value);
 }
 
-/**
- * Valide que la session existe et appartient à l'utilisateur actuel
- * A utiliser pour les opérations sensibles (checkout, etc)
- */
-async function validateSessionOwnership(sessionId: string, telegramUser?: TelegramMiniAppData): Promise<boolean> {
-  if (!isValidSessionId(sessionId)) return false;
-  if (!telegramUser) return true; // Si pas d'auth Telegram, juste vérifier le format
-  
-  // Pour les commandes / opérations sensibles, on peut ajouter une vérification
-  // que la session a été créée par cet utilisateur Telegram (si on décide de tracker ça)
-  return true;
-}
 
 async function verifyTurnstileToken(token: string, remoteIp?: string): Promise<boolean> {
   if (!TURNSTILE_SECRET_KEY) {
@@ -973,10 +961,15 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     return;
   }
 
-  if (TURNSTILE_SECRET_KEY && typeof turnstileToken === "string" && turnstileToken) {
+  if (TURNSTILE_SECRET_KEY) {
+    // Si la clé est configurée, le token est obligatoire — pas de bypass silencieux
+    if (!turnstileToken || typeof turnstileToken !== "string") {
+      res.status(403).json({ message: "Vérification anti-bot requise" });
+      return;
+    }
     const isTurnstileValid = await verifyTurnstileToken(turnstileToken, req.ip || req.socket.remoteAddress || undefined);
     if (!isTurnstileValid) {
-      res.status(403).json({ message: "Turnstile verification failed" });
+      res.status(403).json({ message: "Vérification anti-bot invalide" });
       return;
     }
   }
@@ -1070,12 +1063,16 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     return s + priceInCents(item) * item.quantity;
   }, 0);
   try {
-    const existing = await db.select().from(dailyStats).where(eq(dailyStats.date, today));
-    if (existing.length === 0) {
-      await db.insert(dailyStats).values({ date: today, orderCount: 1, revenue: totalRevenue });
-    } else {
-      await db.update(dailyStats).set({ orderCount: existing[0].orderCount + 1, revenue: existing[0].revenue + totalRevenue }).where(eq(dailyStats.date, today));
-    }
+    // Upsert atomique — évite la race condition SELECT→INSERT/UPDATE sous charge
+    await db.insert(dailyStats)
+      .values({ date: today, orderCount: 1, revenue: totalRevenue })
+      .onConflictDoUpdate({
+        target: dailyStats.date,
+        set: {
+          orderCount: sql`${dailyStats.orderCount} + 1`,
+          revenue: sql`${dailyStats.revenue} + ${totalRevenue}`,
+        },
+      });
   } catch { /* stats non bloquantes */ }
 
   // Notify admin of new order
