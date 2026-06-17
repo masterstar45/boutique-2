@@ -86,14 +86,12 @@ export default function Cart() {
     return () => { tg.BackButton.offClick(handler); tg.BackButton.hide(); };
   }, [step, navigate]);
   const [deliveryMode, setDeliveryMode] = useState("");
-  const [address, setAddress] = useState(() => localStorage.getItem("saved_address") || "");
-  const [phone, setPhone] = useState(() => localStorage.getItem("saved_phone") || "");
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
   const [timeSlot, setTimeSlot] = useState("matin");
   const [notes, setNotes] = useState("");
   const [meetupSlot, setMeetupSlot] = useState("");
 
-  useEffect(() => { if (address.trim()) localStorage.setItem("saved_address", address.trim()); }, [address]);
-  useEffect(() => { if (phone.trim()) localStorage.setItem("saved_phone", phone.trim()); }, [phone]);
 
   const [checkoutError, setCheckoutError] = useState("");
   const checkoutErrorRef = useRef<HTMLDivElement | null>(null);
