@@ -126,6 +126,7 @@ export default function Cart() {
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const addressAutocomplete = useAddressAutocomplete();
+  const addressSelectingRef = useRef(false);
   const [timeSlot, setTimeSlot] = useState("matin");
   const [notes, setNotes] = useState("");
   const [meetupSlot, setMeetupSlot] = useState("");
@@ -633,7 +634,12 @@ export default function Cart() {
                         setAddress(e.target.value);
                         addressAutocomplete.search(e.target.value);
                       }}
-                      onBlur={() => setTimeout(() => addressAutocomplete.clear(), 150)}
+                      onBlur={() => {
+                        // Délai long pour laisser le temps au touch de se compléter
+                        setTimeout(() => {
+                          if (!addressSelectingRef.current) addressAutocomplete.clear();
+                        }, 300);
+                      }}
                       placeholder="12 rue de la Paix, Paris..."
                       autoComplete="off"
                       className={`w-full bg-black/40 rounded-xl px-4 py-3 text-sm focus:outline-none transition-all ${address.trim() === "" ? "border border-red-500/40 focus:border-red-400" : "border border-white/10 focus:border-primary"}`}
@@ -665,9 +671,12 @@ export default function Cart() {
                             <li key={i}>
                               <button
                                 type="button"
-                                onMouseDown={() => {
+                                onPointerDown={() => {
+                                  // onPointerDown se déclenche avant blur sur touch ET mouse
+                                  addressSelectingRef.current = true;
                                   setAddress(s.label);
                                   addressAutocomplete.clear();
+                                  setTimeout(() => { addressSelectingRef.current = false; }, 100);
                                 }}
                                 className="w-full text-left px-4 py-3 flex flex-col gap-0.5 transition-colors active:bg-white/5"
                                 style={{
