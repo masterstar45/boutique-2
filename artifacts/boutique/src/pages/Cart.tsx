@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, ChevronLeft, Send, MapPin, Phone, Clock, ExternalLink, Tag, Check, X, Loader2, MessageSquare } from "lucide-react";
 import { TopBar } from "@/components/TopBar";
@@ -9,6 +9,43 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 
 const API = import.meta.env.BASE_URL.replace(/\/$/, "") + "/api";
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+
+// ── Autocomplétion adresse — API Adresse data.gouv.fr (gratuite, sans clé) ──
+type AdresseSuggestion = { label: string; context: string };
+
+function useAddressAutocomplete() {
+  const [suggestions, setSuggestions] = useState<AdresseSuggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const search = useCallback((query: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (query.trim().length < 3) { setSuggestions([]); return; }
+
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5&autocomplete=1`
+        );
+        const data = await res.json();
+        setSuggestions(
+          (data.features ?? []).map((f: any) => ({
+            label: f.properties.label,
+            context: f.properties.context,
+          }))
+        );
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 280);
+  }, []);
+
+  const clear = useCallback(() => setSuggestions([]), []);
+  return { suggestions, loading, search, clear };
+}
 
 function haptic(type: "light" | "medium" | "success" | "error" = "light") {
   const tg = (window as any).Telegram?.WebApp;
@@ -88,6 +125,7 @@ export default function Cart() {
   const [deliveryMode, setDeliveryMode] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
+  const addressAutocomplete = useAddressAutocomplete();
   const [timeSlot, setTimeSlot] = useState("matin");
   const [notes, setNotes] = useState("");
   const [meetupSlot, setMeetupSlot] = useState("");
@@ -586,14 +624,68 @@ export default function Cart() {
                     </div>
                     {address.trim() === "" && <span className="text-[10px] text-red-400 font-semibold">Requis</span>}
                   </div>
-                  <textarea
-                    value={address}
-                    onChange={e => setAddress(e.target.value)}
-                    placeholder="Numéro, rue, code postal, ville..."
-                    rows={3}
-                    autoComplete="street-address"
-                    className={`w-full bg-black/40 rounded-xl p-4 text-sm focus:outline-none transition-all resize-none ${address.trim() === "" ? "border border-red-500/40 focus:border-red-400" : "border border-white/10 focus:border-primary"}`}
-                  />
+
+                  {/* Champ avec autocomplétion */}
+                  <div className="relative">
+                    <input
+                      value={address}
+                      onChange={e => {
+                        setAddress(e.target.value);
+                        addressAutocomplete.search(e.target.value);
+                      }}
+                      onBlur={() => setTimeout(() => addressAutocomplete.clear(), 150)}
+                      placeholder="12 rue de la Paix, Paris..."
+                      autoComplete="off"
+                      className={`w-full bg-black/40 rounded-xl px-4 py-3 text-sm focus:outline-none transition-all ${address.trim() === "" ? "border border-red-500/40 focus:border-red-400" : "border border-white/10 focus:border-primary"}`}
+                    />
+
+                    {/* Indicateur chargement */}
+                    {addressAutocomplete.loading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="w-4 h-4 animate-spin text-primary/50" />
+                      </div>
+                    )}
+
+                    {/* Dropdown suggestions */}
+                    <AnimatePresence>
+                      {addressAutocomplete.suggestions.length > 0 && (
+                        <motion.ul
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute left-0 right-0 top-full mt-1 z-50 rounded-xl overflow-hidden"
+                          style={{
+                            background: "rgba(14,10,6,0.97)",
+                            border: "1px solid rgba(201,160,76,0.18)",
+                            boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                          }}
+                        >
+                          {addressAutocomplete.suggestions.map((s, i) => (
+                            <li key={i}>
+                              <button
+                                type="button"
+                                onMouseDown={() => {
+                                  setAddress(s.label);
+                                  addressAutocomplete.clear();
+                                }}
+                                className="w-full text-left px-4 py-3 flex flex-col gap-0.5 transition-colors active:bg-white/5"
+                                style={{
+                                  borderBottom: i < addressAutocomplete.suggestions.length - 1 ? "1px solid rgba(201,160,76,0.07)" : "none",
+                                }}
+                              >
+                                <span className="text-sm font-medium text-white/90 flex items-center gap-2">
+                                  <MapPin className="w-3 h-3 shrink-0 text-primary/70" />
+                                  {s.label}
+                                </span>
+                                <span className="text-[10px] text-white/35 pl-5">{s.context}</span>
+                              </button>
+                            </li>
+                          ))}
+                        </motion.ul>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
               )}
 
