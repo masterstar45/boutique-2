@@ -10,6 +10,14 @@ import { ProductCard } from "@/components/ProductCard";
 const GOLD = "rgba(201,160,76,";
 const GOLD_GRAD = "linear-gradient(135deg, #c9a04c 0%, #f0d070 45%, #d4a843 100%)";
 
+function stockBadgeStyle(stock: string) {
+  const s = stock.toLowerCase();
+  if (s.includes("faible") || s.includes("dernièr") || s.includes("dernier") || s.includes("limité") || s.includes("peu")) {
+    return { background: "rgba(251,146,60,0.08)", border: "1px solid rgba(251,146,60,0.25)", color: "rgba(251,146,60,0.9)" };
+  }
+  return { background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.18)", color: "rgba(34,197,94,0.8)" };
+}
+
 function haptic(type: "light" | "medium" | "success" = "light") {
   const tg = (window as any).Telegram?.WebApp;
   if (type === "success") tg?.HapticFeedback?.notificationOccurred("success");
@@ -175,7 +183,7 @@ export default function ProductDetail() {
           />
         ) : (
           <img
-            src={product.imageUrl || "https://images.unsplash.com/photo-1603584860006-25f0a0584b42?w=800&h=1000&fit=crop"}
+            src={product.imageUrl || ""}
             alt={product.name}
             className="w-full h-full object-cover"
           />
@@ -261,11 +269,7 @@ export default function ProductDetail() {
           ))}
           {product.stock && (
             <span className="text-[9px] font-medium tracking-[0.15em] uppercase px-2.5 py-1 rounded-full ml-auto"
-              style={{
-                background: "rgba(34,197,94,0.06)",
-                border: "1px solid rgba(34,197,94,0.18)",
-                color: "rgba(34,197,94,0.8)",
-              }}>
+              style={stockBadgeStyle(product.stock)}>
               ● {product.stock}
             </span>
           )}
@@ -439,7 +443,7 @@ export default function ProductDetail() {
                   <p className="text-[10px] tracking-[0.25em] uppercase" style={{ color: `${GOLD}0.45)` }}>Quantité</p>
                   <div className="flex items-center gap-8">
                     <button
-                      onClick={() => { haptic("light"); setQuantity(Math.max(1, quantity - 1)); }}
+                      onClick={() => { haptic("light"); setQuantity(q => Math.max(1, q - 1)); }}
                       disabled={quantity <= 1}
                       className="w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-30"
                       style={{
@@ -455,7 +459,7 @@ export default function ProductDetail() {
                     </span>
 
                     <button
-                      onClick={() => { haptic("light"); setQuantity(quantity + 1); }}
+                      onClick={() => { haptic("light"); setQuantity(q => Math.min(20, q + 1)); }}
                       className="w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-90"
                       style={{
                         background: `${GOLD}0.06)`,

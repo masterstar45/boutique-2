@@ -95,6 +95,8 @@ export default function Cart() {
   useEffect(() => { if (address.trim()) localStorage.setItem("saved_address", address.trim()); }, [address]);
   useEffect(() => { if (phone.trim()) localStorage.setItem("saved_phone", phone.trim()); }, [phone]);
 
+  const [checkoutError, setCheckoutError] = useState("");
+
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileReady, setTurnstileReady] = useState(!TURNSTILE_SITE_KEY);
   const [turnstileError, setTurnstileError] = useState("");
@@ -224,7 +226,7 @@ export default function Cart() {
       onError: (err: any) => {
         haptic("error");
         const msg = err?.response?.data?.message || err?.message || "Erreur inconnue";
-        alert("❌ Commande non envoyée : " + msg);
+        setCheckoutError(msg);
       }
     }
   });
@@ -233,11 +235,11 @@ export default function Cart() {
   const discount = promoData ? Math.round(rawTotal * promoData.discountPercent / 100) : 0;
   const total = rawTotal - discount;
 
-  const buildTelegramMessage = () => {
+  const buildRelaisMessage = () => {
     const lines: string[] = [];
-    lines.push("🔌 Nouvelle commande SOS LE PLUG");
+    lines.push("📦 Commande Point Relais — SOS LE PLUG");
     lines.push("");
-    lines.push("📦 Articles :");
+    lines.push("🛒 Articles :");
     cartItems?.forEach(item => {
       const price = item.selectedPrice || item.product.price;
       lines.push(`• ${item.product.name}${item.selectedWeight ? ` (${item.selectedWeight})` : ""} × ${item.quantity} = ${price * item.quantity}€`);
@@ -248,19 +250,12 @@ export default function Cart() {
       lines.push(`💸 Sous-total : ${rawTotal}€  →  Remise : -${discount}€`);
     }
     lines.push(`💰 Total : ${total}€`);
-    lines.push("");
-    lines.push(`🚚 Mode : ${deliveryMode === "livraison" ? "Livraison à domicile" : "Point Relais"}`);
-    if (deliveryMode === "livraison" && address.trim()) {
-      lines.push(`📍 Adresse : ${address.trim()}`);
-    }
-    lines.push(`📞 Téléphone : ${phone.trim()}`);
-    const slot = TIME_SLOTS.find(s => s.id === timeSlot);
-    if (slot) lines.push(`⏰ Créneau : ${slot.emoji} ${slot.label} (${slot.hours})`);
     if (chatId) lines.push(`\n👤 ID Telegram : ${chatId}`);
     return lines.join("\n");
   };
 
   const handleSendOrder = () => {
+    setCheckoutError("");
     if (turnstileRequired && !turnstileBypassed && !turnstileToken) {
       setTurnstileError("Valide le contrôle Cloudflare avant d'envoyer.");
       return;
@@ -288,9 +283,10 @@ export default function Cart() {
     }
   };
 
+  const phoneValid = /^[+\d][\d\s\-().]{5,19}$/.test(phone.trim());
   const detailsValid =
     (deliveryMode === "livraison" ? address.trim() !== "" : true) &&
-    phone.trim() !== "" &&
+    phoneValid &&
     timeSlot !== "";
 
   const stepTitle: Record<string, string> = {
@@ -349,11 +345,15 @@ export default function Cart() {
                     <p className="text-xs font-bold text-primary mt-1">{item.selectedWeight} • {item.selectedPrice}€</p>
                     <div className="flex items-center gap-4 mt-3">
                       <div className="flex items-center bg-black/40 rounded-full p-1 border border-white/5">
-                        <button onClick={() => { haptic("light"); updateItem.mutate({ id: item.id, data: { quantity: Math.max(1, item.quantity - 1), sessionId } }); }} className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center active:scale-90">
-                          <Minus className="w-3.5 h-3.5" />
+                        <button onClick={() => {
+                          haptic("light");
+                          if (item.quantity <= 1) { removeItem.mutate({ id: item.id }); }
+                          else { updateItem.mutate({ id: item.id, data: { quantity: item.quantity - 1, sessionId } }); }
+                        }} className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center active:scale-90">
+                          {item.quantity <= 1 ? <Trash2 className="w-3 h-3 text-destructive/70" /> : <Minus className="w-3.5 h-3.5" />}
                         </button>
                         <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
-                        <button onClick={() => { haptic("light"); updateItem.mutate({ id: item.id, data: { quantity: item.quantity + 1, sessionId } }); }} className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center active:scale-90">
+                        <button onClick={() => { haptic("light"); updateItem.mutate({ id: item.id, data: { quantity: Math.min(20, item.quantity + 1), sessionId } }); }} className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center active:scale-90">
                           <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -521,8 +521,9 @@ export default function Cart() {
                 }
                 onClick={() => {
                   if (deliveryMode === "relais") {
+                    const msg = buildRelaisMessage();
+                    const url = `https://t.me/SOSLePlug75?text=${encodeURIComponent(msg)}`;
                     const tg = (window as any).Telegram?.WebApp;
-                    const url = "https://t.me/SOSLePlug75";
                     if (tg?.openLink) tg.openLink(url);
                     else window.open(url, "_blank");
                   } else if (deliveryMode === "meetup") {
@@ -678,6 +679,25 @@ export default function Cart() {
                 </div>
               )}
 
+              {/* Bannière erreur checkout */}
+              {checkoutError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-xl px-4 py-3 text-sm flex items-start gap-2"
+                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "rgba(239,100,100,0.9)" }}
+                >
+                  <X className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-[11px] uppercase tracking-wider mb-0.5">Commande non envoyée</p>
+                    <p className="text-xs">{checkoutError}</p>
+                  </div>
+                  <button onClick={() => setCheckoutError("")} className="shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </motion.div>
+              )}
+
               {/* Indicateur des champs manquants */}
               {!detailsValid && (
                 <div className="rounded-xl px-4 py-2.5 text-xs flex flex-col gap-1"
@@ -685,6 +705,7 @@ export default function Cart() {
                   <span className="font-semibold uppercase tracking-wider text-[10px] mb-0.5">Encore requis :</span>
                   {deliveryMode === "livraison" && !address.trim() && <span>• Adresse de livraison</span>}
                   {!phone.trim() && <span>• Numéro de téléphone</span>}
+                  {phone.trim() && !phoneValid && <span>• Numéro de téléphone invalide (ex : 06 12 34 56 78)</span>}
                   {!timeSlot && <span>• Créneau horaire</span>}
                 </div>
               )}
