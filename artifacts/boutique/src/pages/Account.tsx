@@ -251,7 +251,7 @@ function OrderCard({ order }: { order: any }) {
   let items: any[] = [];
   let total = 0;
   try {
-    const parsed = typeof order.orderData === "string" ? JSON.parse(order.orderData) : order.orderData;
+    const parsed = typeof order.orderData === "string" ? (() => { try { return JSON.parse(order.orderData); } catch { return {}; } })() : order.orderData;
     items = parsed?.items ?? [];
     // selectedPrice is in euros; product.price is in centimes
     total = items.reduce((s: number, it: any) => {

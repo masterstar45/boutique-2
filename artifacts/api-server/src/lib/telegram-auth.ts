@@ -59,6 +59,28 @@ export interface TelegramMiniAppData {
   isAdmin?: boolean;
 }
 
+// ─── Replay protection ────────────────────────────────────────────────────────
+// Cache des hashes déjà vus dans la fenêtre d'auth (300s).
+// Note: en multi-instance, utiliser Redis pour partager ce cache entre pods.
+const seenAuthHashes = new Map<string, number>(); // hash → timestamp d'expiration (ms)
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [h, exp] of seenAuthHashes) {
+    if (now > exp) seenAuthHashes.delete(h);
+  }
+}, 60_000);
+
+function isReplayAttack(hash: string, authTimestamp: number): boolean {
+  const expiryMs = (authTimestamp + 300) * 1000;
+  if (seenAuthHashes.has(hash)) {
+    console.warn("⚠️  Telegram initData replay detected");
+    return true;
+  }
+  seenAuthHashes.set(hash, expiryMs);
+  return false;
+}
+
 function verifyTelegramInitData(initData: string): TelegramMiniAppData | null {
   if (!BOT_TOKEN) {
     console.warn("⚠️  BOT_TOKEN missing for initData verification");
@@ -92,7 +114,7 @@ function verifyTelegramInitData(initData: string): TelegramMiniAppData | null {
       return null;
     }
 
-    // Vérifier que auth_date n'est pas expiré (max 24h)
+    // Vérifier que auth_date n'est pas expiré (max 300s)
     const authDate = params.get("auth_date");
     if (!authDate) {
       console.warn("⚠️  Missing auth_date in Telegram initData");
@@ -102,6 +124,11 @@ function verifyTelegramInitData(initData: string): TelegramMiniAppData | null {
     const now = Math.floor(Date.now() / 1000);
     if (now - authTimestamp > 300) {
       console.warn(`⚠️  Telegram initData expired: age=${now - authTimestamp}s`);
+      return null;
+    }
+
+    // Protection anti-replay : rejeter si ce hash a déjà été utilisé
+    if (isReplayAttack(receivedHash, authTimestamp)) {
       return null;
     }
 

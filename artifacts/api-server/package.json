@@ -18,6 +18,7 @@
     "drizzle-orm": "catalog:",
     "express": "^5",
     "google-auth-library": "^10.6.2",
+    "ioredis": "^5.6.1",
     "multer": "^2.1.1",
     "pino": "^9",
     "pino-http": "^10"

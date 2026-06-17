@@ -76,6 +76,16 @@ async function verifyTurnstileToken(token: string, remoteIp?: string): Promise<b
 // NOTE: Admin endpoints are protected by Telegram authentication (Mini App inside Telegram)
 // No need for additional API key authentication here
 
+// ─── HTML helpers ─────────────────────────────────────────────────────────────
+
+function escapeTelegramHtml(input: string): string {
+  return String(input)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 // ─── Admin Telegram Notification ──────────────────────────────────────────────
 
 const ADMIN_CHAT_ID = process.env.TELEGRAM_SUPER_ADMIN_ID || process.env.TELEGRAM_ADMIN_CHAT_ID || "";
@@ -124,8 +134,8 @@ async function getUserLabel(chatId: string | null | undefined): Promise<string> 
     const [user] = await db.select().from(botUsers).where(eq(botUsers.chatId, chatId));
     if (!user) return `#${chatId}`;
     const parts: string[] = [];
-    if (user.username) parts.push(`@${user.username}`);
-    if (user.firstName) parts.push(user.firstName);
+    if (user.username) parts.push(`@${escapeTelegramHtml(user.username)}`);
+    if (user.firstName) parts.push(escapeTelegramHtml(user.firstName));
     parts.push(`(#${chatId})`);
     return parts.join(" ");
   } catch {
@@ -1056,7 +1066,7 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     `👤 <b>Client :</b> ${userLabel}\n` +
     `🆔 <b>Commande :</b> ${orderCode}\n\n` +
     `${delivLabel}\n` +
-    (deliveryAddress ? `📍 ${deliveryAddress}\n` : "") +
+    (deliveryAddress ? `📍 ${escapeTelegramHtml(String(deliveryAddress).slice(0, 300))}\n` : "") +
     `\n<b>Articles :</b>\n${articleList}\n\n` +
     `💶 <b>Total : ${(totalRevenue / 100).toFixed(2)} €</b>` +
     (notes ? `\n\n📝 <b>Note :</b> ${sanitizeTelegramHtml(String(notes).slice(0, 500))}` : ""),

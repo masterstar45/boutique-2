@@ -13,6 +13,8 @@ const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
   ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
   : process.env.APP_URL ?? "";
+// Note: en multi-instance, ce timestamp est par-pod. Acceptable car le pire cas
+// est que plusieurs pods tentent une réparation au même moment (appel idempotent).
 let lastWebhookRepairAttempt = 0;
 
 // Envoie à tous les admins (super admin + admins ajoutés dans le panel)
