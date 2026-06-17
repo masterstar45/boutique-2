@@ -52,7 +52,7 @@ export function TopBar({ title, subtitle, backHref, branded = false }: TopBarPro
               filter: "drop-shadow(0 0 8px rgba(201,160,76,0.55))",
             }}
           >
-            🔌 SOS LE PLUG 🔌
+            SOS LE PL🔌G
           </h1>
           {subtitle && (
             <p
@@ -69,7 +69,7 @@ export function TopBar({ title, subtitle, backHref, branded = false }: TopBarPro
           {backHref && (
             <Link
               href={backHref}
-              className="w-9 h-9 flex items-center justify-center rounded-full transition-all active:scale-90 shrink-0"
+              className="w-11 h-11 flex items-center justify-center rounded-full transition-all active:scale-90 shrink-0"
               style={{
                 background: `${GOLD}0.06)`,
                 border: `1px solid ${GOLD}0.15)`,

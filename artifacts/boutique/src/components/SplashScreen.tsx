@@ -160,7 +160,7 @@ export function SplashScreen({ onDone }: SplashScreenProps) {
             {/* ── Brand name — word by word blur reveal ── */}
             <div className="flex flex-col items-center gap-3">
               <div className="flex items-center gap-[0.6rem]">
-                {["SOS", "LE", "PLUG"].map((word, i) => (
+                {["SOS", "LE", "PL🔌G"].map((word, i) => (
                   <motion.span
                     key={word}
                     initial={{ opacity: 0, y: 18, filter: "blur(10px)" }}

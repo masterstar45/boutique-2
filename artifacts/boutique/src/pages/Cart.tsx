@@ -96,6 +96,7 @@ export default function Cart() {
   useEffect(() => { if (phone.trim()) localStorage.setItem("saved_phone", phone.trim()); }, [phone]);
 
   const [checkoutError, setCheckoutError] = useState("");
+  const checkoutErrorRef = useRef<HTMLDivElement | null>(null);
 
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileReady, setTurnstileReady] = useState(!TURNSTILE_SITE_KEY);
@@ -227,6 +228,7 @@ export default function Cart() {
         haptic("error");
         const msg = err?.response?.data?.message || err?.message || "Erreur inconnue";
         setCheckoutError(msg);
+        setTimeout(() => checkoutErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
       }
     }
   });
@@ -588,6 +590,7 @@ export default function Cart() {
                     onChange={e => setAddress(e.target.value)}
                     placeholder="Numéro, rue, code postal, ville..."
                     rows={3}
+                    autoComplete="street-address"
                     className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm focus:outline-none focus:border-primary transition-all resize-none"
                   />
                 </div>
@@ -604,6 +607,8 @@ export default function Cart() {
                   onChange={e => setPhone(e.target.value)}
                   placeholder="06 12 34 56 78"
                   type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
                   className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all"
                 />
               </div>
@@ -682,6 +687,7 @@ export default function Cart() {
               {/* Bannière erreur checkout */}
               {checkoutError && (
                 <motion.div
+                  ref={checkoutErrorRef}
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="rounded-xl px-4 py-3 text-sm flex items-start gap-2"

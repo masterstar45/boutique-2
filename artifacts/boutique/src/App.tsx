@@ -112,7 +112,7 @@ function TelegramGate() {
           </div>
           <div>
             <h1 className="font-display font-semibold tracking-[0.1em] uppercase gradient-gold glow-gold text-2xl">
-              SOS LE PLUG
+              SOS LE PL🔌G
             </h1>
             <div className="gold-line mt-2.5 mx-8" />
           </div>

@@ -30,7 +30,7 @@ export function BottomNav() {
       style={{ paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), var(--tg-safe-bottom, 0px)) + 12px)" }}
     >
       <nav
-        className="flex items-center gap-1 px-3 py-2.5 rounded-[2rem]"
+        className="flex items-center gap-1 px-3 py-3 rounded-[2rem]"
         style={{
           background: "rgba(10,7,4,0.88)",
           backdropFilter: "blur(28px) saturate(180%)",
@@ -46,7 +46,7 @@ export function BottomNav() {
           const count = badge ? cartCount : 0;
 
           return (
-            <Link key={href} href={href} className="flex-1 flex flex-col items-center gap-1 py-1 relative group">
+            <Link key={href} href={href} className="flex-1 flex flex-col items-center gap-1.5 py-1.5 relative group" style={{ minHeight: 52 }}>
               <div className="relative">
                 {/* Active background pill */}
                 {isActive && (
