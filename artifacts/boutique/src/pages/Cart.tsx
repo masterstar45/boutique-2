@@ -580,10 +580,13 @@ export default function Cart() {
 
               {/* Adresse – seulement pour livraison à domicile */}
               {deliveryMode === "livraison" && (
-                <div className="glass-panel p-5 rounded-[1.5rem]">
-                  <div className="flex items-center gap-2 mb-3">
-                    <MapPin className="w-4 h-4 text-primary" />
-                    <label className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Adresse de livraison</label>
+                <div className={`glass-panel p-5 rounded-[1.5rem] transition-all ${address.trim() === "" && phone.trim() !== "" ? "border border-red-500/30" : ""}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-primary" />
+                      <label className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Adresse de livraison</label>
+                    </div>
+                    {address.trim() === "" && <span className="text-[10px] text-red-400 font-semibold">Requis</span>}
                   </div>
                   <textarea
                     value={address}
@@ -591,16 +594,19 @@ export default function Cart() {
                     placeholder="Numéro, rue, code postal, ville..."
                     rows={3}
                     autoComplete="street-address"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm focus:outline-none focus:border-primary transition-all resize-none"
+                    className={`w-full bg-black/40 rounded-xl p-4 text-sm focus:outline-none transition-all resize-none ${address.trim() === "" ? "border border-red-500/40 focus:border-red-400" : "border border-white/10 focus:border-primary"}`}
                   />
                 </div>
               )}
 
               {/* Téléphone */}
-              <div className="glass-panel p-5 rounded-[1.5rem]">
-                <div className="flex items-center gap-2 mb-3">
-                  <Phone className="w-4 h-4 text-primary" />
-                  <label className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Numéro de téléphone</label>
+              <div className={`glass-panel p-5 rounded-[1.5rem] transition-all ${phone.trim() && !phoneValid ? "border border-red-500/30" : ""}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-primary" />
+                    <label className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Numéro de téléphone</label>
+                  </div>
+                  {!phone.trim() && <span className="text-[10px] text-red-400 font-semibold">Requis</span>}
                 </div>
                 <input
                   value={phone}
@@ -609,8 +615,33 @@ export default function Cart() {
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all"
+                  className={`w-full bg-black/40 rounded-xl px-4 py-3 text-sm focus:outline-none transition-all ${phone.trim() && !phoneValid ? "border border-red-500/40 focus:border-red-400" : "border border-white/10 focus:border-primary"}`}
                 />
+                <AnimatePresence>
+                  {phone.trim() && !phoneValid && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="text-xs mt-2 flex items-center gap-1.5"
+                      style={{ color: "rgba(239,100,100,0.85)" }}
+                    >
+                      <X className="w-3 h-3 shrink-0" />
+                      Format invalide — ex : <strong>06 12 34 56 78</strong> ou <strong>+33 6 12 34 56 78</strong>
+                    </motion.p>
+                  )}
+                  {phoneValid && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-xs mt-2 flex items-center gap-1.5"
+                      style={{ color: "rgba(34,197,94,0.85)" }}
+                    >
+                      <Check className="w-3 h-3 shrink-0" /> Numéro valide
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Créneau horaire */}
@@ -704,17 +735,6 @@ export default function Cart() {
                 </motion.div>
               )}
 
-              {/* Indicateur des champs manquants */}
-              {!detailsValid && (
-                <div className="rounded-xl px-4 py-2.5 text-xs flex flex-col gap-1"
-                  style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.18)", color: "rgba(239,100,100,0.85)" }}>
-                  <span className="font-semibold uppercase tracking-wider text-[10px] mb-0.5">Encore requis :</span>
-                  {deliveryMode === "livraison" && !address.trim() && <span>• Adresse de livraison</span>}
-                  {!phone.trim() && <span>• Numéro de téléphone</span>}
-                  {phone.trim() && !phoneValid && <span>• Numéro de téléphone invalide (ex : 06 12 34 56 78)</span>}
-                  {!timeSlot && <span>• Créneau horaire</span>}
-                </div>
-              )}
               {detailsValid && turnstileRequired && !turnstileToken && turnstileReady && !turnstileBypassed && (
                 <p className="text-xs text-center" style={{ color: "rgba(239,100,100,0.8)" }}>
                   ⬆ Complète la vérification Cloudflare ci-dessus
