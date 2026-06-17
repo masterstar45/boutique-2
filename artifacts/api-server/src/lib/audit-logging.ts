@@ -93,7 +93,7 @@ export function extractDetailsFromRequest(req: Request): Record<string, unknown>
     if (body.name) details.name = body.name;
     if (body.status) details.status = body.status;
     if (body.text) details.textLength = String(body.text).length; // Juste la longueur, pas le contenu
-    if (body.notes) details.notes = body.notes;
+    if (body.notes) details.notesLength = String(body.notes).length; // Longueur seulement — pas de PII dans les logs
   }
 
   return details;

@@ -23,6 +23,13 @@ import { logAdminAction, extractDetailsFromRequest, ADMIN_ACTIONS } from "../lib
 const router: IRouter = Router();
 
 const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY;
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+// En production, on ne renvoie jamais les messages d'erreur bruts (peuvent contenir
+// des noms de colonnes SQL, des détails de schéma, etc.)
+function safeErr(err: any, fallback = "Erreur interne du serveur"): string {
+  return IS_PRODUCTION ? fallback : (err?.message || fallback);
+}
 
 function isValidSessionId(value: unknown): value is string {
   if (typeof value !== "string") return false;
@@ -316,7 +323,7 @@ router.post("/upload", requireTelegramAuth, uploadRateLimiter, (req, res, next) 
   memUpload.single("file")(req, res, (err) => {
     if (err) {
       console.error("Multer error:", err.message);
-      res.status(400).json({ message: err.message || "Fichier refusé par le serveur" });
+      res.status(400).json({ message: safeErr(err, "Fichier refusé par le serveur") });
       return;
     }
     next();
@@ -696,7 +703,7 @@ router.post("/products", requireTelegramAuth, requireTelegramAdmin, adminRateLim
       status: 500,
       error: err.message,
     });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -749,7 +756,7 @@ router.patch("/products/:id", requireTelegramAuth, requireTelegramAdmin, adminRa
       status: 500,
       error: err.message,
     });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -773,7 +780,7 @@ router.delete("/products/:id", requireTelegramAuth, requireTelegramAdmin, adminR
       status: 500,
       error: err.message,
     });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -1141,7 +1148,7 @@ router.get("/orders", requireTelegramAuth, requireTelegramAdmin, async (req, res
       status: 500,
       error: err.message,
     });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -1274,7 +1281,7 @@ router.patch("/admin/orders/:orderCode/notes", requireTelegramAuth, requireTeleg
         return res.json({ ok: true });
       } catch (e2: any) { return res.status(500).json({ error: e2.message }); }
     }
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -1302,7 +1309,7 @@ router.get("/admin/orders/enriched", requireTelegramAuth, requireTelegramAdmin, 
       total: totalResult?.count || 0,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -1337,7 +1344,7 @@ router.get("/admin/bot-users", requireTelegramAuth, requireTelegramAdmin, async 
     ]);
     res.json({ users, total: totalResult[0]?.count || 0 });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -1359,7 +1366,7 @@ router.get("/admin/user-orders/:chatId", requireTelegramAuth, requireTelegramAdm
       status: 500,
       error: err.message,
     });
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -1380,7 +1387,7 @@ router.post("/admin/send-telegram", requireTelegramAuth, requireTelegramAdmin, t
     if (!data.ok) return res.status(400).json({ error: data.description });
     res.json({ ok: true });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -1392,7 +1399,7 @@ router.post("/admin/notify-stats", requireTelegramAuth, requireTelegramAdmin, as
     await sendDailyStatsToAdmin(date);
     res.json({ ok: true });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -1418,7 +1425,7 @@ router.post("/admin/test-notification", requireTelegramAuth, requireTelegramAdmi
     }
     res.json({ ok: true, message: "Message envoyé avec succès !" });
   } catch (err: any) {
-    res.status(500).json({ ok: false, error: err.message });
+    res.status(500).json({ ok: false, error: safeErr(err) });
   }
 });
 
@@ -1482,7 +1489,7 @@ router.get("/reviews/pending", requireTelegramAuth, requireTelegramAdmin, async 
     const result = await db.select().from(reviews).where(eq(reviews.approved, false)).orderBy(desc(reviews.id));
     res.json(result);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -1518,7 +1525,7 @@ router.post("/reviews/:id/approve", requireTelegramAuth, requireTelegramAdmin, a
     
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
@@ -1533,7 +1540,7 @@ router.delete("/reviews/:id", requireTelegramAuth, requireTelegramAdmin, async (
     
     res.status(204).send();
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: safeErr(err) });
   }
 });
 
