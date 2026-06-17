@@ -23,21 +23,16 @@ export function useSession() {
   useEffect(() => {
     const cid = localStorage.getItem("telegram_chat_id");
 
-    // Quand l'utilisateur est authentifié, on dérive le sessionId de son chatId
-    // afin que deux utilisateurs sur le même appareil n'aient pas le même panier
+    // Le sessionId doit toujours être un UUID aléatoire imprévisible.
+    // On ne le dérive JAMAIS du chatId (chatId Telegram est semi-public).
+    // On regénère si la valeur stockée suit l'ancien schéma session_tg_* prévisible.
     let sid: string;
-    if (cid) {
-      sid = `session_tg_${cid}`;
-      localStorage.setItem("cart_session_id", sid);
+    const stored = localStorage.getItem("cart_session_id");
+    if (stored && !stored.startsWith("session_tg_")) {
+      sid = stored;
     } else {
-      const stored = localStorage.getItem("cart_session_id");
-      // Ne pas réutiliser un session lié à un autre compte
-      if (!stored || stored.startsWith("session_tg_")) {
-        sid = generateSessionId();
-        localStorage.setItem("cart_session_id", sid);
-      } else {
-        sid = stored;
-      }
+      sid = generateSessionId();
+      localStorage.setItem("cart_session_id", sid);
     }
     setSessionId(sid);
 
