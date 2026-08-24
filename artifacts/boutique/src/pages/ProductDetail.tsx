@@ -38,10 +38,10 @@ export default function ProductDetail() {
   const [addedOk, setAddedOk] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
 
-  const { data: product, isLoading } = useGetProduct(productId, { query: { enabled: !!productId } });
+  const { data: product, isLoading } = useGetProduct(productId, { query: { enabled: !!productId } as any });
   const { data: similarProducts } = useListProducts(
     { category: product?.category },
-    { query: { enabled: !!product?.category } }
+    { query: { enabled: !!product?.category } as any }
   );
 
   // BackButton natif Telegram

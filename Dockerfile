@@ -14,6 +14,11 @@ COPY . .
 # Installer les dépendances
 RUN pnpm install --no-frozen-lockfile
 
+# Vérification des types AVANT le build (esbuild/vite ne typechecent pas).
+# Attrape les bugs de type (colonnes DB inexistantes, variables indéfinies, etc.)
+# avant qu'ils n'atteignent la production.
+RUN pnpm run typecheck
+
 # Récupérer les args de build
 ARG VITE_TURNSTILE_SITE_KEY=""
 ARG PORT=3000

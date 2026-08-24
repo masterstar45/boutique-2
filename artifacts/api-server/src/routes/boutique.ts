@@ -7,7 +7,7 @@ import {
   type InsertProduct, type InsertCartItem, type InsertOrder,
   type InsertReview, type InsertPromoCode, type InsertFavorite,
 } from "@workspace/db";
-import { eq, and, desc, ilike, or, sql, count, sum, gte, lte, lt } from "drizzle-orm";
+import { eq, and, desc, ilike, or, sql, count, sum, gte, lte, lt, inArray, isNull } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -15,6 +15,7 @@ import { randomUUID } from "crypto";
 import { objectStorageClient } from "../lib/objectStorage";
 import { requireTelegramAuth, requireTelegramAdmin, verifyTelegramWebhookSignature, type TelegramMiniAppData } from "../lib/telegram-auth";
 import { adminRateLimiter, uploadRateLimiter, broadcastRateLimiter, cartRateLimiter, telegramMessageRateLimiter, createRateLimiter } from "../lib/rate-limiting";
+import { maskId, encryptField, decryptField, hydrateOrder } from "../lib/privacy";
 
 const promoValidateRateLimiter = createRateLimiter(60 * 1000, 3);
 const productsRateLimiter = createRateLimiter(60 * 1000, 60);
@@ -364,7 +365,7 @@ router.post("/upload", requireTelegramAuth, uploadRateLimiter, (req, res, next) 
         
         const tgForm = new FormData();
         tgForm.append("chat_id", ADMIN_CHAT_ID_ENV);
-        tgForm.append("document", new Blob([buffer], { type: mimetype }), filename);
+        tgForm.append("document", new Blob([new Uint8Array(buffer)], { type: mimetype }), filename);
         tgForm.append("caption", "📦 [Vidéo produit — backup — ne pas supprimer]");
         tgForm.append("disable_notification", "true");
         
@@ -394,7 +395,7 @@ router.post("/upload", requireTelegramAuth, uploadRateLimiter, (req, res, next) 
         const paramStr  = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
         const signature = createHmac("sha1", CDN_SECRET!).update(paramStr).digest("hex");
         const cdnForm = new FormData();
-        cdnForm.append("file", new Blob([buffer], { type: mimetype }), filename);
+        cdnForm.append("file", new Blob([new Uint8Array(buffer)], { type: mimetype }), filename);
         cdnForm.append("api_key",    CDN_KEY!);
         cdnForm.append("timestamp",  String(timestamp));
         cdnForm.append("folder",     folder);
@@ -553,7 +554,7 @@ router.post("/admin/upload-start-media", requireTelegramAuth, requireTelegramAdm
       `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/${tgMethod}`,
       { method: "POST", body: formData }
     );
-    const tgData = await tgRes.json();
+    const tgData: any = await tgRes.json();
 
     try { fs.unlinkSync(req.file.path); } catch {}
 
@@ -998,7 +999,7 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
         return;
       }
     } else {
-      console.warn("⚠️  Checkout sans token Turnstile (bypass client) — autorisé via l'auth Telegram", { chatId: telegramUser?.chatId });
+      console.warn("⚠️  Checkout sans token Turnstile (bypass client) — autorisé via l'auth Telegram", { chatId: maskId(telegramUser?.chatId) });
     }
   }
 
@@ -1074,7 +1075,7 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     orderCode,
     sessionId,
     chatId: chatId || null,
-    orderData,
+    orderData: encryptField(orderData) as string, // PII (adresse, notes) chiffrée au repos si ENCRYPTION_KEY
     deliveryType,
     status: "pending",
     createdAt: new Date().toISOString(),
@@ -1135,7 +1136,7 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
     }
   ).catch(() => {});
 
-  res.json(order);
+  res.json(hydrateOrder(order));
   } catch (err: any) {
     console.error("Checkout error:", err);
     res.status(500).json({ message: "Erreur interne du serveur" });
@@ -1163,7 +1164,7 @@ router.get("/orders", requireTelegramAuth, requireTelegramAdmin, async (req, res
       details: { limit, offset, status },
     });
 
-    res.json({ orders: result, total: totalResult[0]?.count || 0 });
+    res.json({ orders: result.map(hydrateOrder), total: totalResult[0]?.count || 0 });
   } catch (err: any) {
     logAdminAction(req, ADMIN_ACTIONS.ORDER_VIEW, {
       status: 500,
@@ -1176,7 +1177,7 @@ router.get("/orders", requireTelegramAuth, requireTelegramAdmin, async (req, res
 router.patch("/orders/:orderCode/status", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   try {
     const { status } = req.body;
-    const { orderCode } = req.params;
+    const orderCode = String(req.params.orderCode);
     if (!orderCode || !/^ORD-\d+-[A-Z0-9]{4}$/.test(orderCode)) {
       res.status(400).json({ error: "Format de commande invalide" });
       return;
@@ -1266,12 +1267,12 @@ router.get("/orders/my/:chatId", requireTelegramAuth, async (req, res) => {
     return;
   }
   
-  const result = await db.select().from(orders).where(eq(orders.chatId, req.params.chatId)).orderBy(desc(orders.id));
-  res.json(result);
+  const result = await db.select().from(orders).where(eq(orders.chatId, String(req.params.chatId))).orderBy(desc(orders.id));
+  res.json(result.map(hydrateOrder));
 });
 
 router.delete("/admin/orders/:orderCode", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
-  const { orderCode } = req.params;
+  const orderCode = String(req.params.orderCode);
   if (!orderCode || !/^ORD-\d+-[A-Z0-9]{4}$/.test(orderCode)) {
     res.status(400).json({ error: "Format de commande invalide" });
     return;
@@ -1282,15 +1283,16 @@ router.delete("/admin/orders/:orderCode", requireTelegramAuth, requireTelegramAd
 
 // Save admin notes on an order (lazy-add column if missing)
 router.patch("/admin/orders/:orderCode/notes", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
-  const { orderCode } = req.params;
+  const orderCode = String(req.params.orderCode);
   if (!orderCode || !/^ORD-\d+-[A-Z0-9]{4}$/.test(orderCode)) {
     res.status(400).json({ error: "Format de commande invalide" });
     return;
   }
   const rawNotes = req.body.notes ?? null;
   const sanitizedNotes = rawNotes ? String(rawNotes).slice(0, 1000) : null;
+  const storedNotes = encryptField(sanitizedNotes); // chiffré au repos si ENCRYPTION_KEY
   const doUpdate = async () =>
-    db.execute(sql`UPDATE orders SET notes = ${sanitizedNotes} WHERE order_code = ${req.params.orderCode}`);
+    db.execute(sql`UPDATE orders SET notes = ${storedNotes} WHERE order_code = ${req.params.orderCode}`);
   try {
     await doUpdate();
     res.json({ ok: true });
@@ -1326,7 +1328,7 @@ router.get("/admin/orders/enriched", requireTelegramAuth, requireTelegramAdmin, 
 
     const [totalResult] = await db.select({ count: count() }).from(orders);
     res.json({
-      orders: result.map(o => ({ ...o, user: o.chatId ? (userMap[o.chatId] ?? null) : null })),
+      orders: result.map(o => ({ ...hydrateOrder(o), user: o.chatId ? (userMap[o.chatId] ?? null) : null })),
       total: totalResult?.count || 0,
     });
   } catch (err: any) {
@@ -1373,15 +1375,15 @@ router.get("/admin/bot-users", requireTelegramAuth, requireTelegramAdmin, async 
 router.get("/admin/user-orders/:chatId", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
   try {
     const result = await db.select().from(orders)
-      .where(eq(orders.chatId, req.params.chatId))
+      .where(eq(orders.chatId, String(req.params.chatId)))
       .orderBy(desc(orders.id)).limit(20);
     
     logAdminAction(req, "admin_view_user_orders", {
       status: 200,
       details: { targetChatId: req.params.chatId, orderCount: result.length },
     });
-    
-    res.json(result);
+
+    res.json(result.map(hydrateOrder));
   } catch (err: any) {
     logAdminAction(req, "admin_view_user_orders", {
       status: 500,
@@ -1501,7 +1503,14 @@ router.post("/admin/broadcast", requireTelegramAuth, requireTelegramAdmin, broad
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 
 router.get("/reviews", async (req, res) => {
-  const result = await db.select().from(reviews).where(eq(reviews.approved, true)).orderBy(desc(reviews.id));
+  // Endpoint PUBLIC : ne jamais exposer le chatId (ID Telegram) des auteurs.
+  // On ne renvoie que les champs affichés par le front (id, username, texte).
+  const result = await db.select({
+    id: reviews.id,
+    username: reviews.username,
+    firstName: reviews.firstName,
+    text: reviews.text,
+  }).from(reviews).where(eq(reviews.approved, true)).orderBy(desc(reviews.id));
   res.json(result);
 });
 
@@ -1514,10 +1523,12 @@ router.get("/reviews/pending", requireTelegramAuth, requireTelegramAdmin, async 
   }
 });
 
-router.post("/reviews", createRateLimiter(60 * 1000, 2), async (req, res) => {
-  const { chatId, username, firstName, text: reviewText } = req.body;
-  if (!chatId || !reviewText || typeof reviewText !== "string") {
-    res.status(400).json({ message: "chatId and text are required" });
+router.post("/reviews", requireTelegramAuth, createRateLimiter(60 * 1000, 2), async (req, res) => {
+  // Identité dérivée du token Telegram vérifié — jamais du body (anti-usurpation).
+  const telegramUser = (req as any).telegramUser as TelegramMiniAppData;
+  const { text: reviewText } = req.body;
+  if (!reviewText || typeof reviewText !== "string") {
+    res.status(400).json({ message: "text is required" });
     return;
   }
   const sanitizedText = reviewText.trim().slice(0, 500);
@@ -1526,9 +1537,12 @@ router.post("/reviews", createRateLimiter(60 * 1000, 2), async (req, res) => {
     return;
   }
   const [review] = await db.insert(reviews).values({
-    chatId: String(chatId).slice(0, 50),
-    username: username ? String(username).slice(0, 100) : null,
-    firstName: firstName ? String(firstName).slice(0, 100) : null,
+    // chatId conservé pour la modération (bloquer un auteur abusif) mais JAMAIS
+    // exposé publiquement (cf. GET /reviews). On ne stocke pas le vrai @username
+    // Telegram pour préserver l'anonymat dans l'affichage public.
+    chatId: telegramUser.chatId,
+    username: null,
+    firstName: null,
     text: sanitizedText,
     approved: false,
   }).returning();
@@ -1634,7 +1648,7 @@ router.get("/loyalty/:chatId", requireTelegramAuth, async (req, res) => {
     return;
   }
   
-  const [balance] = await db.select().from(loyaltyBalances).where(eq(loyaltyBalances.chatId, req.params.chatId));
+  const [balance] = await db.select().from(loyaltyBalances).where(eq(loyaltyBalances.chatId, String(req.params.chatId)));
   if (!balance) {
     res.json({ id: 0, chatId: req.params.chatId, points: 0, tier: "Bronze", totalEarned: 0 });
     return;
@@ -1657,7 +1671,7 @@ router.get("/loyalty/:chatId/transactions", requireTelegramAuth, async (req, res
   }
   
   const result = await db.select().from(loyaltyTransactions)
-    .where(eq(loyaltyTransactions.chatId, req.params.chatId))
+    .where(eq(loyaltyTransactions.chatId, String(req.params.chatId)))
     .orderBy(desc(loyaltyTransactions.id))
     .limit(20);
   res.json(result);
@@ -1679,7 +1693,7 @@ router.get("/favorites/:chatId", requireTelegramAuth, async (req, res) => {
     return;
   }
   
-  const favs = await db.select().from(favorites).where(eq(favorites.chatId, req.params.chatId));
+  const favs = await db.select().from(favorites).where(eq(favorites.chatId, String(req.params.chatId)));
   const result = await Promise.all(
     favs.map(async (fav) => {
       const [product] = await db.select().from(products).where(eq(products.id, fav.productId));
@@ -1725,7 +1739,7 @@ router.delete("/favorites/:chatId/:productId", requireTelegramAuth, async (req, 
     return;
   }
   
-  await db.delete(favorites).where(and(eq(favorites.chatId, req.params.chatId), eq(favorites.productId, Number(req.params.productId))));
+  await db.delete(favorites).where(and(eq(favorites.chatId, String(req.params.chatId)), eq(favorites.productId, Number(req.params.productId))));
   res.status(204).send();
 });
 
@@ -2029,7 +2043,7 @@ router.post("/admin/livreurs/:id/ping", requireTelegramAuth, requireTelegramAdmi
 
 // Assigner un livreur à une commande
 router.patch("/admin/orders/:orderCode/livreur", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {
-  const { orderCode } = req.params;
+  const orderCode = String(req.params.orderCode);
   if (!orderCode || !/^ORD-\d+-[A-Z0-9]{4}$/.test(orderCode)) {
     res.status(400).json({ error: "Format de commande invalide" });
     return;
@@ -2044,7 +2058,7 @@ router.post("/admin/orders/:orderCode/transmit-livreur", requireTelegramAuth, re
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return res.status(500).json({ error: "Token manquant" });
 
-  const { orderCode: transmitOrderCode } = req.params;
+  const transmitOrderCode = String(req.params.orderCode);
   if (!transmitOrderCode || !/^ORD-\d+-[A-Z0-9]{4}$/.test(transmitOrderCode)) {
     return res.status(400).json({ error: "Format de commande invalide" });
   }
@@ -2060,7 +2074,7 @@ router.post("/admin/orders/:orderCode/transmit-livreur", requireTelegramAuth, re
   if (!order) return res.status(404).json({ error: "Commande introuvable" });
 
   let parsed: any = {};
-  try { parsed = JSON.parse(order.orderData); } catch {}
+  try { parsed = JSON.parse(decryptField(order.orderData) ?? "{}"); } catch {}
 
   // selectedPrice is in euros; product.price is in centimes
   const getPriceEuros = (i: any) => i.selectedPrice != null ? Number(i.selectedPrice) : (i.product?.price || 0) / 100;
@@ -2182,6 +2196,44 @@ router.get("/address/autocomplete", addressSearchRateLimiter, async (req, res) =
     res.json({ features: [] });
   }
 });
+
+// ─── Anonymisation des commandes anciennes (P2) ────────────────────────────────
+// N jours après livraison/annulation, on retire les PII (adresse, téléphone inclus
+// dans l'adresse, notes) des commandes, en gardant articles/montant/statut/date
+// pour les statistiques. Idempotent grâce à la colonne anonymized_at.
+const ANONYMIZE_AFTER_DAYS = Number(process.env.ORDER_ANONYMIZE_DAYS || 30);
+
+export async function anonymizeOldOrders(): Promise<number> {
+  const cutoff = new Date(Date.now() - ANONYMIZE_AFTER_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  let processed = 0;
+  try {
+    const candidates = await db.select().from(orders).where(and(
+      inArray(orders.status, ["delivered", "cancelled"]),
+      lt(orders.createdAt, cutoff),
+      isNull(orders.anonymizedAt),
+    )).limit(500);
+
+    for (const o of candidates) {
+      let data: any = {};
+      try { data = JSON.parse(decryptField(o.orderData) ?? "{}"); } catch { data = {}; }
+      if (data && typeof data === "object") {
+        delete data.deliveryAddress; // contient aussi le téléphone pour les points relais
+        data.notes = null;
+      }
+      const cleaned = encryptField(JSON.stringify(data)) as string;
+      await db.update(orders)
+        .set({ orderData: cleaned, notes: null, anonymizedAt: new Date().toISOString() })
+        .where(eq(orders.id, o.id));
+      processed++;
+    }
+    if (processed > 0) {
+      console.log(`🔒 Anonymisation : ${processed} commande(s) nettoyée(s) (> ${ANONYMIZE_AFTER_DAYS}j)`);
+    }
+  } catch (err: any) {
+    console.error("Anonymisation des commandes échouée:", err?.message);
+  }
+  return processed;
+}
 
 export default router;
 

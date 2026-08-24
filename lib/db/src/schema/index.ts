@@ -44,6 +44,7 @@ export const orders = pgTable("orders", {
   status: text("status").notNull().default("pending"),
   createdAt: text("created_at"),
   notes: text("notes"),
+  anonymizedAt: text("anonymized_at"),
 });
 
 export const favorites = pgTable("favorites", {
@@ -95,6 +96,10 @@ export const promoCodes = pgTable("promo_codes", {
   code: text("code").notNull().unique(),
   discountPercent: integer("discount_percent").notNull(),
   active: boolean("active").notNull().default(true),
+  // Limite d'usage : le code du checkout référence déjà ces colonnes. Elles
+  // manquaient au schéma → la validation des codes promo plantait (500).
+  usageCount: integer("usage_count").notNull().default(0),
+  usageLimit: integer("usage_limit"),
 });
 
 export const dailyStats = pgTable("daily_stats", {

@@ -1,6 +1,7 @@
 import type { Request } from "express";
 import { logger } from "./logger";
 import type { TelegramMiniAppData } from "./telegram-auth";
+import { maskId, truncateIp } from "./privacy";
 
 export interface AuditLogEntry {
   timestamp: string;
@@ -39,7 +40,7 @@ export function logAdminAction(
     action,
     adminChatId: telegramUser.chatId,
     adminName: telegramUser.firstName || telegramUser.username,
-    ipAddress: req.ip || req.socket.remoteAddress || "unknown",
+    ipAddress: truncateIp(req.ip || req.socket.remoteAddress),
     endpoint: req.path,
     method: req.method,
     status: options?.status,
@@ -52,7 +53,7 @@ export function logAdminAction(
     logger.info(
       {
         action: entry.action,
-        admin: `${entry.adminName} (#${entry.adminChatId})`,
+        admin: `${entry.adminName} (${maskId(entry.adminChatId)})`,
         endpoint: entry.endpoint,
         method: entry.method,
         details: entry.details,
@@ -64,7 +65,7 @@ export function logAdminAction(
     logger.warn(
       {
         action: entry.action,
-        admin: `${entry.adminName} (#${entry.adminChatId})`,
+        admin: `${entry.adminName} (${maskId(entry.adminChatId)})`,
         ipAddress: entry.ipAddress,
         endpoint: entry.endpoint,
         method: entry.method,
@@ -107,9 +108,12 @@ export const ADMIN_ACTIONS = {
   PRODUCT_UPDATE: "product_update",
   PRODUCT_DELETE: "product_delete",
   PRODUCT_UPLOAD_VIDEO: "product_upload_video",
+  ORDER_VIEW: "order_view",
   ORDER_UPDATE_STATUS: "order_update_status",
   ORDER_DELETE: "order_delete",
   ORDER_UPDATE_NOTES: "order_update_notes",
+  REVIEW_APPROVE: "review_approve",
+  REVIEW_DELETE: "review_delete",
   PROMO_CODE_CREATE: "promo_code_create",
   PROMO_CODE_DELETE: "promo_code_delete",
   BROADCAST_SEND: "broadcast_send",

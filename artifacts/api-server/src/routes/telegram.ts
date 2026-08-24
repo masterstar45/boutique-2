@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { orders, loyaltyBalances, clientButtons, botSettings, botUsers, admins, livreurs } from "@workspace/db/schema";
 import { eq, desc, asc, sql, and } from "drizzle-orm";
 import { verifyTelegramWebhookSignature } from "../lib/telegram-auth";
+import { maskId, decryptField } from "../lib/privacy";
 
 const ADMIN_CHAT_ID = process.env.TELEGRAM_SUPER_ADMIN_ID || process.env.TELEGRAM_ADMIN_CHAT_ID || "";
 
@@ -230,7 +231,7 @@ router.post("/telegram/webhook", async (req, res) => {
   // Pas de contenu de message dans les logs (données personnelles / Railway logs publics)
   console.log("Telegram webhook received:", {
     payloadType: update?.callback_query ? "callback_query" : update?.message ? "message" : "unknown",
-    chatId: update?.message?.chat?.id ?? update?.callback_query?.message?.chat?.id ?? update?.callback_query?.from?.id,
+    chatId: maskId(update?.message?.chat?.id ?? update?.callback_query?.message?.chat?.id ?? update?.callback_query?.from?.id),
     isCommand: update?.message?.text?.startsWith("/") ?? false,
   });
 
@@ -338,7 +339,7 @@ router.post("/telegram/webhook", async (req, res) => {
         if (currentOrder.livreur_id) {
           const [livreur] = await db.select().from(livreurs).where(eq(livreurs.id, Number(currentOrder.livreur_id)));
           if (livreur && livreur.chatId && String(from.id) !== livreur.chatId) {
-            console.warn(`⚠️ Livraison refusée : ${from.id} a tenté de livrer ${orderCode} assigné à ${livreur.chatId}`);
+            console.warn(`⚠️ Livraison refusée : ${maskId(from.id)} a tenté de livrer ${orderCode} assigné à ${maskId(livreur.chatId)}`);
             await answerCallbackQuery(callbackId, "❌ Tu n'es pas le livreur assigné à cette commande.", true);
             return;
           }
@@ -398,7 +399,7 @@ router.post("/telegram/webhook", async (req, res) => {
   const text = (message.text as string).trim();
   const from = message.from ?? {};
   // Ne pas logger le contenu des messages (données personnelles → logs Railway visibles)
-  console.log("Telegram message received", { chatId, fromId: from.id, command: text.startsWith("/") ? text.split(" ")[0] : "[message]" });
+  console.log("Telegram message received", { chatId: maskId(chatId), fromId: maskId(from.id), command: text.startsWith("/") ? text.split(" ")[0] : "[message]" });
   const username = from.username ? `@${from.username}` : from.first_name ?? "Utilisateur";
   const userId = from.id ?? chatId;
   const messageDate = message.date ? formatDate(message.date) : "";
@@ -500,7 +501,7 @@ router.post("/telegram/webhook", async (req, res) => {
     }
     if (!mediaType) mediaType = "photo"; // Final safety default
 
-    console.log("Handling /start", { chatId, mediaType, hasCustomMessage: !!customMessage, buttonsFetched: dbButtons.length, keyboardRows: keyboard.length });
+    console.log("Handling /start", { chatId: maskId(chatId), mediaType, hasCustomMessage: !!customMessage, buttonsFetched: dbButtons.length, keyboardRows: keyboard.length });
     try {
       if (photoUrl) {
         try {
@@ -578,7 +579,7 @@ router.post("/telegram/webhook", async (req, res) => {
         // selectedPrice est en euros, product.price en centimes — même logique qu'au checkout.
         let total = "0.00";
         try {
-          const parsed = JSON.parse(o.orderData);
+          const parsed = JSON.parse(decryptField(o.orderData) ?? "{}");
           const cents = (parsed.items || []).reduce((s: number, it: any) => {
             const unit = it.selectedPrice != null ? Number(it.selectedPrice) * 100 : (it.product?.price || 0);
             return s + unit * (it.quantity || 1);

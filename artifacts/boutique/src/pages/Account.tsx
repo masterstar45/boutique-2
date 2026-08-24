@@ -64,7 +64,7 @@ export default function Account() {
   }, [chatId]);
 
   const { data: orders } = useGetMyOrders(chatId, {
-    query: { enabled: !!chatId, refetchInterval: 30000 },
+    query: { enabled: !!chatId, refetchInterval: 30000 } as any,
   });
 
   // ── Pas connecté ─────────────────────────────────────────────────────────────

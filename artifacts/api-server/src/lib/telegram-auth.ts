@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { db } from "@workspace/db";
 import { admins } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { maskId } from "./privacy";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const isProduction = process.env.NODE_ENV === "production";
@@ -283,7 +284,7 @@ export async function requireTelegramAdmin(
     if (!admin) {
       // Fallback super-admin piloté par variables d'environnement, puis auto-seed en DB
       if (superAdminIds.has(telegramUser.chatId)) {
-        console.warn(`⚠️  Super-admin env fallback used for: ${telegramUser.chatId}`);
+        console.warn(`⚠️  Super-admin env fallback used for: ${maskId(telegramUser.chatId)}`);
         try {
           await db.insert(admins).values({
             telegramId: telegramUser.chatId,
@@ -295,7 +296,7 @@ export async function requireTelegramAdmin(
         return;
       }
 
-      console.warn(`⚠️  Access denied for non-admin user: ${telegramUser.chatId}`);
+      console.warn(`⚠️  Access denied for non-admin user: ${maskId(telegramUser.chatId)}`);
       res.status(403).json({ error: "Forbidden: Admin access required" });
       return;
     }
@@ -317,7 +318,7 @@ export function requireTelegramWebhookSignature(
   next: NextFunction
 ): void {
   const signature = req.header("x-telegram-webhook-signature");
-  const body = req.rawBody || JSON.stringify(req.body); // rawBody doit être set par un middleware
+  const body = (req as any).rawBody || JSON.stringify(req.body); // rawBody doit être set par un middleware
 
   if (!verifyTelegramWebhookSignature(body, signature)) {
     console.error("❌ Invalid Telegram webhook signature");

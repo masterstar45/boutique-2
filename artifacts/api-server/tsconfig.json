@@ -3,7 +3,12 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["node"]
+    "types": ["node"],
+    // Désactivé pour api-server : entre en conflit avec l'idiome Express
+    // `return res.json()` (raccourci de flot) mélangé à `res.json()` sans return.
+    // Purement stylistique — tous les checks qui attrapent de vrais bugs
+    // (noImplicitAny, strictNullChecks, propriétés/schéma) restent actifs.
+    "noImplicitReturns": false
   },
   "include": ["src"],
   "references": [

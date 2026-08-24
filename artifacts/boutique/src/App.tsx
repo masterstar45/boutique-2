@@ -37,7 +37,8 @@ type TurnstileApi = {
 
 declare global {
   interface Window {
-    turnstile?: TurnstileApi;
+    // any : évite le conflit de fusion globale avec la même déclaration dans Cart.tsx
+    turnstile?: any;
   }
 }
 

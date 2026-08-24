@@ -17,7 +17,7 @@ const GOLD_GRAD = "linear-gradient(135deg, #c9a04c 0%, #f0d070 50%, #d4a843 100%
 export function BottomNav() {
   const [location] = useLocation();
   const { sessionId } = useSession();
-  const { data: cartItems } = useGetCart(sessionId, { query: { enabled: !!sessionId } });
+  const { data: cartItems } = useGetCart(sessionId, { query: { enabled: !!sessionId } as any });
   const cartCount = cartItems?.reduce((acc, i) => acc + i.quantity, 0) || 0;
 
   /* Cache sur pages sans nav */

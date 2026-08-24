@@ -151,7 +151,7 @@ app.use((req, res, next) => {
 app.use(express.json({
   limit: "2mb",
   verify: (req, _res, buf) => {
-    if (req.originalUrl?.startsWith("/api/telegram/webhook")) {
+    if ((req as any).originalUrl?.startsWith("/api/telegram/webhook")) {
       (req as any).rawBody = buf.toString("utf-8");
     }
   },

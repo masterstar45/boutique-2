@@ -1,7 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { setupWebhook } from "./routes/telegram";
-import { sendDailyStatsToAdmin } from "./routes/boutique";
+import { sendDailyStatsToAdmin, anonymizeOldOrders } from "./routes/boutique";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 
@@ -59,6 +59,19 @@ async function runMigrations() {
   // Add admin notes column to orders
   await runMigration("add orders notes", sql`
     ALTER TABLE orders ADD COLUMN notes TEXT;
+  `);
+
+  // Add anonymized_at column to orders (P2 : anonymisation des PII anciennes)
+  await runMigration("add orders anonymized_at", sql`
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS anonymized_at TEXT;
+  `);
+
+  // Colonnes de limite d'usage des codes promo (attendues par le code du checkout)
+  await runMigration("add promo usage_count", sql`
+    ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS usage_count INTEGER NOT NULL DEFAULT 0;
+  `);
+  await runMigration("add promo usage_limit", sql`
+    ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS usage_limit INTEGER;
   `);
 
   // Loyalty balances
@@ -209,5 +222,11 @@ app.listen(port, (err) => {
   if (process.env.NODE_ENV === "production") {
     setupWebhook().catch((e) => logger.error({ e }, "Webhook setup failed"));
     scheduleDailyStats();
+
+    // Anonymisation des commandes anciennes : au démarrage puis toutes les 24h (P2)
+    anonymizeOldOrders().catch((e) => logger.error({ e }, "Order anonymization failed"));
+    setInterval(() => {
+      anonymizeOldOrders().catch((e) => logger.error({ e }, "Order anonymization failed"));
+    }, 24 * 60 * 60 * 1000);
   }
 });

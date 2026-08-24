@@ -67,7 +67,8 @@ type TurnstileApi = {
 
 declare global {
   interface Window {
-    turnstile?: TurnstileApi;
+    // any : évite le conflit de fusion globale avec la même déclaration dans App.tsx
+    turnstile?: any;
   }
 }
 
@@ -248,7 +249,7 @@ export default function Cart() {
 
   const removePromo = () => { setPromoData(null); setPromoInput(""); setPromoError(""); };
 
-  const { data: cartItems, isLoading } = useGetCart(sessionId, { query: { enabled: !!sessionId } });
+  const { data: cartItems, isLoading } = useGetCart(sessionId, { query: { enabled: !!sessionId } as any });
 
   const updateItem = useUpdateCartItem({
     mutation: { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCartQueryKey(sessionId) }) }

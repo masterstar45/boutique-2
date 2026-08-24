@@ -6,7 +6,12 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "push-github": "tsx ./src/push-to-github.ts",
+    "encrypt-pii": "tsx ./src/encrypt-existing-pii.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@workspace/db": "workspace:*",
+    "drizzle-orm": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
