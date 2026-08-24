@@ -2052,7 +2052,7 @@ router.post("/admin/orders/:orderCode/transmit-livreur", requireTelegramAuth, re
   if (!livreur) return res.status(404).json({ error: "Livreur introuvable ou inactif" });
 
   // Récupère la commande
-  const [order] = await db.select().from(orders).where(eq(orders.orderCode, transmitOrderCode));
+  const [order] = await db.select().from(orders).where(eq(orders.orderCode, String(transmitOrderCode)));
   if (!order) return res.status(404).json({ error: "Commande introuvable" });
 
   let parsed: any = {};
@@ -2131,7 +2131,10 @@ router.get("/is-admin/:chatId", requireTelegramAuth, async (req, res) => {
     return;
   }
   const superAdminId = process.env.TELEGRAM_SUPER_ADMIN_ID || process.env.TELEGRAM_ADMIN_CHAT_ID || "";
-  if (superAdminId && chatId === superAdminId) return res.json({ isAdmin: true });
+  if (superAdminId && chatId === superAdminId) {
+    res.json({ isAdmin: true });
+    return;
+  }
   const [row] = await db.select().from(admins).where(eq(admins.telegramId, chatId));
   res.json({ isAdmin: !!row });
 });
@@ -2147,7 +2150,7 @@ router.post("/admin/admins", requireTelegramAuth, requireTelegramAdmin, async (r
   const [existing] = await db.select().from(admins).where(eq(admins.telegramId, telegramId));
   if (existing) return res.status(409).json({ error: "Admin already exists" });
   const [row] = await db.insert(admins).values({ telegramId, name: name || null, addedBy: addedBy || null }).returning();
-  res.json(row);
+  return res.json(row);
 });
 
 router.delete("/admin/admins/:id", requireTelegramAuth, requireTelegramAdmin, async (req, res) => {

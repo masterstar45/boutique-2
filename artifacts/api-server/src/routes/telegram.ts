@@ -45,7 +45,7 @@ async function sendMessage(chatId: string | number, text: string, extra: object 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML", ...extra }),
   });
-  const data = await res.json().catch(() => null);
+  const data: any = await res.json().catch(() => null);
   if (!res.ok) {
     console.error("Telegram sendMessage API error:", { status: res.status, data });
     throw new Error(`Telegram sendMessage failed ${res.status}`);
@@ -60,7 +60,7 @@ async function sendPhoto(chatId: string | number, photoUrl: string, caption: str
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption, parse_mode: "HTML", ...extra }),
   });
-  const data = await res.json().catch(() => null);
+  const data: any = await res.json().catch(() => null);
   if (!res.ok || !data?.ok) {
     console.error("Telegram sendPhoto API error:", { status: res.status, data });
     const description = data?.description ? `: ${data.description}` : "";
@@ -76,7 +76,7 @@ async function sendVideo(chatId: string | number, videoId: string, caption: stri
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, video: videoId, caption, parse_mode: "HTML", ...extra }),
   });
-  const data = await res.json().catch(() => null);
+  const data: any = await res.json().catch(() => null);
   if (!res.ok || !data?.ok) {
     console.error("Telegram sendVideo API error:", { status: res.status, data });
     const description = data?.description ? `: ${data.description}` : "";
@@ -186,9 +186,14 @@ router.post("/telegram/webhook", async (req, res) => {
   const rawBody = (req as any).rawBody || JSON.stringify(req.body);
 
   if (WEBHOOK_SECRET) {
-    const secretValid = secretTokenHeader
-      ? timingSafeEqual(Buffer.from(secretTokenHeader), Buffer.from(WEBHOOK_SECRET))
-      : false;
+    // timingSafeEqual lève une RangeError si les buffers diffèrent en taille :
+    // on vérifie d'abord la longueur (un attaquant peut sinon forcer un 500 à volonté).
+    const headerBuf = secretTokenHeader ? Buffer.from(secretTokenHeader) : null;
+    const secretBuf = Buffer.from(WEBHOOK_SECRET);
+    const secretValid =
+      headerBuf !== null &&
+      headerBuf.length === secretBuf.length &&
+      timingSafeEqual(headerBuf, secretBuf);
     if (!secretValid) {
       console.warn("❌ Invalid Telegram webhook secret token");
 
@@ -549,7 +554,7 @@ router.post("/telegram/webhook", async (req, res) => {
       const userOrders = await db
         .select()
         .from(orders)
-        .where(eq(orders.telegramChatId, String(userId)))
+        .where(eq(orders.chatId, String(userId)))
         .orderBy(desc(orders.createdAt))
         .limit(5);
 
@@ -569,7 +574,17 @@ router.post("/telegram/webhook", async (req, res) => {
       for (const o of userOrders) {
         const emoji = statusEmoji[o.status] ?? "📋";
         const date = new Date(o.createdAt!).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
-        const total = ((o.totalAmount ?? 0) / 100).toFixed(2);
+        // Le total n'est pas stocké en colonne : on le recalcule depuis orderData (JSON).
+        // selectedPrice est en euros, product.price en centimes — même logique qu'au checkout.
+        let total = "0.00";
+        try {
+          const parsed = JSON.parse(o.orderData);
+          const cents = (parsed.items || []).reduce((s: number, it: any) => {
+            const unit = it.selectedPrice != null ? Number(it.selectedPrice) * 100 : (it.product?.price || 0);
+            return s + unit * (it.quantity || 1);
+          }, 0);
+          total = (cents / 100).toFixed(2);
+        } catch { /* orderData illisible — total par défaut */ }
         msg += `${emoji} Commande #${o.id} — <b>${total}€</b>\n`;
         msg += `   📅 ${date} | Statut : <b>${o.status}</b>\n\n`;
       }
@@ -588,7 +603,7 @@ router.post("/telegram/webhook", async (req, res) => {
       const [loyalty] = await db
         .select()
         .from(loyaltyBalances)
-        .where(eq(loyaltyBalances.telegramChatId, String(userId)));
+        .where(eq(loyaltyBalances.chatId, String(userId)));
 
       if (!loyalty) {
         await sendMessage(chatId,
