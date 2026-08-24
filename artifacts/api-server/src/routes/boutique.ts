@@ -986,15 +986,19 @@ router.post("/checkout", requireTelegramAuth, async (req, res) => {
   }
 
   if (TURNSTILE_SECRET_KEY) {
-    // Si la clé est configurée, le token est obligatoire — pas de bypass silencieux
-    if (!turnstileToken || typeof turnstileToken !== "string") {
-      res.status(403).json({ message: "Vérification anti-bot requise" });
-      return;
-    }
-    const isTurnstileValid = await verifyTurnstileToken(turnstileToken, req.ip || req.socket.remoteAddress || undefined);
-    if (!isTurnstileValid) {
-      res.status(403).json({ message: "Vérification anti-bot invalide" });
-      return;
+    // Best-effort : on vérifie le token Turnstile s'il est fourni. S'il est absent
+    // (widget indisponible dans le WebView Telegram → bypass déjà prévu côté client),
+    // on laisse passer : le checkout reste protégé par l'auth Telegram (initData HMAC)
+    // et par le Turnstile au démarrage de l'app. On ne bloque donc plus sur un token
+    // manquant — mais un token présent ET invalide est toujours rejeté.
+    if (turnstileToken && typeof turnstileToken === "string") {
+      const isTurnstileValid = await verifyTurnstileToken(turnstileToken, req.ip || req.socket.remoteAddress || undefined);
+      if (!isTurnstileValid) {
+        res.status(403).json({ message: "Vérification anti-bot invalide" });
+        return;
+      }
+    } else {
+      console.warn("⚠️  Checkout sans token Turnstile (bypass client) — autorisé via l'auth Telegram", { chatId: telegramUser?.chatId });
     }
   }
 
