@@ -2007,6 +2007,13 @@ function AdminsTab() {
   const [newId, setNewId] = useState("");
   const [newName, setNewName] = useState("");
   const [loading, setLoading] = useState(false);
+  // chatId de l'utilisateur connecté (même source que useSession) — affiché dans
+  // le bloc "Super Admin". Sans ça, la référence à `chatId` plus bas provoquait
+  // un ReferenceError qui faisait planter tout l'onglet Admins.
+  const [chatId, setChatId] = useState("");
+  useEffect(() => {
+    setChatId(localStorage.getItem("telegram_chat_id") || "");
+  }, []);
 
   const fetchAdmins = () => {
     fetch(`${API}/admin/admins`)
